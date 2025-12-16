@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -16,7 +17,22 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            set -e
+
+            echo "📂 Going to project directory"
             cd /srv/projects/git/Olympus-front
-            git pull origin main
+
+            echo "📌 Forcing main branch"
+            git checkout main
+
+            echo "🔄 Resetting local changes (safe for server)"
+            git fetch origin
+            git reset --hard origin/main
+
+            echo "🛑 Stopping containers"
             docker compose down
+
+            echo "🚀 Building and starting containers"
             docker compose up -d --build
+
+            echo "✅ Deploy finished successfully"
