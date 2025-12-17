@@ -49,6 +49,7 @@ interface Opportunity {
   personaCorreo: string;
   fechaRecordatorio: string | null;
   asesorNombre: string;
+  totalMarcaciones?: number;
 }
 
 export default function OpportunitiesInterface() {
@@ -340,22 +341,28 @@ export default function OpportunitiesInterface() {
 
     // Columnas adicionales solo para tablet y desktop
     if (!isMobile) {
-      baseColumns.splice(2, 0, {
-        title: "Correo",
-        dataIndex: "personaCorreo",
-        key: "personaCorreo",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
-        render: (personaCorreo: string) => <span>{personaCorreo || "-"}</span>,
-      });
-
-      baseColumns.splice(4, 0, {
-        title: "Programa",
-        dataIndex: "productoNombre",
-        key: "productoNombre",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          a.productoNombre.localeCompare(b.productoNombre),
-      });
+      baseColumns.splice(2, 0,
+        {
+          title: "Correo",
+          dataIndex: "personaCorreo",
+          key: "personaCorreo",
+          sorter: (a: Opportunity, b: Opportunity) =>
+            (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+          render: (personaCorreo: string) => <span>{personaCorreo || "-"}</span>,
+        },
+        {
+          title: "Total Marcaciones",
+          dataIndex: "totalMarcaciones",
+          key: "totalMarcaciones",
+          sorter: (a: Opportunity, b: Opportunity) =>
+            (a.totalMarcaciones ?? 0) - (b.totalMarcaciones ?? 0),
+          render: (totalMarcaciones: number) => (
+            <span>{typeof totalMarcaciones === "number" ? totalMarcaciones : "-"}</span>
+          ),
+          align: "center",
+          width: 140,
+        }
+      );
 
       // Recordatorio solo en desktop
       if (!isTablet) {

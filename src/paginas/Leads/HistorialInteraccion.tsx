@@ -12,6 +12,7 @@ interface OportunidadDetalle {
   oportunidad: Array<{
     id: number;
     codigoLanzamiento: string;
+    codigoLinkedin: string;
     fechaCreacion: string;
     totalOportunidadesPersona: number;
     origen: string | null;
@@ -92,7 +93,7 @@ export default function HistorialInteraccion() {
     oportunidad.historialActual && oportunidad.historialActual.length > 0
       ? oportunidad.historialActual[0]
       : null;
-
+  const codigoLinkedin = oportunidadData.codigoLinkedin || "-";
   const codigoLanzamiento = oportunidadData.codigoLanzamiento || "-";
   const fechaFormulario = oportunidadData.fechaFormulario || "-";
   const fechaCreacion = oportunidadData.fechaCreacion || "-";
@@ -143,6 +144,11 @@ export default function HistorialInteraccion() {
             <Space size={4}>
               <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Código lanzamiento:</Text>
               <Text style={{ color: "#0D0C11", fontSize: 14 }}>{codigoLanzamiento}</Text>
+            </Space>
+
+            <Space size={4}>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Código Linkedin:</Text>
+              <Text style={{ color: "#0D0C11", fontSize: 14 }}>{codigoLinkedin}</Text>
             </Space>
 
             <Space size={4}>

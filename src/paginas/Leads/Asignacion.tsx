@@ -43,6 +43,7 @@ interface OportunidadBackend {
   asesorNombre: string;
   personaCorreo: string;
   codigoLanzamiento: string;
+  codigoLinkedin: string;
   totalOportunidadesPersona: number;
   origen: string | null;
   idHistorialEstado: number;
@@ -381,6 +382,7 @@ const ejecutarImportacion = async () => {
       oportunidades.map((o) => ({
         id: o.id,
         codigoLanzamiento: o.codigoLanzamiento || "-",
+        codigoLinkedin: o.codigoLinkedin || "-",
         nombre: o.personaNombre || "-",
         asesor: o.asesorNombre || "-",
         estado: o.nombreEstado || "-",
@@ -443,6 +445,7 @@ const ejecutarImportacion = async () => {
           l.nombre.toLowerCase().includes(busqueda) ||
           l.origen.toLowerCase().includes(busqueda) ||
           l.codigoLanzamiento.toLowerCase().includes(busqueda) ||
+          l.codigoLinkedin.toLowerCase().includes(busqueda) ||
           l.id.toString().includes(busqueda)
       );
     }
@@ -493,6 +496,13 @@ const ejecutarImportacion = async () => {
         key: "codigoLanzamiento",
         sorter: (a, b) =>
           (a.codigoLanzamiento || "").localeCompare(b.codigoLanzamiento || ""),
+      },
+      {
+        title: "Código Linkedin",
+        dataIndex: "codigoLinkedin",
+        key: "codigoLinkedin",
+        sorter: (a, b) =>
+          (a.codigoLinkedin || "").localeCompare(b.codigoLinkedin || ""),
       },
       {
         title: "Nombre",

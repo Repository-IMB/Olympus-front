@@ -2,6 +2,7 @@ export interface Lead {
   fechaCreacion: string;
   id: number;
   codigoLanzamiento: string;
+  codigoLinkedin: string;
   nombre: string;
   asesor: string;
   estado: string;
