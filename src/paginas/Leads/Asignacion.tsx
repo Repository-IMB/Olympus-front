@@ -107,6 +107,9 @@ export default function Asignacion() {
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [selectedTime, setSelectedTime] = useState<Dayjs | null>(null);
 
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
   const token = Cookies.get("token");
 
   const handleReasignarMasivo = () => {
@@ -371,6 +374,10 @@ const ejecutarImportacion = async () => {
       setLoadingAsesores(false);
     }
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, filterEstado, filterOrigen, filterPais, filterAsesor, dateRange, oportunidades]);
 
   useEffect(() => {
     obtenerOportunidades();
@@ -772,7 +779,18 @@ const ejecutarImportacion = async () => {
                 dataSource={leadsFiltrados}
                 rowKey="id"
                 rowSelection={rowSelection}
-                pagination={{ pageSize: 10 }}
+                pagination={{
+                  current: currentPage,
+                  pageSize: pageSize,
+                  showSizeChanger: true,
+                  pageSizeOptions: ["10", "20", "50", "100"],
+                  onChange: (page, newPageSize) => {
+                    setCurrentPage(page);
+                    if (typeof newPageSize === "number") setPageSize(newPageSize);
+                  },
+                  showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
+                  hideOnSinglePage: true
+                }}
               />
               {selectedRows.length > 0 && (
                 <div className={estilos.selectionInfo}>

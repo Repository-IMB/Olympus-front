@@ -25,6 +25,7 @@ import {
 import { useParams } from "react-router-dom";
 import api from "../../servicios/api";
 import dayjs from "dayjs";
+import { getCookie } from "../../utils/cookies";
 import styles from "./HistorialInterraciones.module.css";
 
 const { Text, Title } = Typography;
@@ -103,6 +104,38 @@ const HistorialInteracciones: React.FC = () => {
   };
 
   // ======================================================
+  // 📌 OBTENER TELÉFONO DEL CLIENTE
+  // ======================================================
+  const obtenerTelefonoCliente = async (): Promise<string | null> => {
+    if (!id) return null;
+
+    try {
+      const token = getCookie("token");
+      const res = await api.get(
+        `/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const persona = res.data?.persona;
+      if (!persona) return null;
+
+      const prefix = persona.prefijoPaisCelular
+        ? String(persona.prefijoPaisCelular).replace(/\s+/g, "")
+        : "";
+      const phone = persona.celular
+        ? String(persona.celular).replace(/\s+/g, "")
+        : "";
+
+      return prefix || phone ? `${prefix}${phone}` : null;
+    } catch (error) {
+      console.error("Error al obtener teléfono del cliente:", error);
+      return null;
+    }
+  };
+
+  // ======================================================
   // 📌 ENVIAR MENSAJE / RECORDATORIO
   // ======================================================
   const handleEnviar = async () => {
@@ -158,11 +191,30 @@ const HistorialInteracciones: React.FC = () => {
 
     await api.post("/api/VTAModVentaHistorialInteraccion/Insertar", payload);
 
+    // Guardar el mensaje antes de limpiarlo (necesario para WhatsApp)
+    const mensajeParaWhatsApp = nota.trim();
+
     setNota("");
     setFechaRecordatorio(null);
     setHoraRecordatorio(null);
 
     cargarHistorial(null);
+
+    // Solo abrir WhatsApp si el tipo seleccionado es "whatsapp"
+    if (tipoSeleccionado === "whatsapp") {
+      const numeroWhatsApp = await obtenerTelefonoCliente();
+      
+      if (!numeroWhatsApp) {
+        message.warning("No se pudo obtener el número de teléfono del cliente");
+        return;
+      }
+
+      const mensajeCodificado = encodeURIComponent(mensajeParaWhatsApp);
+      const urlWhatsApp = `https://web.whatsapp.com/send?phone=${numeroWhatsApp}&text=${mensajeCodificado}`;
+      
+      // Abrir en una nueva ventana/pestaña
+      window.open(urlWhatsApp, "_blank");
+    }
   };
 
   // ======================================================

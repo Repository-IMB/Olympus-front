@@ -88,9 +88,15 @@ export default function Usuarios() {
   const [filterRol, setFilterRol] = useState<string>("Todos");
   const [filterEstado, setFilterEstado] = useState<string>("Todos");
   const [errorModal, setErrorModal] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   const navigate = useNavigate();
   const [accesoDenegado, setAccesoDenegado] = useState(false);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, filterRol, filterEstado, usuarios]);
 
   useEffect(() => {
     const acceso = validarAccesoRuta("/usuarios/usuarios", navigate);
@@ -483,7 +489,18 @@ export default function Usuarios() {
             columns={columnas}
             dataSource={usuariosFiltrados}
             rowKey="id"
-            pagination={{ pageSize: 10 }}
+            pagination={{
+              current: currentPage,
+              pageSize: pageSize,
+              showSizeChanger: true,
+              pageSizeOptions: ["10", "20", "50", "100"],
+              onChange: (page, newPageSize) => {
+                setCurrentPage(page);
+                if (typeof newPageSize === "number") setPageSize(newPageSize);
+              },
+              showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
+              hideOnSinglePage: true
+            }}
           />
         </div>
       </div>

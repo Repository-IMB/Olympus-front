@@ -69,6 +69,9 @@ export default function OpportunitiesInterface() {
 
   const token = getCookie("token");
 
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
   const { idUsuario, idRol } = useMemo(() => {
     let idU = 0;
     let rNombre = "";
@@ -102,6 +105,10 @@ export default function OpportunitiesInterface() {
 
     return { idUsuario: idU, rolNombre: rNombre, idRol: idR };
   }, [token]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, filterEstado, filterAsesor, dateRange, opportunities]);
 
   useEffect(() => {
     if (!idUsuario || !idRol) {
@@ -538,7 +545,18 @@ export default function OpportunitiesInterface() {
             columns={columns}
             dataSource={opportunitiesFiltradas}
             rowKey="id"
-            pagination={{ pageSize: 10 }}
+            pagination={{
+              current: currentPage,
+              pageSize: pageSize,
+              showSizeChanger: true,
+              pageSizeOptions: ["10", "20", "50", "100"],
+              onChange: (page, newPageSize) => {
+                setCurrentPage(page);
+                if (typeof newPageSize === "number") setPageSize(newPageSize);
+              },
+              showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
+              hideOnSinglePage: true
+            }}
             className={styles.table}
             scroll={{ x: isMobile ? 800 : undefined }}
           />
