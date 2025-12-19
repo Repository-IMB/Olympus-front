@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Input,
@@ -21,6 +21,7 @@ import {
   CommentOutlined,
   CloseOutlined,
   SendOutlined,
+  PhoneOutlined,
 } from "@ant-design/icons";
 import { useParams } from "react-router-dom";
 import api from "../../servicios/api";
@@ -83,30 +84,12 @@ const HistorialInteracciones: React.FC = () => {
   const [interacciones, setInteracciones] = useState<any[]>([]);
   const [filtrosActivos, setFiltrosActivos] = useState<string[]>([]);
   const [busqueda, setBusqueda] = useState<string>("");
-
-  useEffect(() => {
-    cargarHistorial(null);
-  }, [id]);
-
-  const cargarHistorial = async (idTipo: number | null) => {
-    try {
-      const oportunidadId = id || "1";
-      const params = idTipo !== null ? `?idTipo=${idTipo}` : "?idTipo=";
-
-      const res = await api.get(
-        `/api/VTAModVentaOportunidad/ObtenerHistorialInteraccionesOportunidad/${oportunidadId}${params}`
-      );
-
-      setInteracciones(res.data.historialInteraciones || []);
-    } catch (error) {
-      console.error("Error cargando historial:", error);
-    }
-  };
+  const [telefonoCliente, setTelefonoCliente] = useState<string | null>(null);
 
   // ======================================================
   // 📌 OBTENER TELÉFONO DEL CLIENTE
   // ======================================================
-  const obtenerTelefonoCliente = async (): Promise<string | null> => {
+  const obtenerTelefonoCliente = useCallback(async (): Promise<string | null> => {
     if (!id) return null;
 
     try {
@@ -133,7 +116,32 @@ const HistorialInteracciones: React.FC = () => {
       console.error("Error al obtener teléfono del cliente:", error);
       return null;
     }
-  };
+  }, [id]);
+
+  const cargarHistorial = useCallback(async (idTipo: number | null) => {
+    try {
+      const oportunidadId = id || "1";
+      const params = idTipo !== null ? `?idTipo=${idTipo}` : "?idTipo=";
+
+      const res = await api.get(
+        `/api/VTAModVentaOportunidad/ObtenerHistorialInteraccionesOportunidad/${oportunidadId}${params}`
+      );
+
+      setInteracciones(res.data.historialInteraciones || []);
+    } catch (error) {
+      console.error("Error cargando historial:", error);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    cargarHistorial(null);
+    // Cargar el teléfono del cliente al montar el componente
+    obtenerTelefonoCliente().then((telefono) => {
+      if (telefono) {
+        setTelefonoCliente(telefono);
+      }
+    });
+  }, [id, cargarHistorial, obtenerTelefonoCliente]);
 
   // ======================================================
   // 📌 ENVIAR MENSAJE / RECORDATORIO
@@ -202,7 +210,15 @@ const HistorialInteracciones: React.FC = () => {
 
     // Solo abrir WhatsApp si el tipo seleccionado es "whatsapp"
     if (tipoSeleccionado === "whatsapp") {
-      const numeroWhatsApp = await obtenerTelefonoCliente();
+      // Usar el teléfono en caché si está disponible, sino obtenerlo
+      let numeroWhatsApp = telefonoCliente;
+      
+      if (!numeroWhatsApp) {
+        numeroWhatsApp = await obtenerTelefonoCliente();
+        if (numeroWhatsApp) {
+          setTelefonoCliente(numeroWhatsApp);
+        }
+      }
       
       if (!numeroWhatsApp) {
         message.warning("No se pudo obtener el número de teléfono del cliente");
@@ -215,6 +231,30 @@ const HistorialInteracciones: React.FC = () => {
       // Abrir en una nueva ventana/pestaña
       window.open(urlWhatsApp, "_blank");
     }
+  };
+
+  // ======================================================
+  // 📌 LLAMAR POR WHATSAPP
+  // ======================================================
+  const handleLlamarWhatsApp = async () => {
+    // Usar el teléfono en caché si está disponible, sino obtenerlo
+    let numeroWhatsApp = telefonoCliente;
+    
+    if (!numeroWhatsApp) {
+      numeroWhatsApp = await obtenerTelefonoCliente();
+      if (numeroWhatsApp) {
+        setTelefonoCliente(numeroWhatsApp);
+      }
+    }
+    
+    if (!numeroWhatsApp) {
+      message.warning("No se pudo obtener el número de teléfono del cliente");
+      return;
+    }
+
+    const urlWhatsApp = `https://web.whatsapp.com/send?phone=${numeroWhatsApp}`;
+    window.open(urlWhatsApp, "_blank");
+    message.info("Se abrió WhatsApp Web. Haz clic en el botón de llamada para iniciar la llamada.");
   };
 
   // ======================================================
@@ -290,14 +330,6 @@ const HistorialInteracciones: React.FC = () => {
       </Space>
     </Card>
   );
-
-  // ======================================================
-  // 📌 HORAS DISPONIBLES
-  // ======================================================
-  const horas = Array.from({ length: 24 }, (_, i) => ({
-    label: `${i.toString().padStart(2, "0")}:00`,
-    value: `${i}`,
-  }));
 
   // ======================================================
   // 📌 RENDER
@@ -497,14 +529,30 @@ const HistorialInteracciones: React.FC = () => {
               />
             </div>
 
-            <Button
-              type="primary"
-              shape="round"
-              size="middle"
-              className={styles.sendButton}
-              icon={<SendOutlined style={{ color: "#fff" }} />}
-              onClick={handleEnviar}
-            />
+            <Space size={4}>
+              <Button
+                type="primary"
+                shape="round"
+                size="middle"
+                className={styles.sendButton}
+                icon={<SendOutlined style={{ color: "#fff" }} />}
+                onClick={handleEnviar}
+              />
+              <Tooltip title="Llamar por WhatsApp">
+                <Button
+                  type="default"
+                  shape="round"
+                  size="middle"
+                  icon={<PhoneOutlined />}
+                  onClick={handleLlamarWhatsApp}
+                  style={{
+                    background: "#25D366",
+                    borderColor: "#25D366",
+                    color: "#fff",
+                  }}
+                />
+              </Tooltip>
+            </Space>
           </div>
 
           {/* === CONTROLES DE FECHA/HORA — SOLO SI ES RECORDATORIO === */}
