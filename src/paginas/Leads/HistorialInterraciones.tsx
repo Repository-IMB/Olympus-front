@@ -21,6 +21,10 @@ import {
   CommentOutlined,
   CloseOutlined,
   SendOutlined,
+  FileTextOutlined,
+  WhatsAppOutlined,
+  CalendarOutlined,
+  StopOutlined,
   PhoneOutlined,
 } from "@ant-design/icons";
 import { useParams } from "react-router-dom";
@@ -48,24 +52,24 @@ const mapTipos: Record<number, TipoInteraccion> = {
 };
 
 const tiposConfig = [
-  { id: "nota", nombre: "Nota", color: "#FFF7B3", icon: <CheckOutlined /> },
+  { id: "nota", nombre: "Nota", color: "#FFF7B3", icon: <FileTextOutlined /> },
   {
     id: "whatsapp",
     nombre: "WhatsApp",
     color: "#DBFFD2",
-    icon: <EditOutlined />,
+    icon: <WhatsAppOutlined />,
   },
   {
     id: "recordatorio",
     nombre: "Recordatorio",
     color: "#DCDCDC",
-    icon: <CommentOutlined />,
+    icon: <CalendarOutlined />,
   },
   {
     id: "desuscrito",
     nombre: "Desuscrito",
     color: "#FFCDCD",
-    icon: <CloseOutlined />,
+    icon: <StopOutlined />,
   },
 ];
 
@@ -377,10 +381,98 @@ const HistorialInteracciones: React.FC = () => {
 
         <Divider style={{ margin: "4px 0" }} />
 
+        {/* === AGREGAR INTERACCIÓN === */}
+        <div className={styles.addSection}>
+          <div className={styles.tipoButtonsContainer}>
+            {tiposConfig.map((t) => (
+              <Tooltip title={t.nombre} key={t.id}>
+                <Button
+                  shape="round"
+                  size="small"
+                  icon={t.icon}
+                  onClick={() => setTipoSeleccionado(t.id as TipoInteraccion)}
+                  style={{
+                    background: t.color,
+                    border: "none",
+                    boxShadow:
+                      tipoSeleccionado === t.id
+                        ? "0 0 0 2px rgba(0,0,0,0.25) inset"
+                        : "none",
+                  }}
+                />
+              </Tooltip>
+            ))}
+          </div>
+
+          {/* === TEXTO === */}
+          <div className={styles.inputContainer}>
+            <div
+              className={styles.textAreaWrapper}
+              style={{ background: colores[tipoSeleccionado] }}
+            >
+              <Input.TextArea
+                placeholder="Escriba una nota"
+                value={nota}
+                onChange={(e) => setNota(e.target.value)}
+                autoSize={{ minRows: 1, maxRows: 4 }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  boxShadow: "none",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            <Button
+              type="primary"
+              shape="round"
+              size="middle"
+              className={styles.sendButton}
+              icon={<SendOutlined style={{ color: "#fff" }} />}
+              onClick={handleEnviar}
+            />
+          </div>
+
+          {/* === CONTROLES DE FECHA/HORA — SOLO SI ES RECORDATORIO === */}
+          {tipoSeleccionado === "recordatorio" && (
+            <div className={styles.dateTimeControls}>
+              <DatePicker
+                placeholder="Fecha"
+                value={fechaRecordatorio}
+                onChange={setFechaRecordatorio}
+                className={styles.datePicker}
+              />
+              <TimePicker
+                placeholder="Seleccionar hora"
+                format="HH:mm"
+                value={horaRecordatorio}
+                showNow={false}
+                placement="topLeft"
+                getPopupContainer={() => document.body}
+                onChange={(t) => {
+                  setHoraRecordatorio(t);
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        <Divider style={{ margin: "4px 0" }} />
+
         {/* === LISTA === */}
         <Space direction="vertical" className={styles.listContainer} size={4}>
           {interaccionesFiltradas.length > 0 ? (
-            interaccionesFiltradas.map((item) => {
+            interaccionesFiltradas
+              .sort((a, b) => {
+                // Ordenar de forma descendente (más reciente primero)
+                const fechaA = new Date(a.fechaCreacion).getTime();
+                const fechaB = new Date(b.fechaCreacion).getTime();
+                return fechaB - fechaA;
+              })
+              .map((item) => {
               const tipo = mapTipos[item.idTipo] ?? "nota";
               const fechaCreacion = new Date(
                 item.fechaCreacion
@@ -481,103 +573,6 @@ const HistorialInteracciones: React.FC = () => {
             </Text>
           )}
         </Space>
-
-        <Divider style={{ margin: "6px 0" }} />
-
-        {/* === AGREGAR INTERACCIÓN === */}
-        <div className={styles.addSection}>
-          <div className={styles.tipoButtonsContainer}>
-            {tiposConfig.map((t) => (
-              <Tooltip title={t.nombre} key={t.id}>
-                <Button
-                  shape="round"
-                  size="small"
-                  icon={t.icon}
-                  onClick={() => setTipoSeleccionado(t.id as TipoInteraccion)}
-                  style={{
-                    background: t.color,
-                    border: "none",
-                    boxShadow:
-                      tipoSeleccionado === t.id
-                        ? "0 0 0 2px rgba(0,0,0,0.25) inset"
-                        : "none",
-                  }}
-                />
-              </Tooltip>
-            ))}
-          </div>
-
-          {/* === TEXTO === */}
-          <div className={styles.inputContainer}>
-            <div
-              className={styles.textAreaWrapper}
-              style={{ background: colores[tipoSeleccionado] }}
-            >
-              <Input.TextArea
-                placeholder="Escriba una nota"
-                value={nota}
-                onChange={(e) => setNota(e.target.value)}
-                autoSize={{ minRows: 2, maxRows: 4 }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  boxShadow: "none",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  resize: "none",
-                }}
-              />
-            </div>
-
-            <Space size={4}>
-              <Button
-                type="primary"
-                shape="round"
-                size="middle"
-                className={styles.sendButton}
-                icon={<SendOutlined style={{ color: "#fff" }} />}
-                onClick={handleEnviar}
-              />
-              <Tooltip title="Llamar por WhatsApp">
-                <Button
-                  type="default"
-                  shape="round"
-                  size="middle"
-                  icon={<PhoneOutlined />}
-                  onClick={handleLlamarWhatsApp}
-                  style={{
-                    background: "#25D366",
-                    borderColor: "#25D366",
-                    color: "#fff",
-                  }}
-                />
-              </Tooltip>
-            </Space>
-          </div>
-
-          {/* === CONTROLES DE FECHA/HORA — SOLO SI ES RECORDATORIO === */}
-          {tipoSeleccionado === "recordatorio" && (
-            <div className={styles.dateTimeControls}>
-              <DatePicker
-                placeholder="Fecha"
-                value={fechaRecordatorio}
-                onChange={setFechaRecordatorio}
-                className={styles.datePicker}
-              />
-              <TimePicker
-                placeholder="Seleccionar hora"
-                format="HH:mm"
-                value={horaRecordatorio}
-                showNow={false}
-                placement="topLeft"
-                getPopupContainer={() => document.body}
-                onChange={(t) => {
-                  setHoraRecordatorio(t);
-                }}
-              />
-            </div>
-          )}
-        </div>
       </Card>
     </div>
   );

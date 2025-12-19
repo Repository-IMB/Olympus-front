@@ -49,6 +49,7 @@ interface Opportunity {
   personaCorreo: string;
   fechaRecordatorio: string | null;
   asesorNombre: string;
+  totalMarcaciones?: number;
 }
 
 export default function OpportunitiesInterface() {
@@ -67,6 +68,9 @@ export default function OpportunitiesInterface() {
   const { isMobile, isTablet } = useBreakpoint();
 
   const token = getCookie("token");
+
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   const { idUsuario, idRol } = useMemo(() => {
     let idU = 0;
@@ -101,6 +105,10 @@ export default function OpportunitiesInterface() {
 
     return { idUsuario: idU, rolNombre: rNombre, idRol: idR };
   }, [token]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, filterEstado, filterAsesor, dateRange, opportunities]);
 
   useEffect(() => {
     if (!idUsuario || !idRol) {
@@ -340,22 +348,28 @@ export default function OpportunitiesInterface() {
 
     // Columnas adicionales solo para tablet y desktop
     if (!isMobile) {
-      baseColumns.splice(2, 0, {
-        title: "Correo",
-        dataIndex: "personaCorreo",
-        key: "personaCorreo",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
-        render: (personaCorreo: string) => <span>{personaCorreo || "-"}</span>,
-      });
-
-      baseColumns.splice(4, 0, {
-        title: "Programa",
-        dataIndex: "productoNombre",
-        key: "productoNombre",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          a.productoNombre.localeCompare(b.productoNombre),
-      });
+      baseColumns.splice(2, 0,
+        {
+          title: "Correo",
+          dataIndex: "personaCorreo",
+          key: "personaCorreo",
+          sorter: (a: Opportunity, b: Opportunity) =>
+            (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+          render: (personaCorreo: string) => <span>{personaCorreo || "-"}</span>,
+        },
+        {
+          title: "Total Marcaciones",
+          dataIndex: "totalMarcaciones",
+          key: "totalMarcaciones",
+          sorter: (a: Opportunity, b: Opportunity) =>
+            (a.totalMarcaciones ?? 0) - (b.totalMarcaciones ?? 0),
+          render: (totalMarcaciones: number) => (
+            <span>{typeof totalMarcaciones === "number" ? totalMarcaciones : "-"}</span>
+          ),
+          align: "center",
+          width: 140,
+        }
+      );
 
       // Recordatorio solo en desktop
       if (!isTablet) {
@@ -531,7 +545,18 @@ export default function OpportunitiesInterface() {
             columns={columns}
             dataSource={opportunitiesFiltradas}
             rowKey="id"
-            pagination={{ pageSize: 10 }}
+            pagination={{
+              current: currentPage,
+              pageSize: pageSize,
+              showSizeChanger: true,
+              pageSizeOptions: ["10", "20", "50", "100"],
+              onChange: (page, newPageSize) => {
+                setCurrentPage(page);
+                if (typeof newPageSize === "number") setPageSize(newPageSize);
+              },
+              showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
+              hideOnSinglePage: true
+            }}
             className={styles.table}
             scroll={{ x: isMobile ? 800 : undefined }}
           />
