@@ -8,7 +8,8 @@ import {
 import { useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
-import { Layout, Dropdown, Button, Drawer, type MenuProps } from "antd";
+import { Layout, Dropdown, Button, Drawer, type MenuProps, notification } from "antd";
+import { useRecordatoriosGlobales } from "../hooks/useRecordatoriosGlobales";
 import { useBreakpoint } from "../hooks/useBreakpoint";
 import Sidebar from "../componentes/Sidebar/Sidebar";
 import styles from "./MainLayout.module.css";
@@ -31,32 +32,48 @@ export default function MainLayout() {
   const [isCollapsed, setIsCollapsed] = useState(false); // Sider (desktop/tablet)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false); // Drawer (mobile)
   const [previousPath, setPreviousPath] = useState<string>("");
-
+  const [apiNotification, contextHolder] = notification.useNotification();
   const { isMobile, isTablet, isDesktop } = useBreakpoint();
 
   // Detectar si estamos en una ruta de detalle (oportunidades/:id)
-  const isDetailRoute = location.pathname.match(/^\/leads\/oportunidad(es)?\/\d+$/);
+  const isDetailRoute = location.pathname.match(
+    /^\/leads\/oportunidad(es)?\/\d+$/
+  );
+  const [idUsuario, setIdUsuario] = useState<number>(0);
 
   useEffect(() => {
     const token = Cookies.get("token");
     if (token) {
       try {
         const decoded: TokenData = jwtDecode(token);
+
         setUserName(
           decoded[
             "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
           ] || "Usuario"
         );
+
         setUserRole(
           decoded[
             "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
           ] || ""
         );
+
+        const id =
+          decoded[
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+          ];
+
+        if (id) {
+          setIdUsuario(Number(id));
+        }
       } catch (error) {
         console.error("Error al decodificar token:", error);
       }
     }
   }, []);
+
+  useRecordatoriosGlobales(idUsuario, apiNotification, navigate);
 
   // Inicializar estado según breakpoint
   useEffect(() => {
@@ -147,6 +164,7 @@ export default function MainLayout() {
 
   return (
     <Layout className={styles.layout}>
+      {contextHolder} 
       {/* Desktop/Tablet: Sider */}
       {!isMobile && (
         <Sider

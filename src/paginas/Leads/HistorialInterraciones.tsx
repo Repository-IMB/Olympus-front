@@ -10,8 +10,8 @@ import {
   Checkbox,
   Dropdown,
   DatePicker,
-  TimePicker,
   message,
+  TimePicker,
 } from "antd";
 import {
   SearchOutlined,
@@ -21,11 +21,16 @@ import {
   CommentOutlined,
   CloseOutlined,
   SendOutlined,
+  FileTextOutlined,
+  WhatsAppOutlined,
+  CalendarOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { useParams } from "react-router-dom";
 import api from "../../servicios/api";
 import dayjs from "dayjs";
 import { getCookie } from "../../utils/cookies";
+import { jwtDecode } from "jwt-decode";
 import styles from "./HistorialInterraciones.module.css";
 
 const { Text, Title } = Typography;
@@ -47,26 +52,29 @@ const mapTipos: Record<number, TipoInteraccion> = {
 };
 
 const tiposConfig = [
-  { id: "nota", nombre: "Nota", color: "#FFF7B3", icon: <CheckOutlined /> },
+  { id: "nota", nombre: "Nota", color: "#FFF7B3", icon: <FileTextOutlined /> },
   {
     id: "whatsapp",
     nombre: "WhatsApp",
     color: "#DBFFD2",
-    icon: <EditOutlined />,
+    icon: <WhatsAppOutlined />,
   },
   {
     id: "recordatorio",
     nombre: "Recordatorio",
     color: "#DCDCDC",
-    icon: <CommentOutlined />,
+    icon: <CalendarOutlined />,
   },
   {
     id: "desuscrito",
     nombre: "Desuscrito",
     color: "#FFCDCD",
-    icon: <CloseOutlined />,
+    icon: <StopOutlined />,
   },
 ];
+
+// (no se usa, lo dejo tal como lo tenías)
+const DESACTIVAR_URL = "/api/VTAModVentaHistorialInteraccion/Desactivar";
 
 const HistorialInteracciones: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -103,6 +111,27 @@ const HistorialInteracciones: React.FC = () => {
     }
   };
 
+  const token = getCookie("token");
+
+  const getUserIdFromToken = () => {
+    if (!token) return 0;
+
+    try {
+      const decoded: any = jwtDecode(token);
+
+      const id =
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ];
+
+      return id ? Number(id) : 0;
+    } catch (e) {
+      console.error("Error decodificando token", e);
+      return 0;
+    }
+  };
+
+  
   // ======================================================
   // 📌 OBTENER TELÉFONO DEL CLIENTE
   // ======================================================
@@ -136,6 +165,34 @@ const HistorialInteracciones: React.FC = () => {
   };
 
   // ======================================================
+  // DESACTIVAR RECORDATORIO
+  // ======================================================
+  const handleDesactivarRecordatorio = async (item: any) => {
+    try {
+      if (item?.estado === false) return;
+
+      await api.post(
+        `/api/VTAModVentaOportunidad/DesactivarRecordatorio/${item.id}`
+      );
+
+      message.success("Recordatorio desactivado");
+      cargarHistorial(null);
+    } catch (error) {
+      console.error("Error desactivando recordatorio:", error);
+      message.error("No se pudo desactivar el recordatorio");
+    }
+  };
+
+  // ======================================================
+  // ✅ CONTADOR + BANDERA (máx 3 activos)
+  // ======================================================
+  const recordatoriosActivosCount = interacciones.filter(
+    (i) => mapTipos[i.idTipo] === "recordatorio" && i.estado === true
+  ).length;
+
+  const limiteRecordatoriosAlcanzado = recordatoriosActivosCount >= 3;
+
+  // ======================================================
   // 📌 ENVIAR MENSAJE / RECORDATORIO
   // ======================================================
   const handleEnviar = async () => {
@@ -149,6 +206,11 @@ const HistorialInteracciones: React.FC = () => {
     let fechaFinal = null;
 
     if (tipoSeleccionado === "recordatorio") {
+      // ✅ VALIDACIÓN: NO DEJAR CREAR SI YA HAY 3 ACTIVOS
+      if (limiteRecordatoriosAlcanzado) {
+        return; // el aviso se muestra arriba en rojo
+      }
+
       if (!fechaRecordatorio) {
         message.warning("Seleccione una fecha para el recordatorio");
         return;
@@ -158,12 +220,14 @@ const HistorialInteracciones: React.FC = () => {
         return;
       }
 
-      fechaFinal = dayjs(fechaRecordatorio)
+      const fechaISO = dayjs(fechaRecordatorio)
         .hour(horaRecordatorio.hour())
         .minute(horaRecordatorio.minute())
         .second(0)
-        .millisecond(0)
-        .format("YYYY-MM-DDTHH:mm:ss");
+        .subtract(5, "hour")
+        .toISOString();
+
+      fechaFinal = fechaISO;
     }
 
     const payload = {
@@ -183,10 +247,10 @@ const HistorialInteracciones: React.FC = () => {
       celular: "",
       fechaRecordatorio: fechaFinal,
       estado: true,
-      fechaCreacion: new Date().toISOString(),
-      usuarioCreacion: "system",
-      fechaModificacion: new Date().toISOString(),
-      usuarioModificacion: "system",
+      fechaCreacion: dayjs().subtract(5, "hour").toISOString(),
+      usuarioCreacion: Number(getUserIdFromToken()).toString(),
+      fechaModificacion: dayjs().subtract(5, "hour").toISOString(),
+      usuarioModificacion: Number(getUserIdFromToken()).toString(),
     };
 
     await api.post("/api/VTAModVentaHistorialInteraccion/Insertar", payload);
@@ -228,7 +292,7 @@ const HistorialInteracciones: React.FC = () => {
 
     const cumpleBusqueda =
       busqueda.trim() === "" ||
-      i.detalle.toLowerCase().includes(busqueda.toLowerCase());
+      (i.detalle || "").toLowerCase().includes(busqueda.toLowerCase());
 
     return cumpleFiltro && cumpleBusqueda;
   });
@@ -345,10 +409,98 @@ const HistorialInteracciones: React.FC = () => {
 
         <Divider style={{ margin: "4px 0" }} />
 
+        {/* === AGREGAR INTERACCIÓN === */}
+        <div className={styles.addSection}>
+          <div className={styles.tipoButtonsContainer}>
+            {tiposConfig.map((t) => (
+              <Tooltip title={t.nombre} key={t.id}>
+                <Button
+                  shape="round"
+                  size="small"
+                  icon={t.icon}
+                  onClick={() => setTipoSeleccionado(t.id as TipoInteraccion)}
+                  style={{
+                    background: t.color,
+                    border: "none",
+                    boxShadow:
+                      tipoSeleccionado === t.id
+                        ? "0 0 0 2px rgba(0,0,0,0.25) inset"
+                        : "none",
+                  }}
+                />
+              </Tooltip>
+            ))}
+          </div>
+
+          {/* === TEXTO === */}
+          <div className={styles.inputContainer}>
+            <div
+              className={styles.textAreaWrapper}
+              style={{ background: colores[tipoSeleccionado] }}
+            >
+              <Input.TextArea
+                placeholder="Escriba una nota"
+                value={nota}
+                onChange={(e) => setNota(e.target.value)}
+                autoSize={{ minRows: 1, maxRows: 4 }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  boxShadow: "none",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            <Button
+              type="primary"
+              shape="round"
+              size="middle"
+              className={styles.sendButton}
+              icon={<SendOutlined style={{ color: "#fff" }} />}
+              onClick={handleEnviar}
+            />
+          </div>
+
+          {/* === CONTROLES DE FECHA/HORA — SOLO SI ES RECORDATORIO === */}
+          {tipoSeleccionado === "recordatorio" && (
+            <div className={styles.dateTimeControls}>
+              <DatePicker
+                placeholder="Fecha"
+                value={fechaRecordatorio}
+                onChange={setFechaRecordatorio}
+                className={styles.datePicker}
+              />
+              <TimePicker
+                placeholder="Seleccionar hora"
+                format="HH:mm"
+                value={horaRecordatorio}
+                showNow={true}
+                placement="topLeft"
+                getPopupContainer={() => document.body}
+                onChange={(t) => {
+                  setHoraRecordatorio(t);
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        <Divider style={{ margin: "4px 0" }} />
+
         {/* === LISTA === */}
         <Space direction="vertical" className={styles.listContainer} size={4}>
           {interaccionesFiltradas.length > 0 ? (
-            interaccionesFiltradas.map((item) => {
+            interaccionesFiltradas
+              .sort((a, b) => {
+                // Ordenar de forma descendente (más reciente primero)
+                const fechaA = new Date(a.fechaCreacion).getTime();
+                const fechaB = new Date(b.fechaCreacion).getTime();
+                return fechaB - fechaA;
+              })
+              .map((item) => {
               const tipo = mapTipos[item.idTipo] ?? "nota";
               const fechaCreacion = new Date(
                 item.fechaCreacion
@@ -394,6 +546,9 @@ const HistorialInteracciones: React.FC = () => {
                 fechaRecordatorioBonita = `Recordatorio : ${nombreDia} ${dia} de ${mes} de ${año} – ${hora}`;
               }
 
+              const recordatorioDesactivado =
+                tipo === "recordatorio" && item?.estado === false;
+
               return (
                 <Card
                   key={item.id}
@@ -403,11 +558,65 @@ const HistorialInteracciones: React.FC = () => {
                     border: `1px solid ${colores[tipo]}`,
                     borderRadius: 6,
                     padding: 4,
+                    opacity: recordatorioDesactivado ? 0.65 : 1,
                   }}
                   bodyStyle={{ padding: 4 }}
                 >
+                  {/* ✅ BOTÓN ARRIBA IZQUIERDA SOLO PARA RECORDATORIO */}
+                  {/* ✅ BOTÓN ARRIBA IZQUIERDA SOLO PARA RECORDATORIO */}
+                  {tipo === "recordatorio" && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 2,
+                      }}
+                    >
+                      {item.estado === true ? (
+                        <>
+                          {/* INDICADOR ACTIVO */}
+                          <div
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: "#389e0d",
+                            }}
+                          >
+                            ACTIVO
+                          </div>
+
+                          {/* BOTÓN DESACTIVAR (SIN CONFIRMACIÓN) */}
+                          <Button
+                            size="small"
+                            icon={<StopOutlined />}
+                            onClick={() => handleDesactivarRecordatorio(item)}
+                            style={{
+                              borderRadius: 6,
+                              fontSize: 11,
+                              height: 22,
+                              paddingInline: 8,
+                            }}
+                          >
+                            Desactivar
+                          </Button>
+                        </>
+                      ) : (
+                        /* INDICADOR DESACTIVADO */
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: "#a61d24",
+                          }}
+                        >
+                          DESACTIVADO
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div style={{ textAlign: "right" }}>
-                    {/* Línea del recordatorio */}
                     {tipo === "recordatorio" && fechaRecordatorioBonita && (
                       <div
                         style={{
@@ -421,7 +630,6 @@ const HistorialInteracciones: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Contenido/mensaje */}
                     <Text
                       style={{
                         color: "#0D0C11",
@@ -433,9 +641,8 @@ const HistorialInteracciones: React.FC = () => {
                       {item.detalle}
                     </Text>
 
-                    {/* Fecha de creación */}
                     <Text style={{ fontSize: 8, color: "#5D5D5D" }}>
-                      {fechaCreacion} – {item.usuarioCreacion}
+                      {fechaCreacion} – {item.nombreAsesor ?? "—"}
                     </Text>
                   </div>
                 </Card>
@@ -452,84 +659,7 @@ const HistorialInteracciones: React.FC = () => {
 
         <Divider style={{ margin: "6px 0" }} />
 
-        {/* === AGREGAR INTERACCIÓN === */}
-        <div className={styles.addSection}>
-          <div className={styles.tipoButtonsContainer}>
-            {tiposConfig.map((t) => (
-              <Tooltip title={t.nombre} key={t.id}>
-                <Button
-                  shape="round"
-                  size="small"
-                  icon={t.icon}
-                  onClick={() => setTipoSeleccionado(t.id as TipoInteraccion)}
-                  style={{
-                    background: t.color,
-                    border: "none",
-                    boxShadow:
-                      tipoSeleccionado === t.id
-                        ? "0 0 0 2px rgba(0,0,0,0.25) inset"
-                        : "none",
-                  }}
-                />
-              </Tooltip>
-            ))}
-          </div>
-
-          {/* === TEXTO === */}
-          <div className={styles.inputContainer}>
-            <div
-              className={styles.textAreaWrapper}
-              style={{ background: colores[tipoSeleccionado] }}
-            >
-              <Input.TextArea
-                placeholder="Escriba una nota"
-                value={nota}
-                onChange={(e) => setNota(e.target.value)}
-                autoSize={{ minRows: 2, maxRows: 4 }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  boxShadow: "none",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  resize: "none",
-                }}
-              />
-            </div>
-
-            <Button
-              type="primary"
-              shape="round"
-              size="middle"
-              className={styles.sendButton}
-              icon={<SendOutlined style={{ color: "#fff" }} />}
-              onClick={handleEnviar}
-            />
-          </div>
-
-          {/* === CONTROLES DE FECHA/HORA — SOLO SI ES RECORDATORIO === */}
-          {tipoSeleccionado === "recordatorio" && (
-            <div className={styles.dateTimeControls}>
-              <DatePicker
-                placeholder="Fecha"
-                value={fechaRecordatorio}
-                onChange={setFechaRecordatorio}
-                className={styles.datePicker}
-              />
-              <TimePicker
-                placeholder="Seleccionar hora"
-                format="HH:mm"
-                value={horaRecordatorio}
-                showNow={false}
-                placement="topLeft"
-                getPopupContainer={() => document.body}
-                onChange={(t) => {
-                  setHoraRecordatorio(t);
-                }}
-              />
-            </div>
-          )}
-        </div>
+       
       </Card>
     </div>
   );

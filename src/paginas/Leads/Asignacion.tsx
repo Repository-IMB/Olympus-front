@@ -29,6 +29,8 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
+import { getCookie } from "../../utils/cookies";
+import { jwtDecode } from "jwt-decode";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -80,9 +82,9 @@ export default function Asignacion() {
   const [filterEstado, setFilterEstado] = useState<string>("Todos");
   const [filterOrigen, setFilterOrigen] = useState<string>("Todos");
   const [filterPais, setFilterPais] = useState<string>("Todos");
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(
-    null
-  );
+  const [dateRange, setDateRange] = useState<
+    [Dayjs | null, Dayjs | null] | null
+  >(null);
   const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
   const [modalOpen, setModalOpen] = useState(false);
   const [asesorDestino, setAsesorDestino] = useState<number | null>(null);
@@ -93,7 +95,9 @@ export default function Asignacion() {
   const [loadingAsesores, setLoadingAsesores] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [importRange, setImportRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [importRange, setImportRange] = useState<
+    [Dayjs | null, Dayjs | null] | null
+  >(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<{
     filasProcesadas: number;
@@ -101,7 +105,7 @@ export default function Asignacion() {
     filasEnRango: number;
     skippedSources: SkippedSource[];
     mensaje: string;
-  } | null>(null  );
+  } | null>(null);
 
   // 🔹 Fecha y hora de reasignación
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
@@ -110,8 +114,25 @@ export default function Asignacion() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
-  const token = Cookies.get("token");
+const token = getCookie("token");
 
+const getUserIdFromToken = () => {
+  if (!token) return 0;
+
+  try {
+    const decoded: any = jwtDecode(token);
+
+    const id =
+      decoded[
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+      ];
+
+    return id ? Number(id) : 0;
+  } catch (e) {
+    console.error("Error decodificando token", e);
+    return 0;
+  }
+};
   const handleReasignarMasivo = () => {
     if (selectedRows.length > 0) setModalOpen(true);
   };
@@ -124,163 +145,195 @@ export default function Asignacion() {
     setSelectedTime(null);
   };
 
-const handleConfirmarAsignacion = async () => {
-  if (!asesorDestino || selectedRows.length === 0 || !selectedDate || !selectedTime) {
-    return;
-  }
+  const handleConfirmarAsignacion = async () => {
+    if (
+      !asesorDestino ||
+      selectedRows.length === 0 ||
+      !selectedDate ||
+      !selectedTime
+    ) {
+      return;
+    }
 
-  const hayConAsesor = selectedRows.some(
-    (r) => (r.asesor ?? "").trim() !== ""
-  );
+    const hayConAsesor = selectedRows.some(
+      (r) => (r.asesor ?? "").trim() !== ""
+    );
 
-  if (hayConAsesor && !forzarReasignacion) {
-    return;
-  }
+    if (hayConAsesor && !forzarReasignacion) {
+      return;
+    }
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const asesor = asesores.find((a) => a.idUsuario === asesorDestino);
-    if (!asesor) throw new Error("Asesor no encontrado");
+      const asesor = asesores.find((a) => a.idUsuario === asesorDestino);
+      if (!asesor) throw new Error("Asesor no encontrado");
 
-    // Fecha de recordatorio con hora formateada
-    const fechaRecordatorioISO = selectedDate
-      .hour(selectedTime.hour())
-      .minute(selectedTime.minute())
-      .second(0)
-      .toISOString();
+      // Fecha de recordatorio con hora formateada
+      const fechaRecordatorioISO = selectedDate
+        .hour(selectedTime.hour())
+        .minute(selectedTime.minute())
+        .second(0)
+        .toISOString();
 
-    const horaRecordatorio = selectedTime.format("HH:mm");
+      const horaRecordatorio = selectedTime.format("HH:mm");
 
-    for (const row of selectedRows) {
-      
-      const payloadInteraccion = {
-        id: 0,
-        idOportunidad: row.id,
-        idTipo: 10,
-        detalle: "Recordatorio inicial de creación de la oportunidad, generado automáticamente",
-        celular: "",
-        fechaRecordatorio: fechaRecordatorioISO,
-        estado: true,
-        fechaCreacion: new Date().toISOString(),
-        usuarioCreacion: "usuarioActual",
-        fechaModificacion: new Date().toISOString(),
-        usuarioModificacion: "usuarioActual",
+      for (const row of selectedRows) {
+        const payloadInteraccion = {
+          id: 0,
+          idOportunidad: row.id,
+          idTipo: 10,
+          detalle:
+            "Recordatorio inicial de creación de la oportunidad, generado automáticamente",
+          celular: "",
+          fechaRecordatorio: fechaRecordatorioISO,
+          estado: true,
+          fechaCreacion: new Date().toISOString(),
+          usuarioCreacion: Number(getUserIdFromToken()).toString(),
+          fechaModificacion: new Date().toISOString(),
+          usuarioModificacion: Number(getUserIdFromToken()).toString(),
+        };
+
+        await axios.post(
+          `${
+            import.meta.env.VITE_API_URL || "http://localhost:7020"
+          }/api/VTAModVentaHistorialInteraccion/InsertarMasivo`,
+          payloadInteraccion,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+
+      const payload = {
+        IdOportunidades: selectedRows.map((r) => r.id),
+        IdAsesor: asesor.idPersona,
+        UsuarioModificacion: Number(getUserIdFromToken()).toString(),
+        FechaRecordatorio: fechaRecordatorioISO,
+        HoraRecordatorio: horaRecordatorio,
       };
 
-      await axios.post(
-        `${import.meta.env.VITE_API_URL || "http://localhost:7020"}/api/VTAModVentaHistorialInteraccion/Insertar`,
-        payloadInteraccion,
+      const response = await axios.post(
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:7020"
+        }/api/VTAModVentaOportunidad/AsignarAsesor`,
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
+      if (response.data.codigo === "SIN ERROR") {
+        message.success("Asesor asignado correctamente");
+        setSelectedRows([]);
+        handleCloseModal();
+        obtenerOportunidades();
+      } else {
+        message.error(response.data.mensaje || "Error al asignar asesor");
+      }
+    } catch (err: any) {
+      message.error(
+        err?.response?.data?.mensaje ||
+          err?.message ||
+          "Error al asignar asesor"
+      );
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const payload = {
-      IdOportunidades: selectedRows.map((r) => r.id),
-      IdAsesor: asesor.idPersona,
-      UsuarioModificacion: "usuarioActual",
-      FechaRecordatorio: fechaRecordatorioISO,
-      HoraRecordatorio: horaRecordatorio,
-    };
-
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_URL || "http://localhost:7020"}/api/VTAModVentaOportunidad/AsignarAsesor`,
-      payload,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    if (response.data.codigo === "SIN ERROR") {
-      message.success("Asesor asignado correctamente");
-      setSelectedRows([]);
-      handleCloseModal();
-      obtenerOportunidades();
-    } else {
-      message.error(response.data.mensaje || "Error al asignar asesor");
-    }
-  } catch (err: any) {
-    message.error(
-      err?.response?.data?.mensaje || err?.message || "Error al asignar asesor"
-    );
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-const handleAgregarLeads = () => {
-  setImportModalOpen(true);
-  setImportRange(null);
-  setImportResult(null);
-};
-
-const closeImportModal = () => {
-  setImportModalOpen(false);
-  setImportRange(null);
-  setImportResult(null);
-};
-
-const ejecutarImportacion = async () => {
-  try {
-    setImportLoading(true);
+  const handleAgregarLeads = () => {
+    setImportModalOpen(true);
+    setImportRange(null);
     setImportResult(null);
+  };
 
-    if (!token) throw new Error("No se encontró el token de autenticación");
+  const closeImportModal = () => {
+    setImportModalOpen(false);
+    setImportRange(null);
+    setImportResult(null);
+  };
 
-    const fechaInicioIso = importRange && importRange[0] ? importRange[0].toISOString() : null;
-    const fechaFinIso = importRange && importRange[1] ? importRange[1].toISOString() : null;
+  const ejecutarImportacion = async () => {
+    try {
+      setImportLoading(true);
+      setImportResult(null);
 
-    const payload = {
-      FechaInicio: fechaInicioIso,
-      FechaFin: fechaFinIso,
-    };
+      if (!token) throw new Error("No se encontró el token de autenticación");
 
-    const url = `${import.meta.env.VITE_API_URL || "http://localhost:7020"}/api/VTAModVentaOportunidad/ImportarProcesadoLinkedin`;
+      const fechaInicioIso =
+        importRange && importRange[0] ? importRange[0].toISOString() : null;
+      const fechaFinIso =
+        importRange && importRange[1] ? importRange[1].toISOString() : null;
 
-    const response = await axios.post(url, payload, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+      const payload = {
+        FechaInicio: fechaInicioIso,
+        FechaFin: fechaFinIso,
+      };
 
-    const data = response.data ?? {};
+      const url = `${
+        import.meta.env.VITE_API_URL || "http://localhost:7020"
+      }/api/VTAModVentaOportunidad/ImportarProcesadoLinkedin`;
 
-    const filasProcesadas = data?.filasProcesadas ?? data?.FilasProcesadas ?? 0;
-    const filasSaltadas = data?.filasSaltadas ?? data?.FilasSaltadas ?? 0;
-    const filasEnRango = data?.filasEnRango ?? data?.FilasEnRango ?? 0;
-    const skipped = Array.isArray(data?.skippedSources ?? data?.SkippedSources) ? (data?.skippedSources ?? data?.SkippedSources) : [];
+      const response = await axios.post(url, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    const skippedMapped: SkippedSource[] = skipped.map((s: any) => ({
-      id: s.id ?? s.Id ?? 0,
-      formName: s.formName ?? s.FormName ?? "",
-      motivo: s.motivo ?? s.Motivo ?? "",
-      createdDate: s.createdDate ?? s.CreatedDate ?? null,
-    }));
+      const data = response.data ?? {};
 
-    setImportResult({
-      filasProcesadas,
-      filasSaltadas,
-      filasEnRango,
-      skippedSources: skippedMapped,
-      mensaje: data?.respuesta?.mensaje ?? data?.Respuesta?.Mensaje ?? data?.mensaje ?? "",
-    });
+      const filasProcesadas =
+        data?.filasProcesadas ?? data?.FilasProcesadas ?? 0;
+      const filasSaltadas = data?.filasSaltadas ?? data?.FilasSaltadas ?? 0;
+      const filasEnRango = data?.filasEnRango ?? data?.FilasEnRango ?? 0;
+      const skipped = Array.isArray(
+        data?.skippedSources ?? data?.SkippedSources
+      )
+        ? data?.skippedSources ?? data?.SkippedSources
+        : [];
 
-    if ((data?.respuesta?.codigo ?? data?.Respuesta?.Codigo ?? "1") === "0") {
-      message.success("Importación finalizada correctamente.");
-      obtenerOportunidades(); // refresca la tabla principal
-    } else {
-      console.log(data?.respuesta?.mensaje ?? data?.Respuesta?.Mensaje ?? data?.mensaje ?? "Importación finalizada con advertencias.");
+      const skippedMapped: SkippedSource[] = skipped.map((s: any) => ({
+        id: s.id ?? s.Id ?? 0,
+        formName: s.formName ?? s.FormName ?? "",
+        motivo: s.motivo ?? s.Motivo ?? "",
+        createdDate: s.createdDate ?? s.CreatedDate ?? null,
+      }));
+
+      setImportResult({
+        filasProcesadas,
+        filasSaltadas,
+        filasEnRango,
+        skippedSources: skippedMapped,
+        mensaje:
+          data?.respuesta?.mensaje ??
+          data?.Respuesta?.Mensaje ??
+          data?.mensaje ??
+          "",
+      });
+
+      if ((data?.respuesta?.codigo ?? data?.Respuesta?.Codigo ?? "1") === "0") {
+        message.success("Importación finalizada correctamente.");
+        obtenerOportunidades(); // refresca la tabla principal
+      } else {
+        console.log(
+          data?.respuesta?.mensaje ??
+            data?.Respuesta?.Mensaje ??
+            data?.mensaje ??
+            "Importación finalizada con advertencias."
+        );
+      }
+    } catch (err: any) {
+      console.error("Error al importar:", err);
+      message.error(
+        err?.response?.data?.mensaje ||
+          err?.message ||
+          "Error al ejecutar importación"
+      );
+    } finally {
+      setImportLoading(false);
     }
-  } catch (err: any) {
-    console.error("Error al importar:", err);
-    message.error(err?.response?.data?.mensaje || err?.message || "Error al ejecutar importación");
-  } finally {
-    setImportLoading(false);
-  }
-};
+  };
   const handleLimpiarFiltros = () => {
     setSearchText("");
     setFilterEstado("Todos");
     setFilterOrigen("Todos");
     setFilterPais("Todos");
-    setFilterAsesor("Todos"); 
+    setFilterAsesor("Todos");
     setDateRange(null);
   };
 
@@ -298,29 +351,43 @@ const ejecutarImportacion = async () => {
 
       const data = response.data;
       if (data && data.oportunidad && Array.isArray(data.oportunidad)) {
-        const oportunidadesOrdenadas = [...data.oportunidad].sort(
-          (a: OportunidadBackend, b: OportunidadBackend) => {
-            const fechaA = new Date(a.fechaCreacion).getTime();
-            const fechaB = new Date(b.fechaCreacion).getTime();
+        // 1️⃣ Eliminar duplicados por id (nos quedamos con el más reciente)
+        const oportunidadesUnicasMap = new Map<number, OportunidadBackend>();
 
-            // Orden descendente: los más recientes primero
-            if (isNaN(fechaA) && isNaN(fechaB)) {
-              return b.id - a.id;
+        for (const op of data.oportunidad as OportunidadBackend[]) {
+          const existente = oportunidadesUnicasMap.get(op.id);
+
+          if (!existente) {
+            oportunidadesUnicasMap.set(op.id, op);
+          } else {
+            const fechaExistente = new Date(existente.fechaCreacion).getTime();
+            const fechaNueva = new Date(op.fechaCreacion).getTime();
+
+            // Nos quedamos con el más reciente
+            if (fechaNueva > fechaExistente) {
+              oportunidadesUnicasMap.set(op.id, op);
             }
-            if (isNaN(fechaA)) return 1;
-            if (isNaN(fechaB)) return -1;
-
-            const diferenciaFecha = fechaB - fechaA;
-
-            if (Math.abs(diferenciaFecha) < 1000) {
-              return b.id - a.id;
-            }
-
-            return diferenciaFecha;
           }
-        );
+        }
+
+        // 2️⃣ Convertir a array
+        const oportunidadesUnicas = Array.from(oportunidadesUnicasMap.values());
+
+        // 3️⃣ Ordenar (como ya lo hacías)
+        const oportunidadesOrdenadas = oportunidadesUnicas.sort((a, b) => {
+          const fechaA = new Date(a.fechaCreacion).getTime();
+          const fechaB = new Date(b.fechaCreacion).getTime();
+          return fechaB - fechaA;
+        });
+
         setOportunidades(oportunidadesOrdenadas);
-        console.log("✅ Oportunidades obtenidas:", oportunidadesOrdenadas.length);
+
+        console.log("✅ Oportunidades únicas:", oportunidadesOrdenadas.length);
+
+        console.log(
+          "✅ Oportunidades obtenidas:",
+          oportunidadesOrdenadas.length
+        );
       } else {
         setOportunidades([]);
         console.warn("⚠️ No se encontraron oportunidades en la respuesta");
@@ -401,7 +468,6 @@ const ejecutarImportacion = async () => {
     [oportunidades]
   );
 
-
   const estadosUnicos = useMemo(() => {
     const estados = new Set<string>();
     oportunidades.forEach((op) => {
@@ -423,14 +489,14 @@ const ejecutarImportacion = async () => {
   }, [leadsMapeados]);
 
   const asesoresUnicos = useMemo(() => {
-  const setAsesores = new Set<string>();
-  leadsMapeados.forEach((lead) => {
-    if (lead.asesor && lead.asesor !== "-") {
-      setAsesores.add(lead.asesor);
-    }
-  });
-  return Array.from(setAsesores).sort();
-}, [leadsMapeados]);
+    const setAsesores = new Set<string>();
+    leadsMapeados.forEach((lead) => {
+      if (lead.asesor && lead.asesor !== "-") {
+        setAsesores.add(lead.asesor);
+      }
+    });
+    return Array.from(setAsesores).sort();
+  }, [leadsMapeados]);
 
   const paisesUnicos = useMemo(() => {
     const paises = new Set<string>();
@@ -487,7 +553,15 @@ const ejecutarImportacion = async () => {
     }
 
     return filtrados;
-  }, [leadsMapeados, searchText, filterEstado, filterOrigen, filterPais, filterAsesor, dateRange]);
+  }, [
+    leadsMapeados,
+    searchText,
+    filterEstado,
+    filterOrigen,
+    filterPais,
+    filterAsesor,
+    dateRange,
+  ]);
 
   const columns: ColumnsType<Lead> = useMemo(
     () => [
@@ -546,7 +620,10 @@ const ejecutarImportacion = async () => {
           }
 
           return (
-            <Tag color={color} style={{ borderRadius: "12px", padding: "2px 12px" }}>
+            <Tag
+              color={color}
+              style={{ borderRadius: "12px", padding: "2px 12px" }}
+            >
               {estado}
             </Tag>
           );
@@ -564,73 +641,89 @@ const ejecutarImportacion = async () => {
         key: "pais",
         sorter: (a, b) => (a.pais || "").localeCompare(b.pais || ""),
       },
-    {
-      title: "Fecha Creación",
-      dataIndex: "fechaCreacion",
-      key: "fechaCreacion",
-      sorter: (a, b) =>
-        new Date(a.fechaCreacion ?? "").getTime() - new Date(b.fechaCreacion ?? "").getTime(),
-      render: (fechaCreacion: string | null) => {
-        if (!fechaCreacion) return "-";
-        const d = new Date(fechaCreacion);
-        return (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-            <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
-            <div>
-              <div style={{ color: "#000000", fontSize: "14px" }}>
-                {d.toLocaleDateString()}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  color: "#8c8c8c",
-                  fontSize: "13px",
-                }}
-              >
-                <ClockCircleOutlined style={{ fontSize: "12px" }} />
-                {d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </div>
-            </div>
-          </div>
-        );
-      },
-    },
-    // Columna existente: Fecha Formulario ahora usa fechaFormulario mapeado desde la API
-    {
-      title: "Fecha Formulario",
-      dataIndex: "fechaFormulario",
-      key: "fechaFormulario",
-      sorter: (a, b) =>
-        new Date(a.fechaFormulario ?? "").getTime() - new Date(b.fechaFormulario ?? "").getTime(),
-      render: (fechaFormulario: string | null) => {
-        if (!fechaFormulario) return "-";
-        const d = new Date(fechaFormulario);
-        return (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-            <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
-            <div>
-              <div style={{ color: "#000000", fontSize: "14px" }}>
-                {d.toLocaleDateString()}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  color: "#8c8c8c",
-                  fontSize: "13px",
-                }}
-              >
-                <ClockCircleOutlined style={{ fontSize: "12px" }} />
-                {d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      {
+        title: "Fecha Creación",
+        dataIndex: "fechaCreacion",
+        key: "fechaCreacion",
+        sorter: (a, b) =>
+          new Date(a.fechaCreacion ?? "").getTime() -
+          new Date(b.fechaCreacion ?? "").getTime(),
+        render: (fechaCreacion: string | null) => {
+          if (!fechaCreacion) return "-";
+          const d = new Date(fechaCreacion);
+          return (
+            <div
+              style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}
+            >
+              <CalendarOutlined
+                style={{ color: "#8c8c8c", marginTop: "2px" }}
+              />
+              <div>
+                <div style={{ color: "#000000", fontSize: "14px" }}>
+                  {d.toLocaleDateString()}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    color: "#8c8c8c",
+                    fontSize: "13px",
+                  }}
+                >
+                  <ClockCircleOutlined style={{ fontSize: "12px" }} />
+                  {d.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        );
+          );
+        },
       },
-    },
+      // Columna existente: Fecha Formulario ahora usa fechaFormulario mapeado desde la API
+      {
+        title: "Fecha Formulario",
+        dataIndex: "fechaFormulario",
+        key: "fechaFormulario",
+        sorter: (a, b) =>
+          new Date(a.fechaFormulario ?? "").getTime() -
+          new Date(b.fechaFormulario ?? "").getTime(),
+        render: (fechaFormulario: string | null) => {
+          if (!fechaFormulario) return "-";
+          const d = new Date(fechaFormulario);
+          return (
+            <div
+              style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}
+            >
+              <CalendarOutlined
+                style={{ color: "#8c8c8c", marginTop: "2px" }}
+              />
+              <div>
+                <div style={{ color: "#000000", fontSize: "14px" }}>
+                  {d.toLocaleDateString()}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    color: "#8c8c8c",
+                    fontSize: "13px",
+                  }}
+                >
+                  <ClockCircleOutlined style={{ fontSize: "12px" }} />
+                  {d.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        },
+      },
     ],
     []
   );
@@ -638,10 +731,7 @@ const ejecutarImportacion = async () => {
   const rowSelection = useMemo(
     () => ({
       selectedRowKeys: selectedRows.map((row) => row.id),
-      onChange: (
-        _selectedRowKeys: React.Key[],
-        selectedRowsData: Lead[]
-      ) => {
+      onChange: (_selectedRowKeys: React.Key[], selectedRowsData: Lead[]) => {
         setSelectedRows(selectedRowsData);
       },
       getCheckboxProps: (record: Lead) => ({
@@ -688,7 +778,10 @@ const ejecutarImportacion = async () => {
             >
               Reasignar masivo
             </Button>
-            <Button className={estilos.btnLimpiar} onClick={handleLimpiarFiltros}>
+            <Button
+              className={estilos.btnLimpiar}
+              onClick={handleLimpiarFiltros}
+            >
               Limpiar filtros
             </Button>
             <Button
@@ -947,7 +1040,11 @@ const ejecutarImportacion = async () => {
                   }}
                   bodyStyle={{ padding: 12 }}
                 >
-                  <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                  <Space
+                    direction="vertical"
+                    size={4}
+                    style={{ width: "100%" }}
+                  >
                     <div style={{ fontWeight: 700, fontSize: 15 }}>
                       {op.nombre}
                     </div>
@@ -976,10 +1073,13 @@ const ejecutarImportacion = async () => {
                     <div style={{ fontSize: 13, color: "#666" }}>
                       <b>Fecha:</b>{" "}
                       {new Date(op.fechaFormulario).toLocaleDateString("es-ES")}{" "}
-                      {new Date(op.fechaFormulario).toLocaleTimeString("es-ES", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {new Date(op.fechaFormulario).toLocaleTimeString(
+                        "es-ES",
+                        {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }
+                      )}
                     </div>
                   </Space>
                 </Card>
@@ -1031,15 +1131,21 @@ const ejecutarImportacion = async () => {
         className={estilosModal.modal}
       >
         <div className={estilosModal.modalContent}>
-          <h2 className={estilosModal.title}>Importar Procesado desde LinkedIn</h2>
+          <h2 className={estilosModal.title}>
+            Importar Procesado desde LinkedIn
+          </h2>
 
           {/* Rango de fecha */}
           <div className={estilosModal.section}>
-            <label className={estilosModal.label}>Rango de fecha (fecha de subida al CRM):</label>
+            <label className={estilosModal.label}>
+              Rango de fecha (fecha de subida al CRM):
+            </label>
             <RangePicker
               showTime
               value={importRange}
-              onChange={(dates) => setImportRange(dates as [Dayjs | null, Dayjs | null] | null)}
+              onChange={(dates) =>
+                setImportRange(dates as [Dayjs | null, Dayjs | null] | null)
+              }
               format="DD/MM/YYYY HH:mm"
               style={{ width: "100%" }}
               placeholder={["Fecha inicio", "Fecha fin"]}
@@ -1049,7 +1155,10 @@ const ejecutarImportacion = async () => {
 
           <div className={estilosModal.section}>
             <Button
-              onClick={() => { setImportRange(null); setImportResult(null); }}
+              onClick={() => {
+                setImportRange(null);
+                setImportResult(null);
+              }}
               size="large"
             >
               Limpiar
@@ -1067,10 +1176,22 @@ const ejecutarImportacion = async () => {
             <>
               <Card style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-                  <div><strong>Filas procesadas:</strong> {importResult.filasProcesadas}</div>
-                  <div><strong>Filas saltadas:</strong> {importResult.filasSaltadas}</div>
-                  <div><strong>Filas en rango:</strong> {importResult.filasEnRango}</div>
-                  {importResult.mensaje && <div style={{ width: "100%", marginTop: 8 }}><strong>Mensaje:</strong> {importResult.mensaje}</div>}
+                  <div>
+                    <strong>Filas procesadas:</strong>{" "}
+                    {importResult.filasProcesadas}
+                  </div>
+                  <div>
+                    <strong>Filas saltadas:</strong>{" "}
+                    {importResult.filasSaltadas}
+                  </div>
+                  <div>
+                    <strong>Filas en rango:</strong> {importResult.filasEnRango}
+                  </div>
+                  {importResult.mensaje && (
+                    <div style={{ width: "100%", marginTop: 8 }}>
+                      <strong>Mensaje:</strong> {importResult.mensaje}
+                    </div>
+                  )}
                 </div>
               </Card>
             </>
@@ -1090,10 +1211,6 @@ const ejecutarImportacion = async () => {
           </Button>
         </div>
       </Modal>
-
-
     </div>
   );
-
-  
 }

@@ -3,6 +3,8 @@ import { Typography, Row, Space, message, Spin } from "antd";
 import { InfoCircleOutlined } from "@ant-design/icons";
 import type { OcurrenciaDTO } from "../../../modelos/Ocurrencia";
 import { crearHistorialConOcurrencia, getOcurrenciasPermitidas } from "../../../config/rutasApi";
+import { getCookie } from "../../../utils/cookies";
+import { jwtDecode } from "jwt-decode";
 
 const { Text } = Typography;
 
@@ -30,10 +32,30 @@ type Props = {
   activo?: boolean;
 };
 
+  const token = getCookie("token");
+
 export default function EstadoNoCalificado({ oportunidadId, usuario = "SYSTEM", onCreado, activo = true }: Props) {
   const [ocurrencias, setOcurrencias] = useState<OcurrenciaDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [creatingId, setCreatingId] = useState<number | null>(null);
+
+    const getUserIdFromToken = () => {
+      if (!token) return 0;
+  
+      try {
+        const decoded: any = jwtDecode(token);
+  
+        const id =
+          decoded[
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+          ];
+  
+        return id ? Number(id) : 0;
+      } catch (e) {
+        console.error("Error decodificando token", e);
+        return 0;
+      }
+    };
 
   useEffect(() => {
     let mounted = true;
@@ -56,7 +78,7 @@ export default function EstadoNoCalificado({ oportunidadId, usuario = "SYSTEM", 
     if (creatingId || !activo) return;
     setCreatingId(ocId);
     try {
-      await crearHistorialConOcurrencia(oportunidadId, ocId, usuario);
+      await crearHistorialConOcurrencia(oportunidadId, ocId, Number(getUserIdFromToken()));
       message.success("Cambio aplicado");
       const list = await getOcurrenciasPermitidas(oportunidadId);
       setOcurrencias(Array.isArray(list) ? list : []);

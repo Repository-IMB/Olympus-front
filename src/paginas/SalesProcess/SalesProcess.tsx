@@ -8,16 +8,26 @@ import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
 import api from "../../servicios/api";
 
-// Definimos una interfaz para tipar los datos de las oportunidades de la API
+// =========================
+// TYPES
+// =========================
+
+interface Recordatorio {
+  idRecordatorio: number;
+  fecha: string;
+}
+
+// Oportunidad ya AGRUPADA (1 card por oportunidad)
 interface Opportunity {
   id: number;
   personaNombre: string;
   nombreEstado: string;
   nombreOcurrencia: string;
   productoNombre: string;
-  fechaCreacion: string; // Asumiendo que la API devuelve una fecha como string
-  fechaRecordatorio: string | null; // Campo de fecha de recordatorio
-  // Puedes añadir más campos si los necesitas para la tarjeta o la lógica
+  fechaCreacion: string;
+
+  // ✅ NUEVO
+  recordatorios: Recordatorio[];
 }
 
 interface TokenData {
@@ -25,7 +35,10 @@ interface TokenData {
   "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
 }
 
-// El componente SalesCard ahora recibe una oportunidad tipada
+// =========================
+// SALES CARD
+// =========================
+
 const SalesCard = ({ sale }: { sale: Opportunity }) => {
   const navigate = useNavigate();
 
@@ -33,39 +46,29 @@ const SalesCard = ({ sale }: { sale: Opportunity }) => {
     navigate(`/leads/oportunidades/${sale.id}`);
   };
 
-  // Función para verificar si el recordatorio aún está vigente (no ha pasado)
-  const isReminderActive = (fechaRecordatorio: string): boolean => {
-    const now = new Date();
-    const reminderDate = new Date(fechaRecordatorio);
-    // Retorna true si la fecha del recordatorio es mayor a la fecha actual
-    return reminderDate.getTime() > now.getTime();
-  };
-
-  // Función para determinar el color del recordatorio basado en el tiempo restante
+  // Color basado en tiempo restante (si ya pasó -> gris)
   const getReminderColor = (fechaRecordatorio: string): string => {
-    // Obtener fecha y hora actual del sistema
     const now = new Date();
-    // Parsear la fecha y hora del recordatorio
     const reminderDate = new Date(fechaRecordatorio);
 
-    // Calcular la diferencia en milisegundos
     const timeDifference = reminderDate.getTime() - now.getTime();
-
-    // Convertir a horas (1000ms * 60s * 60min = 1 hora)
     const hoursRemaining = timeDifference / (1000 * 60 * 60);
 
-    // Determinar el color según las horas restantes:
-    // - Rojo: 5 horas o menos
-    // - Amarillo: más de 5 horas pero menos de 24 horas
-    // - Azul: 24 horas o más
-    if (hoursRemaining <= 5) {
-      return "#ff4d4f"; // Rojo
-    } else if (hoursRemaining < 24) {
-      return "#ffd666"; // Amarillo dorado suave
-    } else {
-      return "#1677ff"; // Azul
-    }
+    if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
+    if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
+    if (hoursRemaining < 24) return "#ffd666"; // amarillo
+    return "#1677ff"; // azul
   };
+
+  // ✅ MOSTRAR SIEMPRE hasta 3 (sin filtrar por activos)
+  const recordatoriosVisibles = useMemo(() => {
+    return [...(sale.recordatorios || [])]
+      .filter((r) => r?.fecha)
+      .sort(
+        (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+      )
+      .slice(0, 3);
+  }, [sale.recordatorios]);
 
   return (
     <Card
@@ -75,20 +78,25 @@ const SalesCard = ({ sale }: { sale: Opportunity }) => {
       style={{ cursor: "pointer" }}
     >
       <div className="client-name">{sale.personaNombre}</div>
+
       {/* Usamos productoNombre como el "precio" o identificador del producto */}
       <div className="client-price">{sale.productoNombre}</div>
+
       <div className="client-date">
         <Calendar size={14} />{" "}
         <span>{new Date(sale.fechaCreacion).toLocaleDateString()}</span>
       </div>
-      {sale.fechaRecordatorio && isReminderActive(sale.fechaRecordatorio) && (
+
+      {/* ✅ 1 a 3 recordatorios dentro del mismo card */}
+      {recordatoriosVisibles.map((r) => (
         <div
+          key={r.idRecordatorio}
           style={{
             marginTop: "8px",
             display: "inline-flex",
             alignItems: "center",
             gap: "6px",
-            backgroundColor: getReminderColor(sale.fechaRecordatorio),
+            backgroundColor: getReminderColor(r.fecha),
             color: "#ffffff",
             padding: "4px 8px",
             borderRadius: "4px",
@@ -99,28 +107,34 @@ const SalesCard = ({ sale }: { sale: Opportunity }) => {
           <ClipboardList size={12} />
           <span>
             Recordatorio:{" "}
-            {new Date(sale.fechaRecordatorio).toLocaleDateString("es-ES", {
+            {new Date(r.fecha).toLocaleDateString("es-ES", {
               day: "2-digit",
               month: "2-digit",
               year: "numeric",
             })}{" "}
-            {new Date(sale.fechaRecordatorio).toLocaleTimeString("es-ES", {
+            {new Date(r.fecha).toLocaleTimeString("es-ES", {
               hour: "2-digit",
               minute: "2-digit",
               hour12: false,
             })}
           </span>
         </div>
-      )}
+      ))}
     </Card>
   );
 };
 
 const { Content } = Layout;
 
+// =========================
+// MAIN
+// =========================
+
 export default function SalesProcess() {
   const [activeFilter, setActiveFilter] = useState("todos");
-  const [isSelectClientModalVisible, setIsSelectClientModalVisible] = useState(false);
+  const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
+    useState(false);
+
   const navigate = useNavigate();
 
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -135,18 +149,51 @@ export default function SalesProcess() {
     let rolN = "";
     let idR = 0;
     if (!token) return { idUsuario: 0, idRol: 0, rolNombre: "" };
+
     try {
       const decoded = jwtDecode<TokenData>(token);
-      idU = parseInt(decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || "0");
-      rolN = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || "";
-      const rolesMap: Record<string, number> = { Asesor: 1, Supervisor: 2, Gerente: 3, Administrador: 4, Desarrollador: 5 };
+      idU = parseInt(
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ] || "0"
+      );
+      rolN =
+        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
+        "";
+
+      const rolesMap: Record<string, number> = {
+        Asesor: 1,
+        Supervisor: 2,
+        Gerente: 3,
+        Administrador: 4,
+        Desarrollador: 5,
+      };
       idR = rolesMap[rolN] ?? 0;
     } catch (e) {
       console.error("Error al decodificar token (useMemo)", e);
     }
+
     return { idUsuario: idU, idRol: idR, rolNombre: rolN };
   }, [token]);
 
+  // Rol para el botón "Agregar Oportunidad"
+  useEffect(() => {
+    const t = getCookie("token");
+    if (!t) return;
+    try {
+      const decoded = jwtDecode<TokenData>(t);
+      const role =
+        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
+        "";
+      setUserRole(String(role));
+    } catch (err) {
+      console.error("Error decodificando token (rol):", err);
+    }
+  }, []);
+
+  // =========================
+  // FETCH + AGRUPAR RECORDATORIOS
+  // =========================
   useEffect(() => {
     if (!idUsuario || !idRol) {
       setOpportunities([]);
@@ -159,16 +206,84 @@ export default function SalesProcess() {
         setLoading(true);
         setError(null);
 
-        const res = await api.get("/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio", {
-          params: { idUsuario, idRol },
+        const res = await api.get(
+          "/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio",
+          { params: { idUsuario, idRol } }
+        );
+
+        const raw = res.data?.oportunidad || [];
+        console.log("RAW oportunidad[0] 👉", raw?.[0]);
+
+        // ✅ Agrupar por oportunidad para evitar duplicados
+        const grouped: Record<number, Opportunity> = {};
+
+        raw.forEach((row: any) => {
+          const opportunityId = Number(row.idOportunidad ?? row.id ?? 0);
+          if (!opportunityId) return;
+
+          if (!grouped[opportunityId]) {
+            grouped[opportunityId] = {
+              id: opportunityId,
+              personaNombre: row.personaNombre,
+              nombreEstado: row.nombreEstado,
+              nombreOcurrencia: row.nombreOcurrencia,
+              productoNombre: row.productoNombre,
+              fechaCreacion: row.fechaCreacion,
+              recordatorios: [],
+            };
+          }
+
+          // ✅ Mapeo tolerante (porque tu backend no siempre se llama igual)
+          const idRec =
+            row.idHistorialInteraccion ??
+            row.idRecordatorio ??
+            row.idReminder ??
+            row.pnId ??
+            row.pnIdHis ??
+            row.idHis ??
+            null;
+
+          const fecRec =
+            row.fechaRecordatorio ??
+            row.dFechaRecordatorio ??
+            row.fecha ??
+            row.reminderDate ??
+            row.dFecRec ??
+            null;
+
+          // Si viene recordatorio, lo agregamos (sin duplicarlo)
+          if (idRec && fecRec) {
+            const idR = Number(idRec);
+            const fR = String(fecRec);
+
+            const yaExiste = grouped[opportunityId].recordatorios.some(
+              (r) => r.idRecordatorio === idR
+            );
+
+            if (!yaExiste) {
+              grouped[opportunityId].recordatorios.push({
+                idRecordatorio: idR,
+                fecha: fR,
+              });
+            }
+          }
         });
 
-        const data = res.data;
-        console.log("Aquí está la lista de oportunidades", data.oportunidad);
-        setOpportunities(data.oportunidad || []);
+        // Opcional: ordenar recordatorios internos por fecha asc
+        Object.values(grouped).forEach((op) => {
+          op.recordatorios.sort(
+            (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+          );
+        });
+
+        setOpportunities(Object.values(grouped));
       } catch (e: any) {
         console.error("Error al obtener oportunidades", e);
-        setError(e?.response?.data?.message ?? e.message ?? "Error al obtener oportunidades");
+        setError(
+          e?.response?.data?.message ??
+            e.message ??
+            "Error al obtener oportunidades"
+        );
       } finally {
         setLoading(false);
       }
@@ -177,7 +292,9 @@ export default function SalesProcess() {
     fetchOpportunities();
   }, [idUsuario, idRol]);
 
-  // Categorizamos las oportunidades obtenidas de la API en las estructuras existentes
+  // =========================
+  // CATEGORIZAR (igual que tu lógica)
+  // =========================
   const categorizedData = useMemo(() => {
     const initialSalesData: { [key: string]: Opportunity[] } = {
       registrado: [],
@@ -185,6 +302,7 @@ export default function SalesProcess() {
       potencial: [],
       promesa: [],
     };
+
     const initialOtrosEstados: { [key: string]: Opportunity[] } = {
       coorporativo: [],
       ventaCruzada: [],
@@ -227,44 +345,27 @@ export default function SalesProcess() {
           } else if (op.nombreOcurrencia === "Convertido") {
             initialOtrosEstados.convertido.push(op);
           } else {
-            console.warn(
-              `Oportunidad con estado no mapeado: ${op.nombreEstado}`
-            );
+            console.warn(`Oportunidad con estado no mapeado: ${op.nombreEstado}`);
           }
           break;
       }
     });
 
-    // Ordenar cada array por fechaCreacion descendente (más reciente primero)
+    // Ordenar por fechaCreacion desc (igual que tu código)
     const sortByFechaDesc = (a: Opportunity, b: Opportunity) =>
       new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime();
 
     Object.values(initialSalesData).forEach((arr) => arr.sort(sortByFechaDesc));
-    Object.values(initialOtrosEstados).forEach((arr) =>
-      arr.sort(sortByFechaDesc)
-    );
+    Object.values(initialOtrosEstados).forEach((arr) => arr.sort(sortByFechaDesc));
 
     return { salesData: initialSalesData, otrosEstados: initialOtrosEstados };
   }, [opportunities]);
 
-  useEffect(() => {
-    const t = getCookie("token");
-    if (!t) return;
-    try {
-      // usamos la misma función jwtDecode que ya tienes importada
-      const decoded = (jwtDecode as any)(t) as TokenData;
-      const role =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-        "";
-      setUserRole(String(role));
-    } catch (err) {
-      console.error("Error decodificando token (rol):", err);
-    }
-  }, []);
-
   const { salesData, otrosEstados } = categorizedData;
 
-  // Actualizamos los filtros para que reflejen los conteos reales de la API
+  // =========================
+  // FILTROS (igual)
+  // =========================
   const filters = useMemo(
     () => [
       {
@@ -312,6 +413,9 @@ export default function SalesProcess() {
       ? Object.values(otrosEstados).flat()
       : otrosEstados[activeFilter as keyof typeof otrosEstados] || [];
 
+  // =========================
+  // LOADING / ERROR (igual)
+  // =========================
   if (loading) {
     return (
       <div
@@ -331,6 +435,9 @@ export default function SalesProcess() {
     return <Alert message="Error" description={error} type="error" showIcon />;
   }
 
+  // =========================
+  // RENDER COMPLETO (incluye sección de abajo)
+  // =========================
   return (
     <Layout style={{ height: "100vh" }}>
       <Content style={{ padding: "20px", background: "#f5f5f5" }}>
@@ -342,11 +449,12 @@ export default function SalesProcess() {
             gap: "10px",
           }}
         >
-        {userRole !== "Asesor" && (
-          <Button onClick={() => setIsSelectClientModalVisible(true)}>
-            Agregar Oportunidad
-          </Button>
-        )}
+          {userRole !== "Asesor" && (
+            <Button onClick={() => setIsSelectClientModalVisible(true)}>
+              Agregar Oportunidad
+            </Button>
+          )}
+
           <Button
             type="primary"
             style={{
@@ -357,6 +465,7 @@ export default function SalesProcess() {
           >
             Vista de Proceso
           </Button>
+
           <Button
             style={{ borderRadius: "6px" }}
             onClick={() => navigate("/leads/Opportunities")}
@@ -396,6 +505,7 @@ export default function SalesProcess() {
                       style={{ backgroundColor: "#1677ff" }}
                     />
                   </div>
+
                   <div className={`card-list-container ${stage}`}>
                     {items.map((sale) => (
                       <SalesCard key={sale.id} sale={sale} />
@@ -406,7 +516,9 @@ export default function SalesProcess() {
             </div>
           </div>
 
-          {/* Otros estados */}
+          {/* =========================
+              SECCIÓN DE ABAJO (COMPLETA)
+             ========================= */}
           <div className="sales-section">
             <div className="other-states-header">
               <h3>Otras Ocurrencias</h3>
@@ -451,6 +563,7 @@ export default function SalesProcess() {
                           style={{ backgroundColor: "#1677ff" }}
                         />
                       </div>
+
                       <div className={`state-content ${estado}`}>
                         {items.length > 0 ? (
                           items.map((sale) => (
@@ -474,6 +587,7 @@ export default function SalesProcess() {
                       style={{ backgroundColor: "#1677ff" }}
                     />
                   </div>
+
                   <div className={`state-content ${activeFilter}`}>
                     {getFilteredData().length > 0 ? (
                       getFilteredData().map((sale) => (
@@ -487,6 +601,7 @@ export default function SalesProcess() {
               )}
             </div>
           </div>
+          {/* ========================= */}
         </div>
       </Content>
     </Layout>

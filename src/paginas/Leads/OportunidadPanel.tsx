@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, Typography } from "antd";
 import { RightOutlined } from "@ant-design/icons";
 import HistorialEstados from "./HistorialEstados";
@@ -10,6 +10,29 @@ interface ValidacionFaseProps {
 }
 
 const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
+  const [mostrarBrochure, setMostrarBrochure] = useState(false);
+  const [brochureUrl, setBrochureUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleMostrarBrochure = (event: CustomEvent) => {
+      setMostrarBrochure(true);
+      setBrochureUrl(event.detail.brochureUrl);
+    };
+
+    const handleOcultarBrochure = () => {
+      setMostrarBrochure(false);
+      setBrochureUrl(null);
+    };
+
+    window.addEventListener("mostrarBrochure", handleMostrarBrochure as EventListener);
+    window.addEventListener("ocultarBrochure", handleOcultarBrochure as EventListener);
+
+    return () => {
+      window.removeEventListener("mostrarBrochure", handleMostrarBrochure as EventListener);
+      window.removeEventListener("ocultarBrochure", handleOcultarBrochure as EventListener);
+    };
+  }, []);
+
   return (
     <div
       style={{
@@ -89,6 +112,45 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
       >
         {oportunidadId && <HistorialEstados oportunidadId={Number(oportunidadId)} />}
       </Card>
+
+      {/* === Visor de PDF del Brochure === */}
+      {mostrarBrochure && brochureUrl && (
+        <>
+          <Title level={5} style={{ margin: "16px 0 0 0", color: "#252C35" }}>
+            Brochure del Producto
+          </Title>
+          <Card
+            style={{
+              width: "100%",
+              background: "#F0F0F0",
+              borderRadius: 8,
+              border: "1px solid #DCDCDC",
+              boxShadow: "inset 1px 1px 3px rgba(0, 0, 0, 0.25)",
+            }}
+            bodyStyle={{ padding: 12 }}
+          >
+            <div
+              style={{
+                width: "100%",
+                height: "600px",
+                background: "#FFFFFF",
+                borderRadius: 6,
+                overflow: "hidden",
+              }}
+            >
+              <iframe
+                src={brochureUrl}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                }}
+                title="Brochure del Producto"
+              />
+            </div>
+          </Card>
+        </>
+      )}
     </div>
   );
 };
