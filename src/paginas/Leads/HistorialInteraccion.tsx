@@ -1,7 +1,12 @@
 import { Card, Space, Typography, Tag, Spin, Alert } from "antd";
 import { useParams } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
-import { WhatsAppOutlined, LinkedinOutlined, FacebookOutlined, PhoneOutlined } from "@ant-design/icons";
+import {
+  WhatsAppOutlined,
+  LinkedinOutlined,
+  FacebookOutlined,
+  PhoneOutlined,
+} from "@ant-design/icons";
 import api from "../../servicios/api";
 import HistorialInteracciones from "./HistorialInterraciones";
 import { addHistorialChangedListener } from "../../utils/events";
@@ -38,7 +43,9 @@ interface OportunidadDetalle {
 
 export default function HistorialInteraccion() {
   const { id } = useParams<{ id: string }>();
-  const [oportunidad, setOportunidad] = useState<OportunidadDetalle | null>(null);
+  const [oportunidad, setOportunidad] = useState<OportunidadDetalle | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +57,9 @@ export default function HistorialInteraccion() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(`/api/VTAModVentaOportunidad/ObtenerDetallePorId/${id}`);
+      const res = await api.get(
+        `/api/VTAModVentaOportunidad/ObtenerDetallePorId/${id}`
+      );
       setOportunidad(res.data ?? null);
     } catch (err: any) {
       console.error("Error al obtener detalles:", err);
@@ -74,7 +83,14 @@ export default function HistorialInteraccion() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "40px",
+        }}
+      >
         <Spin size="large" />
       </div>
     );
@@ -84,8 +100,14 @@ export default function HistorialInteraccion() {
     return <Alert message="Error" description={error} type="error" showIcon />;
   }
 
-  if (!oportunidad || !oportunidad.oportunidad || oportunidad.oportunidad.length === 0) {
-    return <Alert message="No se encontró la oportunidad" type="info" showIcon />;
+  if (
+    !oportunidad ||
+    !oportunidad.oportunidad ||
+    oportunidad.oportunidad.length === 0
+  ) {
+    return (
+      <Alert message="No se encontró la oportunidad" type="info" showIcon />
+    );
   }
 
   const oportunidadData = oportunidad.oportunidad[0];
@@ -94,20 +116,35 @@ export default function HistorialInteraccion() {
       ? oportunidad.historialActual[0]
       : null;
   const codigoLinkedin = oportunidadData.codigoLinkedin || "-";
+  const asesorNombre = historialActualData?.asesor?.nombres?.trim() ?? "";
+
+  const asesorApellidos = historialActualData?.asesor?.apellidos?.trim() ?? "";
+
+  const asesorCompleto =
+    asesorNombre || asesorApellidos
+      ? `${asesorNombre} ${asesorApellidos}`.trim()
+      : null;
   const codigoLanzamiento = oportunidadData.codigoLanzamiento || "-";
   const fechaFormulario = oportunidadData.fechaFormulario || "-";
   const fechaCreacion = oportunidadData.fechaCreacion || "-";
   const estado = historialActualData?.estadoReferencia?.nombre || "Desconocido";
-  const marcaciones = Number(historialActualData?.cantidadLlamadasNoContestadas ?? 0);
+  const marcaciones = Number(
+    historialActualData?.cantidadLlamadasNoContestadas ?? 0
+  );
 
-  const personaAsignadaNombre = (oportunidadData.personaAsignadaNombre ?? "").trim();
-  const personaAsignadaApellidos = (oportunidadData.personaAsignadaApellidos ?? "").trim();
+  const personaAsignadaNombre = (
+    oportunidadData.personaAsignadaNombre ?? ""
+  ).trim();
+  const personaAsignadaApellidos = (
+    oportunidadData.personaAsignadaApellidos ?? ""
+  ).trim();
   const nombreCompletoPersonaAsignada =
-    (personaAsignadaNombre || personaAsignadaApellidos)
+    personaAsignadaNombre || personaAsignadaApellidos
       ? `${personaAsignadaNombre} ${personaAsignadaApellidos}`.trim()
       : null;
 
-  const asignadoDisplay = nombreCompletoPersonaAsignada || "Sin asignar";
+  const asignadoDisplay =
+    asesorCompleto || nombreCompletoPersonaAsignada || "Sin asignar";
   const cantidadOportunidades = oportunidadData.totalOportunidadesPersona || 0;
   const origen = oportunidadData.origen || "WhatsApp";
 
@@ -122,13 +159,27 @@ export default function HistorialInteraccion() {
   };
 
   return (
-    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+    <div
+      style={{
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+    >
       {/* === Título principal === */}
       <Title level={5} style={{ margin: 0, color: "#252C35" }}>
         Oportunidad actual
       </Title>
 
-      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 2 }}>
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
         <Card
           style={{
             width: "100%",
@@ -140,51 +191,106 @@ export default function HistorialInteraccion() {
           }}
           bodyStyle={{ padding: 0 }}
         >
-          <div style={{ background: "#FFFFFF", borderRadius: 6, border: "1px solid #DCDCDC", padding: 8, display: "flex", flexDirection: "column", gap: 6, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 6,
+              border: "1px solid #DCDCDC",
+              padding: 8,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            }}
+          >
             <Space size={4}>
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Código lanzamiento:</Text>
-              <Text style={{ color: "#0D0C11", fontSize: 14 }}>{codigoLanzamiento}</Text>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
+                Código lanzamiento:
+              </Text>
+              <Text style={{ color: "#0D0C11", fontSize: 14 }}>
+                {codigoLanzamiento}
+              </Text>
             </Space>
 
             <Space size={4}>
               <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Código Linkedin:</Text>
               <Text style={{ color: "#0D0C11", fontSize: 14 }}>{codigoLinkedin}</Text>
             </Space>
-
+            
             <Space size={4}>
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Fecha de formulario:</Text>
-              <Text style={{ color: "#010101", fontSize: 14 }}>{formatearFecha(fechaFormulario)}</Text>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
+                Fecha de formulario:
+              </Text>
+              <Text style={{ color: "#010101", fontSize: 14 }}>
+                {formatearFecha(fechaFormulario)}
+              </Text>
             </Space>
 
             <Space size={4}>
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Fecha de creación:</Text>
-              <Text style={{ color: "rgba(0,0,0,0.85)", fontSize: 14 }}>{formatearFecha(fechaCreacion)}</Text>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
+                Fecha de creación:
+              </Text>
+              <Text style={{ color: "rgba(0,0,0,0.85)", fontSize: 14 }}>
+                {formatearFecha(fechaCreacion)}
+              </Text>
             </Space>
 
             <Space size={4} align="center">
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Estado:</Text>
-              <Tag style={{ background: "#BAD4FF", color: "#000", fontSize: 12, borderRadius: 4, padding: "0 10px" }}>{estado}</Tag>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
+                Estado:
+              </Text>
+              <Tag
+                style={{
+                  background: "#BAD4FF",
+                  color: "#000",
+                  fontSize: 12,
+                  borderRadius: 4,
+                  padding: "0 10px",
+                }}
+              >
+                {estado}
+              </Tag>
             </Space>
 
             <Space size={4} align="center">
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Marcaciones:</Text>
-              <Tag style={{ background: "#FFCDCD", color: "#000", fontSize: 12, borderRadius: 4, padding: "0 8px" }}>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
+                Marcaciones:
+              </Text>
+              <Tag
+                style={{
+                  background: "#FFCDCD",
+                  color: "#000",
+                  fontSize: 12,
+                  borderRadius: 4,
+                  padding: "0 8px",
+                }}
+              >
                 {marcaciones}
               </Tag>
             </Space>
 
             <Space size={4}>
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Asesor asignado:</Text>
-              <Text style={{ color: "#0D0C11", fontSize: 14 }}>{asignadoDisplay}</Text>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
+                Asesor asignado:
+              </Text>
+              <Text style={{ color: "#0D0C11", fontSize: 14 }}>
+                {asignadoDisplay}
+              </Text>
             </Space>
 
             <Space size={4}>
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Otras oportunidades:</Text>
-              <Text style={{ color: "#005FF8", fontSize: 14, fontWeight: 500 }}>{cantidadOportunidades}</Text>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
+                Otras oportunidades:
+              </Text>
+              <Text style={{ color: "#005FF8", fontSize: 14, fontWeight: 500 }}>
+                {cantidadOportunidades}
+              </Text>
             </Space>
 
             <Space size={4} align="center">
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Origen:</Text>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
+                Origen:
+              </Text>
 
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 {(() => {
@@ -210,8 +316,17 @@ export default function HistorialInteraccion() {
                             gap: 6,
                           }}
                         >
-                          <LinkedinOutlined style={{ color: "#FFFFFF", fontSize: 12 }} />
-                          <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 600, margin: 0 }}>
+                          <LinkedinOutlined
+                            style={{ color: "#FFFFFF", fontSize: 12 }}
+                          />
+                          <Text
+                            style={{
+                              color: "#FFFFFF",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              margin: 0,
+                            }}
+                          >
                             LinkedIn
                           </Text>
                         </div>
@@ -231,8 +346,17 @@ export default function HistorialInteraccion() {
                         background: "transparent",
                       }}
                     >
-                      <PhoneOutlined style={{ color: "#0D0C11", fontSize: 12 }} />
-                      <Text style={{ color: "#0D0C11", fontSize: 13, fontWeight: 600, margin: 0 }}>
+                      <PhoneOutlined
+                        style={{ color: "#0D0C11", fontSize: 12 }}
+                      />
+                      <Text
+                        style={{
+                          color: "#0D0C11",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          margin: 0,
+                        }}
+                      >
                         Manual
                       </Text>
                     </div>
@@ -240,7 +364,6 @@ export default function HistorialInteraccion() {
                 })()}
               </div>
             </Space>
-
 
             {/* <Space size={4} align="center">
               <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Origen:</Text>

@@ -16,6 +16,7 @@ import { getCookie } from "../../../utils/cookies";
 import dayjs from "dayjs";
 import { crearHistorialConOcurrencia } from "../../../config/rutasApi";
 import api from "../../../servicios/api";
+import { jwtDecode } from "jwt-decode";
 
 const { Text } = Typography;
 
@@ -104,6 +105,26 @@ const EstadoMatriculado: React.FC<{
 
   // 🟢 ÉXITO
   const [exitoMensaje, setExitoMensaje] = useState<string>("");
+
+  const token = getCookie("token");
+
+  const getUserIdFromToken = () => {
+    if (!token) return 0;
+
+    try {
+      const decoded: any = jwtDecode(token);
+
+      const id =
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ];
+
+      return id ? Number(id) : 0;
+    } catch (e) {
+      console.error("Error decodificando token", e);
+      return 0;
+    }
+  };
 
   const enteredCobranza = Boolean(idPlan) || bloquearSelect;
   const convertRequiresFullPayment = cameFromCobranza || enteredCobranza;
@@ -621,7 +642,7 @@ const EstadoMatriculado: React.FC<{
         await crearHistorialConOcurrencia(
           oportunidadId,
           OC_CONVERTIDO,
-          "SYSTEM"
+          Number(getUserIdFromToken())
         );
 
         setArrivedFromCobranza(true);

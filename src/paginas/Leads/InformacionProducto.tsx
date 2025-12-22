@@ -54,6 +54,8 @@ interface Producto {
   fechaPresentacion: string | null;
   datosImportantes: string;
   estado: boolean;
+  costoBase: number | null;
+  brochure: string | null;
   fechaCreacion: string;
   usuarioCreacion: string;
   fechaModificacion: string;
@@ -182,9 +184,10 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
   const [docentesInicializados, setDocentesInicializados] = useState(false);
   const [loading, setLoading] = useState(false);
   const [descuentoTemporal, setDescuentoTemporal] = useState<number | null>(null);
+  const [tabSeleccionado, setTabSeleccionado] = useState(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
-  const tabs = ["Producto actual", "Productos del área", "Otras áreas"];
+  const tabs = ["Producto actual", "Productos del área", "Ver brochure"];
 
 
   // Función para formatear fechas de ISO a DD-MM-YYYY
@@ -265,6 +268,27 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
   useEffect(() => {
     cargarDatosProducto();
   }, [oportunidadId]);
+
+  // Manejar clic en tabs
+  const handleTabClick = (index: number) => {
+    setTabSeleccionado(index);
+
+    // Si se selecciona "Ver brochure" (índice 2) y hay URL de brochure, emitir evento
+    if (index === 2 && productoData?.brochure) {
+      window.dispatchEvent(
+        new CustomEvent("mostrarBrochure", {
+          detail: { brochureUrl: productoData.brochure },
+        })
+      );
+    } else if (index !== 2) {
+      // Si se selecciona otro tab, ocultar el brochure
+      window.dispatchEvent(
+        new CustomEvent("ocultarBrochure", {
+          detail: {},
+        })
+      );
+    }
+  };
 
   const detalles: Array<[string, string]> = [
     ["Nombre producto:", productoData?.nombre || "-"],
@@ -467,18 +491,31 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
           {tabs.map((tab, i) => (
             <Col flex={1} key={tab}>
               <Card
+                onClick={() => handleTabClick(i)}
                 style={{
-                  background: i === 0 ? "#252C35" : "#FFFFFF",
+                  background: i === tabSeleccionado ? "#252C35" : "#FFFFFF",
                   textAlign: "center",
                   borderRadius: 8,
                   boxShadow: "1px 1px 2px rgba(0,0,0,0.12)",
-                  border: i === 0 ? "none" : "1px solid #EAEAEA",
+                  border: i === tabSeleccionado ? "none" : "1px solid #EAEAEA",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
                 }}
                 bodyStyle={{ padding: "6px 8px" }}
+                onMouseEnter={(e) => {
+                  if (i !== tabSeleccionado) {
+                    e.currentTarget.style.background = "#F5F5F5";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (i !== tabSeleccionado) {
+                    e.currentTarget.style.background = "#FFFFFF";
+                  }
+                }}
               >
                 <Text
                   style={{
-                    color: i === 0 ? "#FFFFFF" : "#0D0C11",
+                    color: i === tabSeleccionado ? "#FFFFFF" : "#0D0C11",
                     fontSize: 13,
                   }}
                 >
