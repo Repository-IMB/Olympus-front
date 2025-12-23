@@ -1,6 +1,9 @@
 services:
   frontend:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_API_URL: https://olympus.imbinstitute.com/api
     container_name: react_app
     ports:
       - "3002:80"
