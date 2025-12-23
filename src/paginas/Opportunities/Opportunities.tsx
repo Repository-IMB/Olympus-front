@@ -83,6 +83,13 @@ export default function OpportunitiesInterface() {
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const { idUsuario, idRol } = useMemo(() => {
     let idU = 0;
@@ -543,15 +550,26 @@ export default function OpportunitiesInterface() {
         ) : error ? (
           <Alert message="Error" description={error} type="error" showIcon />
         ) : (
-          <Table
-            columns={columns}
-            dataSource={opportunitiesFiltradas}
-            rowKey="id"
-            pagination={{ pageSize: 10 }}
-            style={{
-              fontSize: "14px",
-            }}
-          />
+        <Table
+          columns={columns}
+          dataSource={opportunitiesFiltradas}
+          rowKey="id"
+          className={styles.table}
+          scroll={{ x: isMobile ? 800 : undefined }}
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"], // deben ser strings
+            onChange: (page: number, newPageSize?: number) => {
+              setCurrentPage(page);
+              if (typeof newPageSize === "number") setPageSize(newPageSize);
+            },
+            // Opcionales útiles:
+            showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
+            hideOnSinglePage: true
+          }}
+        />
         )}
       </div>
     </Content>

@@ -90,6 +90,8 @@ export default function Asignacion() {
   const [asesorDestino, setAsesorDestino] = useState<number | null>(null);
   const [forzarReasignacion, setForzarReasignacion] = useState(true);
   const [oportunidades, setOportunidades] = useState<OportunidadBackend[]>([]);
+  const [filterCodigoLanzamiento, setFilterCodigoLanzamiento] = useState<string>("Todos");
+  const [filterCodigoLinkedin, setFilterCodigoLinkedin] = useState<string>("Todos");
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingAsesores, setLoadingAsesores] = useState<boolean>(true);
@@ -334,6 +336,8 @@ const getUserIdFromToken = () => {
     setFilterOrigen("Todos");
     setFilterPais("Todos");
     setFilterAsesor("Todos");
+    setFilterCodigoLanzamiento("Todos");
+    setFilterCodigoLinkedin("Todos");
     setDateRange(null);
   };
 
@@ -444,7 +448,7 @@ const getUserIdFromToken = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchText, filterEstado, filterOrigen, filterPais, filterAsesor, dateRange, oportunidades]);
+  }, [searchText, filterEstado, filterOrigen, filterPais, filterAsesor, dateRange, oportunidades,filterCodigoLanzamiento,filterCodigoLinkedin,]);
 
   useEffect(() => {
     obtenerOportunidades();
@@ -488,14 +492,34 @@ const getUserIdFromToken = () => {
     return Array.from(origenes).sort();
   }, [leadsMapeados]);
 
-  const asesoresUnicos = useMemo(() => {
-    const setAsesores = new Set<string>();
+  const codigoLanzamientoUnicos = useMemo(() => {
+    const setcodigoLanzamiento = new Set<string>();
     leadsMapeados.forEach((lead) => {
-      if (lead.asesor && lead.asesor !== "-") {
-        setAsesores.add(lead.asesor);
+      if (lead.codigoLanzamiento && lead.codigoLanzamiento !== "-") {
+        setcodigoLanzamiento.add(lead.codigoLanzamiento);
       }
     });
-    return Array.from(setAsesores).sort();
+    return Array.from(setcodigoLanzamiento).sort();
+  }, [leadsMapeados]);
+
+  const codigosLinkedinUnicos = useMemo(() => {
+  const setCodigosLinkedin = new Set<string>();
+  leadsMapeados.forEach((lead) => {
+    if (lead.codigoLinkedin && lead.codigoLinkedin !== "-") {
+      setCodigosLinkedin.add(lead.codigoLinkedin);
+    }
+  });
+  return Array.from(setCodigosLinkedin).sort();
+  }, [leadsMapeados]);
+
+  const asesoresUnicos = useMemo(() => {
+  const setAsesores = new Set<string>();
+  leadsMapeados.forEach((lead) => {
+    if (lead.asesor && lead.asesor !== "-") {
+      setAsesores.add(lead.asesor);
+    }
+  });
+  return Array.from(setAsesores).sort();
   }, [leadsMapeados]);
 
   const paisesUnicos = useMemo(() => {
@@ -521,6 +545,14 @@ const getUserIdFromToken = () => {
           l.codigoLinkedin.toLowerCase().includes(busqueda) ||
           l.id.toString().includes(busqueda)
       );
+    }
+
+    if (filterCodigoLanzamiento !== "Todos") {
+      filtrados = filtrados.filter((lead) => lead.codigoLanzamiento === filterCodigoLanzamiento);
+    }
+    
+    if (filterCodigoLinkedin !== "Todos") {
+      filtrados = filtrados.filter((lead) => lead.codigoLinkedin === filterCodigoLinkedin);
     }
 
     if (filterEstado !== "Todos") {
@@ -557,6 +589,8 @@ const getUserIdFromToken = () => {
     leadsMapeados,
     searchText,
     filterEstado,
+    filterCodigoLanzamiento,
+    filterCodigoLinkedin,
     filterOrigen,
     filterPais,
     filterAsesor,
@@ -807,6 +841,33 @@ const getUserIdFromToken = () => {
             {asesoresUnicos.map((a) => (
               <Option key={a} value={a}>
                 {a}
+              </Option>
+            ))}
+          </Select>
+          <Select
+            value={filterCodigoLinkedin}
+            onChange={setFilterCodigoLinkedin}
+            className={estilos.filterSelect}
+            placeholder="Seleccionar codigo Linkedin"
+          >
+            <Option value="Todos">Todos codigos Linkedin</Option>
+            {codigosLinkedinUnicos.map((codigoLinkedin) => (
+              <Option key={codigoLinkedin} value={codigoLinkedin}>
+                {codigoLinkedin}
+              </Option>
+            ))}
+          </Select>
+          
+          <Select
+            value={filterCodigoLanzamiento}
+            onChange={setFilterCodigoLanzamiento}
+            className={estilos.filterSelect}
+            placeholder="Seleccionar codigo lanzamiento"
+          >
+            <Option value="Todos">Todos codigos lanzamiento</Option>
+            {codigoLanzamientoUnicos.map((codigoLanzamiento) => (
+              <Option key={codigoLanzamiento} value={codigoLanzamiento}>
+                {codigoLanzamiento}
               </Option>
             ))}
           </Select>
