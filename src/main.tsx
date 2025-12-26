@@ -9,6 +9,7 @@ import "antd/dist/reset.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ConfigProvider
+      getPopupContainer={() => document.body}
       theme={{
         token: {
           motion: false,
