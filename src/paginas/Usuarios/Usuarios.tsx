@@ -617,15 +617,16 @@ export default function Usuarios() {
             </Col>
             <Col span={12}>
               <Form.Item label="Rol" name="idRol" rules={[{ required: true }]}>
-                <Select placeholder="Seleccione rol"
-                getPopupContainer={(trigger) => trigger.parentElement!}
-                placement="bottomLeft"
+                <Select
+                  placeholder="Seleccione rol"
+                  getPopupContainer={() => document.body}    // <- importante
+                  placement="bottomLeft"
                 >
-                {roles.map((r) => (
-                  <Option key={r.id} value={r.id}>
-                    {r.nombreRol}
-                  </Option>
-                ))}
+                  {roles.map((r) => (
+                    <Option key={r.id} value={r.id}>
+                      {r.nombreRol}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
