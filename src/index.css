@@ -1,54 +1,105 @@
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap');
 
-html, body, #root {
-  font-family: 'Instrument Sans', sans-serif;
+/* ===== Variables y tipografías ===== */
+:root {
+  --font-sans: 'Instrument Sans', sans-serif;
+  --app-bg: #f6f7f8;       /* fondo general de la app */
+  --shell-bg: #ffffff;     /* fondo del contenedor de contenido */
+  --accent: #646cff;
+  --accent-hover: #535bf2;
 }
-/* CSS global */
-html, body, #root {
+
+/* ===== Reset / base ===== */
+html, body {
   height: 100%;
-  width: 100vw;
   margin: 0;
   padding: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--app-bg); /* fondo general */
+  color: #222;
 }
 
 #root {
-  display: flex;
-  justify-content: center; /* centro horizontal */
-  align-items: center;     /* centro vertical */
-  background-color: #242424;
+  min-height: 100vh;
+  /* NO use display:flex aquí: dejar que los componentes manejen el layout */
 }
 
-#wrapper {
+/* ===== Layoutes específicos (usar en componentes concretos) ===== */
+
+/* LOGIN / páginas centradas */
+.login-layout {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #242424; /* solo para pantallas que quieras con fondo oscuro */
+}
+
+.login-wrapper {
+  width: 100%;
+  max-width: 420px;
+  padding: 2rem;
+  background: var(--shell-bg);
+  border-radius: 8px;
+  box-sizing: border-box;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+/* MAIN SHELL - sidebar + contenido (uso recomendado para dashboards) */
+.main-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--app-bg);
+}
+
+/* Sidebar fijo */
+.main-sidebar {
+  width: 260px; /* ajustar según diseño */
+  background: var(--shell-bg);
+  border-right: 1px solid rgba(0,0,0,0.06);
+  box-sizing: border-box;
+  /* Opcional: hacer sticky/fixed si tu diseño lo requiere */
+}
+
+/* Contenido principal */
+.main-content {
+  flex: 1;
+  padding: 24px;
+  box-sizing: border-box;
+  overflow: auto; /* scroll interno */
+  min-width: 0; /* evita overflow horizontal con flex children */
+}
+
+/* Wrapper del contenido donde puedes limitar ancho */
+.content-wrapper, /* preferido para páginas internas */
+#wrapper {         /* mantener compatibilidad si usas #wrapper en varios archivos */
   max-width: 1280px;
   width: 100%;
-  padding: 2rem;
+  margin: 0 auto;
+  padding: 1.5rem;
   box-sizing: border-box;
-  background-color: white; /* o el fondo que quieras para el contenido */
+  background-color: var(--shell-bg);
   border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
 }
 
-
+/* ===== Estilos generales reutilizables ===== */
 a {
   font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+  color: var(--accent);
+  text-decoration: none;
 }
-a:hover {
-  color: #535bf2;
-}
+a:hover { color: var(--accent-hover); }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
+/* Titulares, botones etc. */
+h1 { font-size: 3.2em; line-height: 1.1; margin: 0; }
 
 button {
   border-radius: 8px;
@@ -58,35 +109,25 @@ button {
   font-weight: 500;
   font-family: inherit;
   background-color: #1a1a1a;
+  color: #fff;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.25s, background-color 0.15s;
 }
-button:hover {
-  border-color: #646cff;
-}
+button:hover { border-color: rgba(100,108,255,0.35); }
 button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
+button:focus-visible { outline: 4px auto -webkit-focus-ring-color; }
 
 @media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+  :root { color: #213547; background-color: #ffffff; }
+  a:hover { color: #747bff; }
+  button { background-color: #f9f9f9; color: #111; }
 }
-/* ===== DEBUG POPUPS ANT DESIGN (SOLO PARA PRUEBA) ===== */
-.ant-select-dropdown,
-.ant-tooltip,
-.ant-notification {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  z-index: 999999 !important;
+
+/* ===== Accesibilidad / helpers ===== */
+.hidden-visually {
+  position: absolute !important;
+  height: 1px; width: 1px;
+  overflow: hidden;
+  clip: rect(1px,1px,1px,1px);
+  white-space: nowrap;
 }
