@@ -81,3 +81,12 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+/* ===== DEBUG POPUPS ANT DESIGN (SOLO PARA PRUEBA) ===== */
+.ant-select-dropdown,
+.ant-tooltip,
+.ant-notification {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 999999 !important;
+}
