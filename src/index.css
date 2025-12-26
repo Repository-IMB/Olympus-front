@@ -73,15 +73,15 @@ html, body {
 }
 
 /* Wrapper del contenido donde puedes limitar ancho */
-.content-wrapper, /* preferido para páginas internas */
-#wrapper {         /* mantener compatibilidad si usas #wrapper en varios archivos */
-  max-width: 1280px;
+.content-wrapper,
+#wrapper {
   width: 100%;
-  margin: 0 auto;
-  padding: 1.5rem;
+  max-width: none;        /* permite full width */
+  margin: 0;              /* no centrar */
+  padding: 1.5rem;        /* padding interior */
   box-sizing: border-box;
-  background-color: var(--shell-bg);
-  border-radius: 8px;
+  background-color: var(--shell-bg); /* si quieres fondo blanco */
+  border-radius: 8px 8px 0 0; /* opcional: esquinas solo arriba */
   box-shadow: 0 2px 8px rgba(0,0,0,0.03);
 }
 
