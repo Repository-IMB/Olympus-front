@@ -146,6 +146,16 @@ export async function obtenerClientesPotenciales(): Promise<ClientePotencial[]> 
   }
 }
 
+export async function obtenerPersonaPorId(id: number): Promise<Persona> {
+  try {
+    const res = await api.get(`/api/VTAModVentaPersona/ObtenerPorId/${id}`);
+    return res.data;
+  } catch (err: any) {
+    console.error("obtenerPersonaPorId axios error", err?.response?.status, err?.response?.data);
+    throw err;
+  }
+}
+
 export interface Lanzamiento {
   id: number;
   codigoLanzamiento: string;

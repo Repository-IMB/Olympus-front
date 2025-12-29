@@ -12,9 +12,10 @@ import {
   Popconfirm,
   Row,
   Col,
+  Tooltip
 } from "antd";
 import { useEffect, useState, useMemo } from "react";
-import { SearchOutlined } from "@ant-design/icons";
+import { SearchOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { obtenerPaises } from "../../config/rutasApi";
 import { getCookie } from "../../utils/cookies";
 import { validarAccesoRuta } from "../../componentes/ValidarAccesoRuta";
@@ -188,24 +189,13 @@ export default function Usuarios() {
   const abrirModalNuevo = () => {
     setEditando(null);
     form.resetFields();
-    if (paisSeleccionado) form.setFieldsValue({ idPais: paisSeleccionado.id });
-    setModalVisible(true);
-  };
 
-  const abrirModalEditar = (usuario: Usuario) => {
-    setEditando(usuario);
-    form.setFieldsValue({
-      nombreUsuario: usuario.nombres,
-      correoUsuario: usuario.correo,
-      password: "",
-      idRol: usuario.idRol,
-      idPais: usuario.idPais,
-      nombres: usuario.nombres,
-      apellidos: usuario.apellidos,
-      celular: usuario.celular,
-      industria: usuario.industria,
-      areaTrabajo: usuario.areaTrabajo,
-    });
+    const peru = paises.find((p) => p.nombre === "Perú");
+    if (peru) {
+      setPaisSeleccionado(peru);
+      form.setFieldsValue({ idPais: peru.id });
+    }
+
     setModalVisible(true);
   };
 
@@ -375,21 +365,19 @@ export default function Usuarios() {
       {
         title: "Acciones",
         key: "acciones",
-        render: (_: any, row: Usuario) => (
-          <Space>
-            <Button type="link" onClick={() => abrirModalEditar(row)}>
-              Editar
-            </Button>
-            <Popconfirm
-              title="¿Seguro que quieres eliminar este usuario?"
-              onConfirm={() => eliminarUsuario(row.id)}
-              okText="Sí"
-              cancelText="No"
-            >
-              <Button danger type="link">
-                Eliminar
-              </Button>
-            </Popconfirm>
+        render: () => (
+          <Space size="middle">
+            <Tooltip title="Editar">
+              <span className={estilos.actionIcon}>
+                <EditOutlined />
+              </span>
+            </Tooltip>
+
+            <Tooltip title="Eliminar">
+              <span className={estilos.actionIcon}>
+                <DeleteOutlined />
+              </span>
+            </Tooltip>
           </Space>
         ),
       },
@@ -494,6 +482,8 @@ export default function Usuarios() {
         onCancel={() => {
           setModalVisible(false);
           setErrorModal(null);
+          form.resetFields();
+          setPaisSeleccionado(null);
         }}
         width={800}
         style={{ margin: "auto" }}
@@ -614,7 +604,24 @@ export default function Usuarios() {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="País" name="idPais">
-                <Select allowClear placeholder="Seleccione">
+                <Select
+                  allowClear
+                  showSearch
+                  placeholder="Seleccione país"
+                  loading={loadingPaises}
+                  disabled={loadingPaises}
+                  virtual={false}
+                  autoClearSearchValue={false}
+                  getPopupContainer={(trigger) => trigger.parentElement!}
+                  filterOption={(input, option) =>
+                    (option?.children?.toString() || "")
+                      .toLowerCase()
+                      .includes(input.toLowerCase())
+                  }
+                  notFoundContent={
+                    loadingPaises ? <Spin size="small" /> : "No hay países disponibles"
+                  }
+                >
                   {paises.map((p) => (
                     <Option key={p.id} value={p.id}>
                       {p.nombre} (+{p.prefijoCelularPais})

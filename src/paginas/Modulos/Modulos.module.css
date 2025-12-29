@@ -19,7 +19,7 @@
 }
 
 .header {
-  marginBottom: 4px;
+  margin-bottom: 4px;
 }
 
 .title {
@@ -32,7 +32,6 @@
 
 .toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
@@ -157,4 +156,3 @@
 .actionIcon:hover {
   background-color: #000000;
 }
-

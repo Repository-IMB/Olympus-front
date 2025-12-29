@@ -6,6 +6,11 @@ import {
   CaretUpOutlined,
   AppstoreOutlined,
   DashboardOutlined,
+  ContainerOutlined,
+  BookOutlined,
+  ReadOutlined,
+  FileTextOutlined,
+  IdcardOutlined,
 } from "@ant-design/icons";
 import styles from "./Sidebar.module.css";
 
@@ -28,7 +33,8 @@ export default function Sidebar({
   const isActive = (path: string) => currentPath === path;
 
   const isActiveMultiple = (...paths: string[]) =>
-    paths.some((path) => currentPath === path);
+    paths.some((path) => currentPath === path || currentPath.startsWith(path + "/"));
+
 
   return (
     <div className={styles.container}>
@@ -132,6 +138,54 @@ export default function Sidebar({
               <CaretDownOutlined />
             )}
           </div>
+          {openMenu === "Desarrollo" && (
+            <div className={styles.menuItems}>
+              <div
+                className={`${styles.menuItem} ${
+                  isActiveMultiple("/producto/departamentos") ? styles.menuItemActive : ""
+                }`}
+                onClick={() => onNavigate("/producto/departamentos")}
+              >
+                <ContainerOutlined /> Departamentos
+              </div>
+
+              <div
+                className={`${styles.menuItem} ${
+                  isActiveMultiple("/producto/docentes") ? styles.menuItemActive : ""
+                }`}
+                onClick={() => onNavigate("/producto/docentes")}
+              >
+                <BookOutlined /> Docentes
+              </div>
+
+              <div
+                className={`${styles.menuItem} ${
+                  isActiveMultiple("/producto/productos") ? styles.menuItemActive : ""
+                }`}
+                onClick={() => onNavigate("/producto/productos")}
+              >
+                <ReadOutlined /> Productos
+              </div>
+
+              <div
+                className={`${styles.menuItem} ${
+                  isActiveMultiple("/producto/modulos") ? styles.menuItemActive : ""
+                }`}
+                onClick={() => onNavigate("/producto/modulos")}
+              >
+                <FileTextOutlined /> Módulos
+              </div>
+
+              <div
+                className={`${styles.menuItem} ${
+                  isActiveMultiple("/producto/alumnos") ? styles.menuItemActive : ""
+                }`}
+                onClick={() => onNavigate("/producto/alumnos")}
+              >
+                <IdcardOutlined /> Alumnos
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

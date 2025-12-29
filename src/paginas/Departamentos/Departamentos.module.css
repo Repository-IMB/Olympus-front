@@ -104,6 +104,13 @@
   color: #4096ff;
 }
 
+/* --- BOTON PRINCIPAL EN MODALS --- */
+.modalBtnFull {
+  width: 100%;
+  height: 42px; /* un poco más alto para modal */
+  font-size: 15px;
+}
+
 .tableWrapper {
   width: 100%;
   overflow-x: auto;
@@ -157,4 +164,3 @@
 .actionIcon:hover {
   background-color: #000000;
 }
-

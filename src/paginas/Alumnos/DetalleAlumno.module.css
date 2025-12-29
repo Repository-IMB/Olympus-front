@@ -1,0 +1,84 @@
+.container {
+  padding: 16px;
+}
+
+.productCard {
+  border-radius: 8px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.infoList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.infoItem {
+  display: flex;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.label {
+  font-weight: 600;
+  color: #777676;
+}
+
+.value {
+    font-weight: 600;
+  color: #262626;
+}
+
+.actions {
+  margin-bottom: 12px;
+}
+
+.assignButtonWrapper {
+  margin-top: 8px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.darkButton {
+  background-color: #1f1f1f !important;
+  border-color: #1f1f1f !important;
+  color: #ffffff !important;
+}
+
+.darkButton:hover,
+.darkButton:focus,
+.darkButton:active {
+  background-color: #1f1f1f !important;
+  border-color: #1f1f1f !important;
+  color: #ffffff !important;
+}
+
+.iconDarkButton {
+  background-color: #1f1f1f !important;
+  border-color: #1f1f1f !important;
+  color: #ffffff !important;
+}
+
+.iconDarkButton:hover,
+.iconDarkButton:focus,
+.iconDarkButton:active {
+  background-color: #1f1f1f !important;
+  border-color: #1f1f1f !important;
+  color: #ffffff !important;
+}
+
+
+
+
+
