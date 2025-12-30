@@ -988,11 +988,12 @@ const getUserIdFromToken = () => {
             ) : (
               <Select
                 showSearch
-                value={asesorDestino}
+                value={asesorDestino ?? undefined}
                 onChange={setAsesorDestino}
                 placeholder="Selecciona un asesor"
                 className={estilosModal.select}
                 size="large"
+                virtual={false}
                 filterOption={(input, option) =>
                   (option?.children as unknown as string)
                     .toLowerCase()
