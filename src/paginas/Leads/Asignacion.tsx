@@ -1003,7 +1003,6 @@ const getUserIdFromToken = () => {
                     .includes(input.toLowerCase())
                 }
                 listHeight={200}
-                virtual={false}
               >
                 {asesores.map((a) => (
                   <Option key={a.idUsuario} value={a.idUsuario}>
