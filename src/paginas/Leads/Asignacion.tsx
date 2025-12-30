@@ -987,11 +987,17 @@ const getUserIdFromToken = () => {
               <Spin />
             ) : (
               <Select
+                showSearch
                 value={asesorDestino}
                 onChange={setAsesorDestino}
                 placeholder="Selecciona un asesor"
                 className={estilosModal.select}
                 size="large"
+                filterOption={(input, option) =>
+                  (option?.children as unknown as string)
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
               >
                 {asesores.map((a) => (
                   <Option key={a.idUsuario} value={a.idUsuario}>
@@ -1011,7 +1017,6 @@ const getUserIdFromToken = () => {
                     Fecha<span style={{ color: "#ff4d4f" }}>*</span>
                   </span>
                 }
-                required
                 style={{ flex: 1 }}
               >
                 <DatePicker
@@ -1029,7 +1034,6 @@ const getUserIdFromToken = () => {
                     Hora<span style={{ color: "#ff4d4f" }}>*</span>
                   </span>
                 }
-                required
                 style={{ flex: 1 }}
               >
                 <TimePicker
