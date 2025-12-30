@@ -990,11 +990,18 @@ const getUserIdFromToken = () => {
               <Spin />
             ) : (
               <Select
-                value={asesorDestino}
+                showSearch
+                value={asesorDestino ?? undefined}
                 onChange={setAsesorDestino}
                 placeholder="Selecciona un asesor"
                 className={estilosModal.select}
                 size="large"
+                virtual={false}
+                filterOption={(input, option) =>
+                  (option?.children as unknown as string)
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
                 listHeight={200}
                 virtual={false}
               >
@@ -1016,7 +1023,6 @@ const getUserIdFromToken = () => {
                     Fecha<span style={{ color: "#ff4d4f" }}>*</span>
                   </span>
                 }
-                required
                 style={{ flex: 1 }}
               >
                 <DatePicker
@@ -1034,7 +1040,6 @@ const getUserIdFromToken = () => {
                     Hora<span style={{ color: "#ff4d4f" }}>*</span>
                   </span>
                 }
-                required
                 style={{ flex: 1 }}
               >
                 <TimePicker

@@ -192,6 +192,7 @@ const CreateClient: React.FC = () => {
                   showSearch
                   loading={loadingPaises}
                   disabled={loadingPaises}
+                  virtual={false}
                   filterOption={(input, option) =>
                     (option?.children?.toString() || '').toLowerCase().includes(input.toLowerCase())
                   }
