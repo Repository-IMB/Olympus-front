@@ -216,7 +216,7 @@ const getUserIdFromToken = () => {
       const response = await axios.post(
         `${
           import.meta.env.VITE_API_URL || "http://localhost:7020"
-        }/api/VTAModVentaOportunidad/AsignarAsesor`,
+        }/api/VTAModVentaOportunidad/AsignarAsesorMasivo`,
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
