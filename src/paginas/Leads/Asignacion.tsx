@@ -831,12 +831,13 @@ const getUserIdFromToken = () => {
 
         {/* Filtros - Abajo */}
         <div className={estilos.filtersRow}>
-          <Select
-            value={filterAsesor}
-            onChange={setFilterAsesor}
-            className={estilos.filterSelect}
-            placeholder="Seleccionar asesor"
-          >
+            <Select
+              value={filterAsesor}
+              onChange={setFilterAsesor}
+              placeholder="Seleccionar asesor"
+              listHeight={200}
+              virtual={false}
+            >
             <Option value="Todos">Todos los asesores</Option>
             {asesoresUnicos.map((a) => (
               <Option key={a} value={a}>
@@ -849,6 +850,7 @@ const getUserIdFromToken = () => {
             onChange={setFilterCodigoLinkedin}
             className={estilos.filterSelect}
             placeholder="Seleccionar codigo Linkedin"
+            virtual={false}
           >
             <Option value="Todos">Todos codigos Linkedin</Option>
             {codigosLinkedinUnicos.map((codigoLinkedin) => (
@@ -863,6 +865,7 @@ const getUserIdFromToken = () => {
             onChange={setFilterCodigoLanzamiento}
             className={estilos.filterSelect}
             placeholder="Seleccionar codigo lanzamiento"
+            virtual={false}
           >
             <Option value="Todos">Todos codigos lanzamiento</Option>
             {codigoLanzamientoUnicos.map((codigoLanzamiento) => (
@@ -992,6 +995,8 @@ const getUserIdFromToken = () => {
                 placeholder="Selecciona un asesor"
                 className={estilosModal.select}
                 size="large"
+                listHeight={200}
+                virtual={false}
               >
                 {asesores.map((a) => (
                   <Option key={a.idUsuario} value={a.idUsuario}>

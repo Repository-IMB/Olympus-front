@@ -274,7 +274,7 @@ export default function HistorialInteraccion() {
                 Asesor asignado:
               </Text>
               <Text style={{ color: "#0D0C11", fontSize: 14 }}>
-                {asignadoDisplay}
+                {nombreCompletoPersonaAsignada || asignadoDisplay || "Sin asignar"}
               </Text>
             </Space>
 
