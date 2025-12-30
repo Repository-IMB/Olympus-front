@@ -243,6 +243,23 @@ const CreateOpportunity: React.FC = () => {
                 loadingLanzamientos ? "Cargando..." : "No se encontraron lanzamientos"
               }
               filterOption={false}
+              defaultActiveFirstOption={false}
+              popupMatchSelectWidth
+              listHeight={400}
+              virtual={false}
+              placement="bottomLeft"
+              dropdownAlign={{
+                points: ["tl", "bl"],
+                overflow: {
+                  adjustX: false,
+                  adjustY: false,
+                },
+              }}
+              getPopupContainer={() =>
+                document.querySelector(
+                  ".create-opportunity-modal .ant-modal-body"
+                ) as HTMLElement
+              }
               onChange={(value) => {
                 setSearchText(value);
                 setSelectedLanzamiento(value);
@@ -282,6 +299,22 @@ const CreateOpportunity: React.FC = () => {
               showSearch
               filterOption={(input, option) =>
                 String(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+              }
+              listHeight={400}
+              virtual={false}
+              popupMatchSelectWidth
+              placement="bottomLeft"
+              dropdownAlign={{
+                points: ["tl", "bl"],
+                overflow: {
+                  adjustX: false,
+                  adjustY: false,
+                },
+              }}
+              getPopupContainer={() =>
+                document.querySelector(
+                  ".create-opportunity-modal .ant-modal-body"
+                ) as HTMLElement
               }
             >
               {asesores.map((a) => (
