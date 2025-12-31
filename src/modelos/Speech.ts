@@ -14,12 +14,6 @@ export interface SpeechDTO {
   productoNombre?: string;
 }
 
-export interface SpeechListaRespuesta {
-  codigo: "SIN_ERROR" | "ERROR_CONTROLADO" | "ERROR_CRITICO";
-  mensaje: string;
-  speeches: SpeechDTO[];
-}
-
 export interface SpeechRespuestaGenerica {
   codigo: "SIN_ERROR" | "ERROR_CONTROLADO" | "ERROR_CRITICO";
   mensaje: string;
@@ -27,9 +21,10 @@ export interface SpeechRespuestaGenerica {
 
 /**
  * Request para crear un nuevo speech
- * Nota: idAsesor se obtiene automáticamente del token JWT en el backend
+ * Requiere idAsesor explícitamente en el body
  */
 export interface CrearSpeechRequest {
+  idAsesor: number;
   idProducto: number;
   texto: string;
   usuarioCreacion?: string;

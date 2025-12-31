@@ -1,7 +1,6 @@
 import api from "./api";
 import type {
   SpeechDTO,
-  SpeechListaRespuesta,
   SpeechRespuestaGenerica,
   CrearSpeechRequest,
   ActualizarSpeechRequest,
@@ -10,19 +9,51 @@ import type {
 const BASE_URL = "/api/VTAModSpeech";
 
 /**
- * Obtiene todos los speeches activos del sistema
+ * Obtiene el idAsesor del usuario autenticado
+ * El idUsuario se obtiene automáticamente del token JWT en el backend
  */
-export const obtenerTodosSpeech = async (): Promise<SpeechListaRespuesta> => {
-  const response = await api.get<SpeechListaRespuesta>(`${BASE_URL}/ObtenerTodos`);
-  return response.data;
+export const obtenerIdAsesor = async (): Promise<number | null> => {
+  try {
+    const response = await api.get<{ idAsesor: number }>(
+      `${BASE_URL}/ObtenerIdAsesor`
+    );
+    return response.data.idAsesor;
+  } catch (error: any) {
+    // Si es 401, el token es inválido o no contiene el ID del usuario
+    if (error?.response?.status === 401) {
+      console.error("Error de autenticación al obtener idAsesor:", error);
+      throw new Error("No se pudo obtener el ID del usuario desde el token de autenticación");
+    }
+    // Si es 404, el usuario no tiene un asesor asociado
+    if (error?.response?.status === 404) {
+      console.warn("El usuario no tiene un asesor asociado o el asesor está inactivo");
+      return null;
+    }
+    // Si es 500 u otro error, lanzar el error
+    throw error;
+  }
 };
 
 /**
- * Obtiene un speech por su ID
+ * Obtiene el speech de un asesor para un producto específico
+ * Requiere idAsesor e idProducto como parámetros explícitos
  */
-export const obtenerSpeechPorId = async (id: number): Promise<SpeechDTO> => {
-  const response = await api.get<SpeechDTO>(`${BASE_URL}/ObtenerPorId/${id}`);
-  return response.data;
+export const obtenerSpeechPorAsesorYProducto = async (
+  idAsesor: number,
+  idProducto: number
+): Promise<SpeechDTO | null> => {
+  try {
+    const response = await api.get<SpeechDTO>(
+      `${BASE_URL}/ObtenerPorAsesorYProducto/${idAsesor}/${idProducto}`
+    );
+    return response.data;
+  } catch (error: any) {
+    // Si es 404, no existe speech para ese asesor y producto
+    if (error?.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 };
 
 /**
