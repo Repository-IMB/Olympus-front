@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Typography, Row, Col, Space, Spin, message } from "antd";
+import { Typography, Row, Col, Space, Spin, message, Popconfirm } from "antd";
 import type { OcurrenciaDTO } from "../../../modelos/Ocurrencia";
 import { crearHistorialConOcurrencia, getOcurrenciasPermitidas } from "../../../config/rutasApi";
 import api from "../../../servicios/api";
@@ -102,34 +102,42 @@ export default function EstadoPotencial({ oportunidadId, usuario = "SYSTEM", onC
     return ocurrencias.find(o => (o.nombre ?? "").toLowerCase() === name.toLowerCase());
   };
 
-  const renderActionBtn = (label: string, base: string, hover: string) => {
-    const oc = findByName(label);
-    const allowedBackend = !!oc?.allowed;
-    const disabled = !activo || !allowedBackend || !!creatingId || callLoading;
-    const id = oc?.id;
+const renderActionBtn = (label: string, base: string, hover: string) => {
+  const oc = findByName(label);
+  const allowedBackend = !!oc?.allowed;
+  const disabled = !activo || !allowedBackend || !!creatingId || callLoading;
+  const id = oc?.id;
 
-    const onMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!disabled) (e.currentTarget as HTMLElement).style.background = hover;
-    };
-    const onMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.currentTarget) (e.currentTarget as HTMLElement).style.background = disabled ? "#F0F0F0" : base;
-    };
+  if (!id) return null;
 
-    return (
-      <div
-        key={label}
-        role="button"
-        aria-disabled={disabled}
-        onClick={() => { if (!disabled && id) handleSelect(id); }}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        style={{ ...buttonStyle(disabled ? "#F0F0F0" : base, hover, disabled) }}
-        title={!oc ? "Ocurrencia no encontrada" : (disabled ? "No permitido" : "Seleccionar")}
-      >
-        {label}
-      </div>
-    );
-  };
+  const button = (
+    <div
+      role="button"
+      aria-disabled={disabled}
+      style={{
+        ...buttonStyle(disabled ? "#F0F0F0" : base, hover, disabled),
+      }}
+      title={!oc ? "Ocurrencia no encontrada" : disabled ? "No permitido" : "Seleccionar"}
+    >
+      {creatingId === id ? "..." : label}
+    </div>
+  );
+
+  return (
+    <Popconfirm
+      title="¿Está seguro de guardar este nuevo estado?"
+      okText="Sí"
+      cancelText="No"
+      disabled={disabled}
+      onConfirm={() => handleSelect(id)}
+    >
+      <span style={{ cursor: disabled ? "not-allowed" : "pointer" }}>
+        {button}
+      </span>
+    </Popconfirm>
+  );
+};
+
 
   if (loading) return <Spin />;
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Typography, Row, Col, Space, Spin, message, Select } from "antd";
+import { Typography, Row, Col, Space, Spin, message, Select, Popconfirm } from "antd";
 import { InfoCircleOutlined } from "@ant-design/icons";
 import type { OcurrenciaDTO } from "../../../modelos/Ocurrencia";
 import { crearHistorialConOcurrencia, getOcurrenciasPermitidas } from "../../../config/rutasApi";

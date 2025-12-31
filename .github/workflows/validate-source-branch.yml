@@ -1,0 +1,18 @@
+name: Validate source branch
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check source branch
+        run: |
+          echo "PR desde: ${{ github.head_ref }}"
+          if [ "${{ github.head_ref }}" != "development" ]; then
+            echo "❌ Solo se permite merge a main desde la rama development"
+            exit 1
+          fi

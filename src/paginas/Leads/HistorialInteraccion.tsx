@@ -12,9 +12,15 @@ interface OportunidadDetalle {
   oportunidad: Array<{
     id: number;
     codigoLanzamiento: string;
+    codigoLinkedin: string;
     fechaCreacion: string;
     totalOportunidadesPersona: number;
     origen: string | null;
+    idPersonaAsignada?: number | null;
+    personaAsignadaNombre?: string | null;
+    personaAsignadaApellidos?: string | null;
+    personaAsignadaCorreo?: string | null;
+    fechaFormulario: string;
   }>;
   historialActual: Array<{
     id: number;
@@ -87,16 +93,21 @@ export default function HistorialInteraccion() {
     oportunidad.historialActual && oportunidad.historialActual.length > 0
       ? oportunidad.historialActual[0]
       : null;
-
+  const codigoLinkedin = oportunidadData.codigoLinkedin || "-";
   const codigoLanzamiento = oportunidadData.codigoLanzamiento || "-";
-  const fechaFormulario = "-"; // No viene en la API
+  const fechaFormulario = oportunidadData.fechaFormulario || "-";
   const fechaCreacion = oportunidadData.fechaCreacion || "-";
   const estado = historialActualData?.estadoReferencia?.nombre || "Desconocido";
   const marcaciones = Number(historialActualData?.cantidadLlamadasNoContestadas ?? 0);
 
-  const asesor = historialActualData?.asesor
-    ? `${historialActualData.asesor.nombres} ${historialActualData.asesor.apellidos}`
-    : "Sin asesor";
+  const personaAsignadaNombre = (oportunidadData.personaAsignadaNombre ?? "").trim();
+  const personaAsignadaApellidos = (oportunidadData.personaAsignadaApellidos ?? "").trim();
+  const nombreCompletoPersonaAsignada =
+    (personaAsignadaNombre || personaAsignadaApellidos)
+      ? `${personaAsignadaNombre} ${personaAsignadaApellidos}`.trim()
+      : null;
+
+  const asignadoDisplay = nombreCompletoPersonaAsignada || "Sin asignar";
   const cantidadOportunidades = oportunidadData.totalOportunidadesPersona || 0;
   const origen = oportunidadData.origen || "WhatsApp";
 
@@ -136,6 +147,11 @@ export default function HistorialInteraccion() {
             </Space>
 
             <Space size={4}>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Código Linkedin:</Text>
+              <Text style={{ color: "#0D0C11", fontSize: 14 }}>{codigoLinkedin}</Text>
+            </Space>
+
+            <Space size={4}>
               <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Fecha de formulario:</Text>
               <Text style={{ color: "#010101", fontSize: 14 }}>{formatearFecha(fechaFormulario)}</Text>
             </Space>
@@ -158,8 +174,8 @@ export default function HistorialInteraccion() {
             </Space>
 
             <Space size={4}>
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Asesor:</Text>
-              <Text style={{ color: "#0D0C11", fontSize: 14 }}>{asesor}</Text>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Asesor asignado:</Text>
+              <Text style={{ color: "#0D0C11", fontSize: 14 }}>{asignadoDisplay}</Text>
             </Space>
 
             <Space size={4}>
@@ -169,8 +185,67 @@ export default function HistorialInteraccion() {
 
             <Space size={4} align="center">
               <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Origen:</Text>
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {(() => {
+                  const o = (origen ?? "").toString().toLowerCase();
+
+                  if (o === "linkedin") {
+                    return (
+                      <div
+                        style={{
+                          borderRadius: 4,
+                          padding: 1,
+                          display: "inline-flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <div
+                          style={{
+                            background: "#0077B5",
+                            borderRadius: 4,
+                            padding: "2px 6px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <LinkedinOutlined style={{ color: "#FFFFFF", fontSize: 12 }} />
+                          <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 600, margin: 0 }}>
+                            LinkedIn
+                          </Text>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      style={{
+                        borderRadius: 4,
+                        border: "1px solid #DCDCDC",
+                        padding: "2px 6px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: "transparent",
+                      }}
+                    >
+                      <PhoneOutlined style={{ color: "#0D0C11", fontSize: 12 }} />
+                      <Text style={{ color: "#0D0C11", fontSize: 13, fontWeight: 600, margin: 0 }}>
+                        Manual
+                      </Text>
+                    </div>
+                  );
+                })()}
+              </div>
+            </Space>
+
+
+            {/* <Space size={4} align="center">
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Origen:</Text>
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                {/* WhatsApp */}
+                
                 <div
                   style={{
                     borderRadius: 4,
@@ -195,7 +270,7 @@ export default function HistorialInteraccion() {
                   </div>
                 </div>
 
-                {/* LinkedIn */}
+                
                 <div
                   style={{
                     borderRadius: 4,
@@ -220,7 +295,7 @@ export default function HistorialInteraccion() {
                   </div>
                 </div>
 
-                {/* Facebook */}
+                
                 <div
                   style={{
                     borderRadius: 4,
@@ -245,7 +320,7 @@ export default function HistorialInteraccion() {
                   </div>
                 </div>
 
-                {/* Manual */}
+                
                 <div
                   style={{
                     borderRadius: 4,
@@ -261,7 +336,7 @@ export default function HistorialInteraccion() {
                   <Text style={{ color: "#0D0C11", fontSize: 13, fontWeight: 600, margin: 0 }}>Manual</Text>
                 </div>
               </div>
-            </Space>
+            </Space> */}
           </div>
         </Card>
       </div>

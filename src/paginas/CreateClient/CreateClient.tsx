@@ -49,20 +49,62 @@ const CreateClient: React.FC = () => {
     }
   };
 
+  const detectarYSeleccionarPais = (numeroCompleto: string): { numeroLocal: string; paisEncontrado: Pais | null } => {
+    // Eliminar espacios y el símbolo +
+    let numero = numeroCompleto.replace(/\s/g, '').replace(/^\+/, '');
+
+    // Solo intentar detectar si el número es suficientemente largo
+    if (numero.length < 8) {
+      // Número muy corto, probablemente no tiene indicativo
+      return { numeroLocal: numero, paisEncontrado: null };
+    }
+
+    // Intentar detectar el prefijo (de 1 a 4 dígitos)
+    // Empezar desde el más largo para evitar conflictos (ej: 595 vs 59)
+    for (let longitudPrefijo = 4; longitudPrefijo >= 1; longitudPrefijo--) {
+      const posiblePrefijo = numero.substring(0, longitudPrefijo);
+      const prefijoNumerico = parseInt(posiblePrefijo);
+
+      // Buscar país con ese prefijo
+      const paisEncontrado = paises.find(p => p.prefijoCelularPais === prefijoNumerico);
+
+      if (paisEncontrado) {
+        const numeroLocal = numero.substring(longitudPrefijo);
+
+        // Verificar que el número local resultante tenga una longitud razonable
+        // para ese país (evitar falsos positivos)
+        if (numeroLocal.length >= paisEncontrado.digitoMinimo &&
+            numeroLocal.length <= paisEncontrado.digitoMaximo) {
+          // Seleccionar el país automáticamente
+          setPaisSeleccionado(paisEncontrado);
+          setIndicativo(`+${paisEncontrado.prefijoCelularPais}`);
+          form.setFieldsValue({ pais: paisEncontrado.nombre });
+
+          return { numeroLocal, paisEncontrado };
+        }
+      }
+    }
+
+    // Si no se encontró prefijo válido, retornar el número sin espacios
+    // y mantener el país actual seleccionado (selección manual)
+    return { numeroLocal: numero, paisEncontrado: null };
+  };
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
 
       const clienteData = {
-        nombres: values.nombres,
-        apellidos: values.apellidos,
-        pais: values.pais,
-        prefijoPaisCelular: indicativo.replace('+', ''), // Remover el símbolo +
-        celular: values.celular,
-        correo: values.correo,
-        areaTrabajo: values.areaTrabajo,
-        industria: values.industria
+        idPais: paisSeleccionado?.id || 0,
+        pais: values.pais || "",
+        nombres: values.nombres || "",
+        apellidos: values.apellidos || "",
+        celular: values.celular || "",
+        prefijoPaisCelular: indicativo.replace('+', ''),
+        correo: values.correo || "",
+        areaTrabajo: values.areaTrabajo || "",
+        industria: values.industria || ""
       };
 
       await insertarClientePotencial(clienteData);
@@ -129,9 +171,8 @@ const CreateClient: React.FC = () => {
             </Col>
             <Col span={12}>
               <Form.Item
-                label={<span>Apellidos<span style={{ color: '#ff4d4f' }}>*</span></span>}
+                label="Apellidos"
                 name="apellidos"
-                rules={[{ required: true, message: 'Los apellidos son requeridos' }]}
               >
                 <Input placeholder="" />
               </Form.Item>
@@ -181,14 +222,17 @@ const CreateClient: React.FC = () => {
                     validator: (_, value) => {
                       if (!value) return Promise.resolve();
 
-                      // Validar que solo contenga números
-                      if (!/^\d+$/.test(value)) {
+                      // Limpiar espacios antes de validar (por si acaso)
+                      const valorLimpio = value.replace(/\s/g, '');
+
+                      // Validar que solo contenga números (después de limpiar espacios)
+                      if (!/^\d+$/.test(valorLimpio)) {
                         return Promise.reject('El teléfono debe contener solo números');
                       }
 
                       // Validar longitud basada en el país seleccionado
                       if (paisSeleccionado) {
-                        const longitud = value.length;
+                        const longitud = valorLimpio.length;
                         const { digitoMinimo, digitoMaximo } = paisSeleccionado;
 
                         if (longitud < digitoMinimo || longitud > digitoMaximo) {
@@ -209,7 +253,38 @@ const CreateClient: React.FC = () => {
                       ? `${paisSeleccionado.digitoMinimo}-${paisSeleccionado.digitoMaximo} dígitos`
                       : ''
                   }
-                  maxLength={paisSeleccionado?.digitoMaximo}
+                  onChange={(e) => {
+                    // Detectar país por indicativo y obtener número local
+                    const resultado = detectarYSeleccionarPais(e.target.value);
+
+                    // Usar el país detectado si existe, sino el país seleccionado actual
+                    const paisParaLimite = resultado.paisEncontrado || paisSeleccionado;
+
+                    // Aplicar el límite de longitud del país correspondiente
+                    const valorFinal = paisParaLimite?.digitoMaximo
+                      ? resultado.numeroLocal.slice(0, paisParaLimite.digitoMaximo)
+                      : resultado.numeroLocal;
+
+                    form.setFieldValue('celular', valorFinal);
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const textoCopiado = e.clipboardData.getData('text');
+
+                    // Detectar país por indicativo y obtener número local
+                    const resultado = detectarYSeleccionarPais(textoCopiado);
+
+                    // Usar el país detectado si existe, sino el país seleccionado actual
+                    const paisParaLimite = resultado.paisEncontrado || paisSeleccionado;
+
+                    // Aplicar el límite de longitud del país correspondiente
+                    const valorFinal = paisParaLimite?.digitoMaximo
+                      ? resultado.numeroLocal.slice(0, paisParaLimite.digitoMaximo)
+                      : resultado.numeroLocal;
+
+                    form.setFieldValue('celular', valorFinal);
+                    form.validateFields(['celular']);
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -218,9 +293,9 @@ const CreateClient: React.FC = () => {
           <Row>
             <Col span={24}>
               <Form.Item
-                label={<span>Correo<span style={{ color: '#ff4d4f' }}>*</span></span>}
+                label="Correo"
                 name="correo"
-                rules={[{ required: true, message: 'El correo es requerido' }]}
+                rules={[{ type: 'email', message: 'El correo debe ser válido' }]}
               >
                 <Input placeholder="" />
               </Form.Item>
@@ -230,18 +305,16 @@ const CreateClient: React.FC = () => {
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item
-                label={<span>Área de trabajo<span style={{ color: '#ff4d4f' }}>*</span></span>}
+                label="Área de trabajo"
                 name="areaTrabajo"
-                rules={[{ required: true, message: 'El área de trabajo es requerida' }]}
               >
                 <Input placeholder="" />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
-                label={<span>Industria<span style={{ color: '#ff4d4f' }}>*</span></span>}
+                label="Industria"
                 name="industria"
-                rules={[{ required: true, message: 'La industria es requerida' }]}
               >
                 <Input placeholder="" />
               </Form.Item>

@@ -1,0 +1,236 @@
+/* Container principal */
+.container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.title {
+  margin: 8px 0 0 0;
+  color: #252C35;
+  transition: all 0.2s ease;
+}
+
+.outerContainer {
+  background: #F0F0F0;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.tabsRow {
+  padding: 4px;
+  background: transparent;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: all 0.3s ease;
+}
+
+.tabCard {
+  text-align: center;
+  border-radius: 8px;
+  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabCard:hover {
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+.tabCard:active {
+  transform: translateY(0);
+}
+
+.contentCard {
+  background: #FFFFFF;
+  border-radius: 10px;
+  height: 420px;
+  overflow-y: auto;
+  position: relative;
+  border: 1px solid #DCDCDC;
+  scroll-behavior: smooth;
+  transition: all 0.3s ease;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.clickableBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #FFFFFF;
+  transition: all 0.2s ease;
+  min-height: 44px;
+}
+
+.clickableBox:hover {
+  background: #F7F7F7;
+  transform: translateX(4px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.clickableBox:active {
+  transform: translateX(2px);
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+/* Tablets y pantallas medianas (768px - 1024px) */
+@media (max-width: 1024px) {
+  .contentCard {
+    height: 380px;
+  }
+
+  .outerContainer {
+    padding: 8px;
+    border-radius: 8px;
+  }
+}
+
+/* Tablets pequeñas (768px - 991px) */
+@media (max-width: 991px) {
+  .container {
+    gap: 10px;
+  }
+
+  .contentCard {
+    height: 350px;
+  }
+
+  .outerContainer {
+    padding: 8px;
+  }
+
+  .tabsRow {
+    padding: 3px;
+    margin-bottom: 5px;
+  }
+
+  .tabCard {
+    border-radius: 6px;
+  }
+}
+
+/* Móviles grandes (576px - 767px) */
+@media (max-width: 767px) {
+  .container {
+    gap: 8px;
+  }
+
+  .contentCard {
+    height: 320px;
+    border-radius: 8px;
+  }
+
+  .outerContainer {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .tabsRow {
+    padding: 2px;
+    margin-bottom: 4px;
+  }
+
+  .tabCard {
+    border-radius: 4px;
+  }
+
+  .clickableBox {
+    padding: 6px;
+    border-radius: 4px;
+  }
+}
+
+/* Móviles pequeños (hasta 575px) */
+@media (max-width: 575px) {
+  .container {
+    gap: 6px;
+  }
+
+  .title {
+    font-size: 16px;
+  }
+
+  .contentCard {
+    height: 280px;
+    border-radius: 6px;
+  }
+
+  .outerContainer {
+    padding: 4px;
+    border-radius: 6px;
+  }
+
+  .tabsRow {
+    padding: 2px;
+    margin-bottom: 3px;
+  }
+
+  .tabCard {
+    border-radius: 3px;
+  }
+
+  .clickableBox {
+    padding: 5px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+/* Móviles extra pequeños (hasta 375px) */
+@media (max-width: 375px) {
+  .contentCard {
+    height: 250px;
+  }
+
+  .outerContainer {
+    padding: 3px;
+  }
+
+  .clickableBox {
+    padding: 4px;
+  }
+}

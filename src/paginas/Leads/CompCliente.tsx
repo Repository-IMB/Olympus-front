@@ -18,6 +18,7 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { EditOutlined } from "@ant-design/icons";
 import { getCookie } from "../../utils/cookies";
+import api from "../../servicios/api";
 
 const { Option } = Select;
 
@@ -102,66 +103,98 @@ const paises: Record<number, string> = {
   32: "Venezuela",
 };
 
-export default function ModalEditarCliente({ id, onUpdated, onCelularObtenido}: Props) {
-  console.log('🔷 CompCliente RENDERIZADO - Props recibidas:', { id, onUpdated, onCelularObtenido });
+export default function ModalEditarCliente({ id, onUpdated, onCelularObtenido }: Props) {
+  console.log("🔷 CompCliente RENDERIZADO - Props recibidas:", { id, onUpdated, onCelularObtenido });
 
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState<boolean>(false);
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [potencialData, setPotencialData] = useState<PotencialData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('CompCliente - ID recibido:', id);
-      const token = getCookie("token");
+    setVisible(Boolean(id));
+  }, [id]);
+
+  useEffect(() => {
+    let mounted = true;
+    const token = getCookie("token");
 
     if (!id) {
-      console.warn("⚠️ No hay ID disponible");
+      setCliente(null);
+      setPotencialData(null);
+      setError(null);
       return;
     }
-    setLoading(true);
-    setError(null);
 
-    console.log('CompCliente - Haciendo petición a:', `/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`);
+    // función async para traer datos
+    const fetchPotencial = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        console.log("CompCliente - Haciendo petición a:", `/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`);
 
-    // Consulta al endpoint ObtenerPotencialPorOportunidad
-    axios
-      .get(`/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        console.log('CompCliente - Potencial Data recibida:', res.data);
-        setPotencialData(res.data);
+        const res = await api.get(`/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-        // Mapear los datos de persona a la estructura de cliente para el formulario
-        if (res.data.persona) {
+        if (!mounted) return;
+
+        console.log("CompCliente - Potencial Data recibida:", res.data);
+        const data: PotencialData = res.data;
+        setPotencialData(data);
+
+        if (data.persona) {
           const clienteData: Cliente = {
-            id: res.data.persona.id || 0,
-            idPais: res.data.persona.idPais || 26,
-            nombres: res.data.persona.nombres || '',
-            apellidos: res.data.persona.apellidos || '',
-            celular: res.data.persona.celular || '',
-            prefijoPaisCelular: res.data.persona.prefijoPaisCelular || '',
-            correo: res.data.persona.correo || '',
-            areaTrabajo: res.data.persona.areaTrabajo || '',
-            industria: res.data.persona.industria || '',
+            id: data.persona.id || 0,
+            idPais: data.persona.idPais || 26,
+            nombres: data.persona.nombres || "",
+            apellidos: data.persona.apellidos || "",
+            celular: data.persona.celular || "",
+            prefijoPaisCelular: data.persona.prefijoPaisCelular || "",
+            correo: data.persona.correo || "",
+            areaTrabajo: data.persona.areaTrabajo || "",
+            industria: data.persona.industria || "",
           };
           setCliente(clienteData);
 
-          if (res.data.persona.celular && res.data.persona.prefijoPaisCelular && onCelularObtenido) {
-            const celularCompleto = `${res.data.persona.prefijoPaisCelular}${res.data.persona.celular}`;
+          // setear valores en el formulario
+          form.setFieldsValue({
+            nombres: clienteData.nombres,
+            apellidos: clienteData.apellidos,
+            celular: clienteData.celular,
+            prefijoPaisCelular: clienteData.prefijoPaisCelular,
+            correo: clienteData.correo,
+            areaTrabajo: clienteData.areaTrabajo,
+            industria: clienteData.industria,
+            idPais: clienteData.idPais,
+          });
+
+          if (clienteData.celular && clienteData.prefijoPaisCelular && onCelularObtenido) {
+            const celularCompleto = `${clienteData.prefijoPaisCelular}${clienteData.celular}`;
             onCelularObtenido(celularCompleto);
           }
+        } else {
+          setCliente(null);
         }
-      })
-      .catch((err) => {
-        console.error('CompCliente - Error en la petición:', err);
-        console.error('CompCliente - Detalles del error:', err.response?.data);
-        setError("Error al obtener los datos del cliente");
-      })
-      .finally(() => setLoading(false));
-  }, [id]);
+      } catch (err: any) {
+        if (!mounted) return;
+        console.error("CompCliente - Error en la petición:", err);
+        console.error("CompCliente - Detalles del error:", err?.response?.data);
+        setError(err?.response?.data?.message ?? "Error al obtener los datos del cliente");
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
+    };
+
+    fetchPotencial();
+
+    return () => {
+      mounted = false;
+    };
+  }, [id, form, onCelularObtenido]);
 
   const handleOpen = () => {
     if (cliente) {

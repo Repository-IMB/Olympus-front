@@ -236,3 +236,8 @@
   color: #595959;
   margin-right: 4px;
 }
+
+.clientes-ac-popup {
+  max-height: 400px;
+  overflow-y: auto;
+}

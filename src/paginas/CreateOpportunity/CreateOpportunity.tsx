@@ -1,40 +1,72 @@
-import React, { useState, useEffect } from 'react';
-import { Form, Button, DatePicker, Modal, message, Card, TimePicker, AutoComplete } from 'antd';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { CloseOutlined, CalendarOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
-import 'dayjs/locale/es';
-import { insertarOportunidadHistorialRegistrado, obtenerLanzamientos, type ClientePotencial, type Lanzamiento } from '../../config/rutasApi';
-import './CreateOpportunity.css';
+import React, { useState, useEffect } from "react";
+import {
+  Form,
+  Button,
+  DatePicker,
+  Modal,
+  message,
+  Card,
+  TimePicker,
+  AutoComplete,
+  Select,
+} from "antd";
+import { useNavigate, useLocation } from "react-router-dom";
+import { CloseOutlined, CalendarOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
+import "dayjs/locale/es";
+import {
+  insertarOportunidadHistorialRegistrado,
+  obtenerLanzamientos,
+  type ClientePotencial,
+  type Lanzamiento,
+} from "../../config/rutasApi";
+import "./CreateOpportunity.css";
+import axios from "axios";
+import Cookies from "js-cookie";
 
-dayjs.locale('es');
+dayjs.locale("es");
+const { Option } = Select;
+
+interface Asesor {
+  idUsuario: number;
+  idPersona: number;
+  nombre: string;
+  idRol: number;
+}
 
 const CreateOpportunity: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [lanzamientos, setLanzamientos] = useState<Lanzamiento[]>([]);
-  const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState("");
   const [loadingLanzamientos, setLoadingLanzamientos] = useState(false);
   const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
   const [selectedTime, setSelectedTime] = useState<dayjs.Dayjs | null>(null);
-  const [selectedLanzamiento, setSelectedLanzamiento] = useState<string>('');
-  const [selectedLanzamientoId, setSelectedLanzamientoId] = useState<number | null>(null);
+  const [selectedLanzamiento, setSelectedLanzamiento] = useState<string>("");
+  const [selectedLanzamientoId, setSelectedLanzamientoId] = useState<
+    number | null
+  >(null);
+
+  // 🟦 ASESORES
+  const [asesores, setAsesores] = useState<Asesor[]>([]);
+  const [loadingAsesores, setLoadingAsesores] = useState<boolean>(false);
+  const token = Cookies.get("token");
+
   const navigate = useNavigate();
   const location = useLocation();
   const client = (location.state as { client?: ClientePotencial })?.client;
 
+  // ======================== CARGAR LANZAMIENTOS =========================
   useEffect(() => {
     const cargarLanzamientos = async () => {
       try {
         setLoadingLanzamientos(true);
         const data = await obtenerLanzamientos();
-        console.log('Lanzamientos obtenidos:', data);
-        // Asegurar que siempre sea un array
         setLanzamientos(Array.isArray(data) ? data : []);
       } catch (error) {
-        console.error('Error al cargar lanzamientos:', error);
-        message.error('Error al cargar los lanzamientos');
-        setLanzamientos([]); // Establecer array vacío en caso de error
+        console.error("Error al cargar lanzamientos:", error);
+        message.error("Error al cargar los lanzamientos");
+        setLanzamientos([]);
       } finally {
         setLoadingLanzamientos(false);
       }
@@ -43,80 +75,117 @@ const CreateOpportunity: React.FC = () => {
     cargarLanzamientos();
   }, []);
 
+  // ======================== CARGAR ASESORES =============================
+  const obtenerAsesores = async () => {
+    try {
+      setLoadingAsesores(true);
+
+      const response = await axios.get(
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:7020"
+        }/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const data = response.data;
+      if (data?.usuarios && Array.isArray(data.usuarios)) {
+        const listaAsesores = data.usuarios.map((u: any) => ({
+          idUsuario: u.id,
+          idPersona: u.idPersona,
+          nombre: u.nombre,
+          idRol: u.idRol,
+        }));
+        setAsesores(listaAsesores);
+      } else {
+        setAsesores([]);
+      }
+    } catch (err: any) {
+      message.error(err?.response?.data?.mensaje || "Error al cargar asesores");
+      setAsesores([]);
+    } finally {
+      setLoadingAsesores(false);
+    }
+  };
+
+  useEffect(() => {
+    obtenerAsesores();
+  }, []);
+
+  // ======================== SUBMIT =============================
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
 
-      // Obtener el IdPotencialCliente del cliente seleccionado
       const idPotencialCliente = client?.id || 0;
 
       if (!idPotencialCliente) {
-        message.error('No se ha seleccionado un cliente válido');
+        message.error("No se ha seleccionado un cliente válido");
         return;
       }
 
       if (!selectedLanzamientoId) {
-        message.error('Por favor seleccione un lanzamiento válido');
+        message.error("Por favor seleccione un lanzamiento válido");
         return;
       }
 
-      // Formatear la fecha en formato ISO (YYYY-MM-DDTHH:mm:ss)
-      const fechaRecordatorio = dayjs(values.fecha).format('YYYY-MM-DDTHH:mm:ss');
+      if (!values.asesor) {
+        message.error("Seleccione un asesor");
+        return;
+      }
 
-      // Formatear la hora en formato HH:mm
-      const horaRecordatorio = dayjs(values.hora).format('HH:mm');
+      const fechaRecordatorio = dayjs(values.fecha).format(
+        "YYYY-MM-DDTHH:mm:ss"
+      );
+      const horaRecordatorio = dayjs(values.hora).format("HH:mm");
 
-      // Preparar los datos según la estructura requerida
+      // ======> Aquí enviamos IdPersona (y mantenemos IdAsesor por compatibilidad)
       const payload = {
         IdPotencialCliente: idPotencialCliente,
         IdProducto: selectedLanzamientoId,
         CodigoLanzamiento: values.lanzamiento,
-        Origen: 'Manual',
+        Origen: "Manual",
         Estado: true,
         FechaRecordatorio: fechaRecordatorio,
         HoraRecordatorio: horaRecordatorio,
-        UsuarioCreacion: 'SYSTEM',
-        UsuarioModificacion: 'SYSTEM'
+        UsuarioCreacion: "SYSTEM",
+        UsuarioModificacion: "SYSTEM",
+        IdPersona: values.asesor, //
+        IdAsesor: values.asesor,  // <-- opcional: mantener por compatibilidad backend
       };
 
-      // Llamar al endpoint
-      const response = await insertarOportunidadHistorialRegistrado(payload);
+      await insertarOportunidadHistorialRegistrado(payload);
 
-      message.success('Oportunidad creada exitosamente');
+      message.success("Oportunidad creada exitosamente");
       form.resetFields();
-
-      // Redirigir después de crear
-      navigate('/leads/Opportunities');
+      navigate("/leads/Opportunities");
     } catch (error: any) {
-      console.error('Error al crear oportunidad:', error);
-      if (error?.response?.data?.message) {
-        message.error(`Error: ${error.response.data.message}`);
-      } else {
-        message.error('Error al crear la oportunidad');
-      }
+      console.error("Error al crear oportunidad:", error);
+      message.error(
+        error?.response?.data?.message || "Error al crear la oportunidad"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClose = () => {
-    navigate(-1); // Volver a la página anterior
-  };
+  const handleClose = () => navigate(-1);
 
-  // Filtrar lanzamientos basado en el texto de búsqueda
+  // ======================== LANZAMIENTOS FILTRADOS =============================
   const lanzamientosArray = Array.isArray(lanzamientos) ? lanzamientos : [];
-  const filteredLanzamientos = searchText.trim() === ''
-    ? lanzamientosArray
-    : lanzamientosArray.filter(lanzamiento =>
-        lanzamiento?.codigoLanzamiento?.toLowerCase().includes(searchText.toLowerCase())
-      );
+  const filteredLanzamientos =
+    searchText.trim() === ""
+      ? lanzamientosArray
+      : lanzamientosArray.filter((l) =>
+          l?.codigoLanzamiento?.toLowerCase().includes(searchText.toLowerCase())
+        );
 
-  const lanzamientoOptions = filteredLanzamientos.map(lanzamiento => ({
-    value: lanzamiento.codigoLanzamiento,
-    label: lanzamiento.codigoLanzamiento,
+  const lanzamientoOptions = filteredLanzamientos.map((l) => ({
+    value: l.codigoLanzamiento,
+    label: l.codigoLanzamiento,
   }));
 
+  // ======================== UI =============================
   return (
     <div className="create-opportunity-page">
       <Modal
@@ -155,88 +224,127 @@ const CreateOpportunity: React.FC = () => {
           className="create-opportunity-form"
           requiredMark={false}
         >
+          {/* ================= SELECT LANZAMIENTO ================= */}
           <Form.Item
-            label={<span>Lanzamiento<span style={{ color: '#ff4d4f' }}>*</span></span>}
+            label={
+              <span>
+                Lanzamiento<span style={{ color: "#ff4d4f" }}>*</span>
+              </span>
+            }
             name="lanzamiento"
-            rules={[{ required: true, message: 'El campo Lanzamiento es requerido' }]}
+            rules={[{ required: true, message: "El campo Lanzamiento es requerido" }]}
           >
             <AutoComplete
               options={lanzamientoOptions}
               onSearch={setSearchText}
               value={searchText}
               placeholder="Buscar lanzamiento..."
-              notFoundContent={loadingLanzamientos ? 'Cargando...' : 'No se encontraron lanzamientos'}
+              notFoundContent={
+                loadingLanzamientos ? "Cargando..." : "No se encontraron lanzamientos"
+              }
               filterOption={false}
-              defaultActiveFirstOption={false}
-              popupMatchSelectWidth={true}
-              listHeight={300}
               onChange={(value) => {
                 setSearchText(value);
                 setSelectedLanzamiento(value);
                 form.setFieldsValue({ lanzamiento: value });
 
-                // Buscar el id del lanzamiento seleccionado
-                const lanzamientoEncontrado = lanzamientos.find(l => l.codigoLanzamiento === value);
-                if (lanzamientoEncontrado) {
-                  setSelectedLanzamientoId(lanzamientoEncontrado.id);
-                }
+                const lanzamientoEncontrado = lanzamientos.find(
+                  (l) => l.codigoLanzamiento === value
+                );
+                if (lanzamientoEncontrado) setSelectedLanzamientoId(lanzamientoEncontrado.id);
               }}
               onSelect={(value) => {
                 setSearchText(value);
                 setSelectedLanzamiento(value);
                 form.setFieldsValue({ lanzamiento: value });
 
-                // Buscar el id del lanzamiento seleccionado
-                const lanzamientoEncontrado = lanzamientos.find(l => l.codigoLanzamiento === value);
-                if (lanzamientoEncontrado) {
-                  setSelectedLanzamientoId(lanzamientoEncontrado.id);
-                }
+                const lanzamientoEncontrado = lanzamientos.find(
+                  (l) => l.codigoLanzamiento === value
+                );
+                if (lanzamientoEncontrado) setSelectedLanzamientoId(lanzamientoEncontrado.id);
               }}
             />
           </Form.Item>
 
+          {/* ================= SELECT ASESOR ================= */}
+          <Form.Item
+            label={
+              <span>
+                Asesor<span style={{ color: "#ff4d4f" }}>*</span>
+              </span>
+            }
+            name="asesor"
+            rules={[{ required: true, message: "Seleccione un asesor" }]}
+          >
+            <Select
+              placeholder="Seleccione un asesor"
+              loading={loadingAsesores}
+              showSearch
+              filterOption={(input, option) =>
+                String(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+              }
+            >
+              {asesores.map((a) => (
+                // value = idPersona: enviamos el idPersona seleccionado al backend
+                <Option key={a.idPersona} value={a.idPersona} label={a.nombre}>
+                  {a.nombre}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          {/* ================= FECHA Y HORA ================= */}
           <div className="date-time-row">
             <Form.Item
-              label={<span>Fecha<span style={{ color: '#ff4d4f' }}>*</span></span>}
+              label={
+                <span>
+                  Fecha<span style={{ color: "#ff4d4f" }}>*</span>
+                </span>
+              }
               name="fecha"
-              rules={[{ required: true, message: 'El campo Fecha es requerido' }]}
+              rules={[{ required: true, message: "El campo Fecha es requerido" }]}
               className="date-field"
             >
               <DatePicker
                 placeholder=""
                 suffixIcon={<CalendarOutlined />}
                 format="DD/MM/YYYY"
-                onChange={(date) => setSelectedDate(date)}
+                onChange={(d) => setSelectedDate(d)}
               />
             </Form.Item>
 
             <Form.Item
-              label={<span>Hora<span style={{ color: '#ff4d4f' }}>*</span></span>}
+              label={
+                <span>
+                  Hora<span style={{ color: "#ff4d4f" }}>*</span>
+                </span>
+              }
               name="hora"
-              rules={[{ required: true, message: 'El campo Hora es requerido' }]}
+              rules={[{ required: true, message: "El campo Hora es requerido" }]}
               className="time-field"
             >
               <TimePicker
                 placeholder=""
                 format="HH:mm"
-                style={{ width: '100%' }}
-                onChange={(time) => setSelectedTime(time)}
+                style={{ width: "100%" }}
+                onChange={(t) => setSelectedTime(t)}
               />
             </Form.Item>
           </div>
 
+          {/* ================= INFO PROGRAMACIÓN ================= */}
           <div className="scheduled-container">
             <div className="scheduled-label">
-              {selectedDate && selectedTime ? (
-                <>
-                  Programado para: {selectedDate.format('dddd').charAt(0).toUpperCase() + selectedDate.format('dddd').slice(1)}, {selectedDate.format('DD [de] MMMM [de] YYYY')} a las {selectedTime.format('HH:mm')} horas
-                </>
-              ) : (
-                'Programado para: Seleccione fecha y hora'
-              )}
+              {selectedDate && selectedTime
+                ? `Programado para: ${
+                    selectedDate.format("dddd").charAt(0).toUpperCase() +
+                    selectedDate.format("dddd").slice(1)
+                  }, ${selectedDate.format("DD [de] MMMM [de] YYYY")} a las ${selectedTime.format("HH:mm")} horas`
+                : "Programado para: Seleccione fecha y hora"}
             </div>
+
             <div className="scheduled-text">
-              {selectedLanzamiento || 'Seleccione un lanzamiento'}
+              {selectedLanzamiento || "Seleccione un lanzamiento"}
             </div>
           </div>
 
@@ -247,7 +355,6 @@ const CreateOpportunity: React.FC = () => {
             className="create-opportunity-button"
             icon={<span className="plus-icon">+</span>}
             loading={loading}
-            disabled={loading}
           >
             Crear Oportunidad
           </Button>

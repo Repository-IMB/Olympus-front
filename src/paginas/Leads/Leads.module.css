@@ -1,0 +1,262 @@
+/* Container principal */
+.mainContainer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  box-sizing: border-box;
+  gap: 12px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.contentWrapper {
+  flex: 1;
+  min-height: 0;
+}
+
+.vistaProceso {
+  padding: 16px;
+  height: 100%;
+}
+
+/* Primera columna - Sidebar izquierdo */
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all 0.3s ease;
+}
+
+.clienteCard {
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  padding: 12px;
+  height: 100%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.clienteCard:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Segunda columna - Contenido principal */
+.rightColumn {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  transition: all 0.3s ease;
+}
+
+.contentCard {
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  transition: box-shadow 0.2s ease;
+}
+
+.oportunidadSection {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  transition: all 0.3s ease;
+}
+
+.historialSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all 0.3s ease;
+}
+
+/* Loading y error states */
+.loadingContainer,
+.errorContainer {
+  padding: 40px;
+  text-align: center;
+  animation: fadeIn 0.3s ease-in;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+/* Tablets grandes y pantallas medianas (768px - 1024px) */
+@media (max-width: 1024px) {
+  .vistaProceso {
+    padding: 12px;
+  }
+
+  .contentCard {
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .oportunidadSection,
+  .historialSection {
+    gap: 12px;
+  }
+}
+
+/* Tablets (768px - 991px) */
+@media (max-width: 991px) {
+  .vistaProceso {
+    padding: 10px;
+  }
+
+  .leftColumn {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .clienteCard {
+    padding: 10px;
+  }
+
+  .contentCard {
+    flex-direction: column;
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .oportunidadSection {
+    flex: 1;
+  }
+
+  .historialSection {
+    flex: 1;
+  }
+}
+
+/* Móviles grandes (576px - 767px) */
+@media (max-width: 767px) {
+  .vistaProceso {
+    padding: 8px;
+  }
+
+  .mainContainer {
+    gap: 8px;
+  }
+
+  .leftColumn {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .rightColumn {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .clienteCard {
+    padding: 8px;
+    border-radius: 6px;
+  }
+
+  .contentCard {
+    flex-direction: column;
+    padding: 8px;
+    gap: 10px;
+    border-radius: 6px;
+  }
+
+  .oportunidadSection,
+  .historialSection {
+    gap: 10px;
+    min-width: 100%;
+  }
+}
+
+/* Móviles pequeños (hasta 575px) */
+@media (max-width: 575px) {
+  .vistaProceso {
+    padding: 6px;
+  }
+
+  .mainContainer {
+    gap: 6px;
+  }
+
+  .leftColumn {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .rightColumn {
+    gap: 10px;
+  }
+
+  .clienteCard {
+    padding: 6px;
+    border-radius: 4px;
+  }
+
+  .contentCard {
+    padding: 6px;
+    gap: 8px;
+    border-radius: 4px;
+  }
+
+  .oportunidadSection,
+  .historialSection {
+    gap: 8px;
+  }
+
+  .loadingContainer,
+  .errorContainer {
+    padding: 20px;
+  }
+}
+
+/* Móviles extra pequeños (hasta 375px) */
+@media (max-width: 375px) {
+  .vistaProceso {
+    padding: 4px;
+  }
+
+  .mainContainer {
+    gap: 4px;
+  }
+
+  .leftColumn {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .rightColumn {
+    gap: 8px;
+  }
+
+  .clienteCard,
+  .contentCard {
+    padding: 4px;
+    border-radius: 4px;
+  }
+
+  .oportunidadSection,
+  .historialSection {
+    gap: 6px;
+  }
+}

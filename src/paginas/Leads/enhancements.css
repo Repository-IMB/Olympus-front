@@ -1,0 +1,263 @@
+/* Mejoras generales de UX y animaciones para la vista de Oportunidades */
+
+/* Smooth scroll global */
+* {
+  scroll-behavior: smooth;
+}
+
+/* Mejora de focus para accesibilidad */
+*:focus-visible {
+  outline: 2px solid #005FF8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Animación de entrada para cards */
+.ant-card {
+  animation: fadeInCard 0.3s ease-out;
+}
+
+@keyframes fadeInCard {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mejora de botones globalmente */
+.ant-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.ant-btn:active {
+  transform: translateY(0);
+}
+
+.ant-btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ripple effect para botones primarios */
+.ant-btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.ant-btn-primary:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Mejora de inputs */
+.ant-input,
+.ant-input-number,
+.ant-select-selector,
+.ant-picker {
+  transition: all 0.2s ease;
+}
+
+.ant-input:hover,
+.ant-input-number:hover,
+.ant-select-selector:hover,
+.ant-picker:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ant-input:focus,
+.ant-input-number-focused,
+.ant-select-focused .ant-select-selector,
+.ant-picker-focused {
+  box-shadow: 0 2px 8px rgba(0, 95, 248, 0.2);
+}
+
+/* Mejora de tags */
+.ant-tag {
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.ant-tag:hover {
+  transform: scale(1.05);
+}
+
+/* Scrollbar personalizado */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Mejoras específicas para móviles */
+@media (max-width: 767px) {
+  /* Previene zoom en inputs en iOS */
+  input[type="text"],
+  input[type="email"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Área táctil mínima recomendada (44x44px) */
+  button,
+  a,
+  .ant-btn,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Mejora de espaciado en móviles */
+  .ant-space-item {
+    padding: 4px;
+  }
+
+  /* Scrollbar más delgado en móviles */
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+/* Animación de skeleton/loading */
+.ant-skeleton {
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Mejora de dividers */
+.ant-divider {
+  transition: opacity 0.2s ease;
+}
+
+/* Animación de collapse/expand */
+.ant-collapse-content {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Mejora de tooltips */
+.ant-tooltip {
+  animation: tooltipFadeIn 0.2s ease;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mejora de dropdowns */
+.ant-dropdown {
+  animation: dropdownSlideDown 0.2s ease;
+}
+
+@keyframes dropdownSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading spinner mejorado */
+.ant-spin {
+  animation: spinFadeIn 0.3s ease;
+}
+
+@keyframes spinFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Mejoras de accesibilidad - estados de deshabilitado más claros */
+.ant-btn[disabled],
+.ant-input[disabled],
+.ant-select-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Reducción de movimiento para usuarios que lo prefieren */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark mode support (preparación futura) */
+@media (prefers-color-scheme: dark) {
+  /* Aquí se pueden agregar estilos para dark mode en el futuro */
+}
+
+/* Mejora de performance con will-change en elementos animados */
+.ant-btn,
+.ant-card,
+.ant-modal {
+  will-change: transform, opacity;
+}
+
+/* Reset will-change después de la animación para liberar recursos */
+.ant-btn:hover,
+.ant-card:hover {
+  will-change: auto;
+}

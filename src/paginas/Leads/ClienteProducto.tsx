@@ -12,6 +12,7 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import InformacionProducto from "./InformacionProducto";
 import { getCookie } from "../../utils/cookies";
+import api from "../../servicios/api";
 
 const { Text, Title } = Typography;
 
@@ -37,9 +38,7 @@ interface PotencialData {
 const ProductoDetalle: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [isLinkedInOpen, setIsLinkedInOpen] = useState(false);
-  const [potencialData, setPotencialData] = useState<PotencialData | null>(
-    null
-  );
+  const [potencialData, setPotencialData] = useState<PotencialData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,25 +53,39 @@ const ProductoDetalle: React.FC = () => {
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    let mounted = true;
+    const fetchPotencial = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    console.log(
-      "ClienteProducto - Haciendo petición a:",
-      `/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`
-    );
+        console.log(
+          "ClienteProducto - Haciendo petición a:",
+          `/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`
+        );
 
-    axios
-      .get(`/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
+        const res = await api.get(`/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!mounted) return;
+
         setPotencialData(res.data);
-      })
-      .catch((err) => {
-        setError("Error al obtener los datos del cliente" + err.message);
-      })
-      .finally(() => setLoading(false));
+      } catch (err: any) {
+        if (!mounted) return;
+        console.error("ClienteProducto - Error al obtener potencial:", err);
+        setError(err?.response?.data?.message ?? err.message ?? "Error al obtener los datos del cliente");
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
+    };
+
+    fetchPotencial();
+
+    return () => {
+      mounted = false;
+    };
   }, [id]);
 
   if (loading) {
@@ -140,13 +153,16 @@ const ProductoDetalle: React.FC = () => {
           }}
           bodyStyle={{ padding: 0 }}
         >
-          {persona &&
-            [
+          {persona && (() => {
+            const prefix = persona.prefijoPaisCelular ? String(persona.prefijoPaisCelular).replace(/\s+/g, "") : "";
+            const phone = persona.celular ? String(persona.celular).replace(/\s+/g, "") : "";
+            const telefonoConcatenado = prefix || phone ? `${prefix}${phone}` : "-";
+
+            return [
               ["Nombre", persona.nombres || "-"],
               ["Apellidos", persona.apellidos || "-"],
-              ["Teléfono", persona.celular || "-"],
+              ["Teléfono", telefonoConcatenado],
               ["País", persona.pais || "-"],
-              ["Prefijo País", persona.prefijoPaisCelular || "-"],
               ["Correo", persona.correo || "-"],
               ["Área de trabajo", persona.areaTrabajo || "-"],
               ["Desuscrito", potencialData?.desuscrito ? "Sí" : "No"],
@@ -166,12 +182,13 @@ const ProductoDetalle: React.FC = () => {
                   {value}
                 </div>
               </div>
-            ))}
+            ));
+          })()}
         </Card>
 
         {/* === BOTONES === */}
         <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-          <div
+          {/* <div
             style={{
               flex: 1,
               padding: "4px 8px",
@@ -185,7 +202,7 @@ const ProductoDetalle: React.FC = () => {
             }}
           >
             Editar
-          </div>
+          </div> */}
 
           <div
             style={{
@@ -215,7 +232,8 @@ const ProductoDetalle: React.FC = () => {
         open={isLinkedInOpen}
         onCancel={() => setIsLinkedInOpen(false)}
         footer={null}
-        width={700}
+        width="90%"
+        style={{ maxWidth: 700 }}
       >
         <div style={{ padding: 16, fontFamily: "Arial, sans-serif" }}>
           {persona ? (

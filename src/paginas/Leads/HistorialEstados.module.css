@@ -1,0 +1,330 @@
+/* Container principal */
+.container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.scrollContainer {
+  max-height: 630px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scroll-behavior: smooth;
+}
+
+/* Header de la tabla */
+.tableHeader {
+  background: #1D2128;
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: flex;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.headerIdCol {
+  width: 52px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.headerCol {
+  flex: 1;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.headerIconCol {
+  width: 24px;
+}
+
+/* Card de registro */
+.registroCard {
+  background: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #DCDCDC;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+  animation: slideIn 0.3s ease-out;
+}
+
+.registroCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateX(2px);
+}
+
+.registroRow {
+  text-align: center;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: background 0.2s ease;
+  border-radius: 12px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.registroRow:active {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.idColumn {
+  background: #0056F1;
+  border-radius: 6px;
+  color: #fff;
+  padding: 2px 0;
+  transition: all 0.2s ease;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.registroRow:hover .idColumn {
+  background: #0046D1;
+  transform: scale(1.05);
+}
+
+.estadoTag {
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 2px 10px;
+  transition: all 0.2s ease;
+}
+
+.estadoTag:hover {
+  transform: scale(1.05);
+}
+
+.marcacionesBox {
+  background: #FFCDCD;
+  border-radius: 4px;
+  width: 40px;
+  margin: auto;
+  transition: all 0.2s ease;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marcacionesBox:hover {
+  background: #FFB8B8;
+  transform: scale(1.1);
+}
+
+/* Animaciones */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+/* Tablets y pantallas medianas (768px - 1024px) */
+@media (max-width: 1024px) {
+  .scrollContainer {
+    max-height: 500px;
+  }
+
+  .headerCol,
+  .headerIdCol {
+    font-size: 11px;
+  }
+
+  .estadoTag {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+}
+
+/* Tablets pequeñas (768px - 991px) */
+@media (max-width: 991px) {
+  .scrollContainer {
+    max-height: 450px;
+  }
+
+  .tableHeader {
+    padding: 5px 6px;
+    border-radius: 6px;
+  }
+
+  .headerCol,
+  .headerIdCol {
+    font-size: 10px;
+  }
+
+  .headerIdCol {
+    width: 40px;
+  }
+
+  .marcacionesBox {
+    width: 35px;
+  }
+}
+
+/* Móviles grandes (576px - 767px) */
+@media (max-width: 767px) {
+  .container {
+    gap: 10px;
+  }
+
+  .scrollContainer {
+    max-height: 400px;
+    padding-right: 2px;
+  }
+
+  .tableHeader {
+    padding: 4px 6px;
+    border-radius: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .headerCol {
+    font-size: 9px;
+    min-width: 60px;
+  }
+
+  .headerIdCol {
+    width: 35px;
+    font-size: 9px;
+    min-width: 35px;
+  }
+
+  .headerIconCol {
+    width: 20px;
+  }
+
+  .registroCard {
+    border-radius: 8px;
+    margin-top: 6px;
+  }
+
+  .registroRow {
+    min-height: 48px; /* Área táctil más grande en móviles */
+    padding: 6px 0;
+  }
+
+  .estadoTag {
+    font-size: 10px;
+    padding: 2px 8px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .marcacionesBox {
+    width: 32px;
+    min-height: 28px;
+    font-size: 11px;
+  }
+
+  .idColumn {
+    border-radius: 4px;
+    padding: 1px 0;
+    font-size: 11px;
+    min-height: 36px;
+  }
+}
+
+/* Móviles pequeños (hasta 575px) */
+@media (max-width: 575px) {
+  .container {
+    gap: 8px;
+  }
+
+  .scrollContainer {
+    max-height: 350px;
+  }
+
+  .tableHeader {
+    padding: 4px;
+    border-radius: 4px;
+  }
+
+  .headerCol {
+    font-size: 8px;
+    min-width: 50px;
+  }
+
+  .headerIdCol {
+    width: 30px;
+    font-size: 8px;
+    min-width: 30px;
+  }
+
+  .headerIconCol {
+    width: 18px;
+  }
+
+  .registroCard {
+    border-radius: 6px;
+    margin-top: 4px;
+  }
+
+  .estadoTag {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+
+  .marcacionesBox {
+    width: 25px;
+    font-size: 10px;
+  }
+
+  .idColumn {
+    font-size: 10px;
+  }
+}
+
+/* Móviles extra pequeños (hasta 375px) */
+@media (max-width: 375px) {
+  .scrollContainer {
+    max-height: 300px;
+  }
+
+  .tableHeader {
+    padding: 3px;
+  }
+
+  .headerCol {
+    font-size: 7px;
+    min-width: 45px;
+  }
+
+  .headerIdCol {
+    width: 28px;
+    font-size: 7px;
+    min-width: 28px;
+  }
+
+  .estadoTag {
+    font-size: 8px;
+    padding: 1px 3px;
+  }
+
+  .marcacionesBox {
+    width: 22px;
+    font-size: 9px;
+  }
+
+  .idColumn {
+    font-size: 9px;
+  }
+}

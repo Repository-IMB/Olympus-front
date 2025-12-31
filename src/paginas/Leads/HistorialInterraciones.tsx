@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Input,
@@ -10,7 +10,7 @@ import {
   Checkbox,
   Dropdown,
   DatePicker,
-  Select,
+  TimePicker,
   message,
 } from "antd";
 import {
@@ -21,10 +21,17 @@ import {
   CommentOutlined,
   CloseOutlined,
   SendOutlined,
+  FileTextOutlined,
+  WhatsAppOutlined,
+  CalendarOutlined,
+  StopOutlined,
+  PhoneOutlined,
 } from "@ant-design/icons";
 import { useParams } from "react-router-dom";
 import api from "../../servicios/api";
 import dayjs from "dayjs";
+import { getCookie } from "../../utils/cookies";
+import styles from "./HistorialInterraciones.module.css";
 
 const { Text, Title } = Typography;
 
@@ -45,24 +52,24 @@ const mapTipos: Record<number, TipoInteraccion> = {
 };
 
 const tiposConfig = [
-  { id: "nota", nombre: "Nota", color: "#FFF7B3", icon: <CheckOutlined /> },
+  { id: "nota", nombre: "Nota", color: "#FFF7B3", icon: <FileTextOutlined /> },
   {
     id: "whatsapp",
     nombre: "WhatsApp",
     color: "#DBFFD2",
-    icon: <EditOutlined />,
+    icon: <WhatsAppOutlined />,
   },
   {
     id: "recordatorio",
     nombre: "Recordatorio",
     color: "#DCDCDC",
-    icon: <CommentOutlined />,
+    icon: <CalendarOutlined />,
   },
   {
     id: "desuscrito",
     nombre: "Desuscrito",
     color: "#FFCDCD",
-    icon: <CloseOutlined />,
+    icon: <StopOutlined />,
   },
 ];
 
@@ -74,17 +81,48 @@ const HistorialInteracciones: React.FC = () => {
   const [nota, setNota] = useState<string>("");
 
   const [fechaRecordatorio, setFechaRecordatorio] = useState<any>(null);
-  const [horaRecordatorio, setHoraRecordatorio] = useState<string>("");
+  const [horaRecordatorio, setHoraRecordatorio] = useState<dayjs.Dayjs | null>(
+    null
+  );
 
   const [interacciones, setInteracciones] = useState<any[]>([]);
   const [filtrosActivos, setFiltrosActivos] = useState<string[]>([]);
   const [busqueda, setBusqueda] = useState<string>("");
+  const [telefonoCliente, setTelefonoCliente] = useState<string | null>(null);
 
-  useEffect(() => {
-    cargarHistorial(null);
+  // ======================================================
+  // 📌 OBTENER TELÉFONO DEL CLIENTE
+  // ======================================================
+  const obtenerTelefonoCliente = useCallback(async (): Promise<string | null> => {
+    if (!id) return null;
+
+    try {
+      const token = getCookie("token");
+      const res = await api.get(
+        `/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const persona = res.data?.persona;
+      if (!persona) return null;
+
+      const prefix = persona.prefijoPaisCelular
+        ? String(persona.prefijoPaisCelular).replace(/\s+/g, "")
+        : "";
+      const phone = persona.celular
+        ? String(persona.celular).replace(/\s+/g, "")
+        : "";
+
+      return prefix || phone ? `${prefix}${phone}` : null;
+    } catch (error) {
+      console.error("Error al obtener teléfono del cliente:", error);
+      return null;
+    }
   }, [id]);
 
-  const cargarHistorial = async (idTipo: number | null) => {
+  const cargarHistorial = useCallback(async (idTipo: number | null) => {
     try {
       const oportunidadId = id || "1";
       const params = idTipo !== null ? `?idTipo=${idTipo}` : "?idTipo=";
@@ -97,7 +135,17 @@ const HistorialInteracciones: React.FC = () => {
     } catch (error) {
       console.error("Error cargando historial:", error);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    cargarHistorial(null);
+    // Cargar el teléfono del cliente al montar el componente
+    obtenerTelefonoCliente().then((telefono) => {
+      if (telefono) {
+        setTelefonoCliente(telefono);
+      }
+    });
+  }, [id, cargarHistorial, obtenerTelefonoCliente]);
 
   // ======================================================
   // 📌 ENVIAR MENSAJE / RECORDATORIO
@@ -122,13 +170,12 @@ const HistorialInteracciones: React.FC = () => {
         return;
       }
 
-      const fechaISO = dayjs(fechaRecordatorio)
-        .hour(parseInt(horaRecordatorio))
-        .minute(0)
+      fechaFinal = dayjs(fechaRecordatorio)
+        .hour(horaRecordatorio.hour())
+        .minute(horaRecordatorio.minute())
         .second(0)
-        .toISOString();
-
-      fechaFinal = fechaISO;
+        .millisecond(0)
+        .format("YYYY-MM-DDTHH:mm:ss");
     }
 
     const payload = {
@@ -156,11 +203,62 @@ const HistorialInteracciones: React.FC = () => {
 
     await api.post("/api/VTAModVentaHistorialInteraccion/Insertar", payload);
 
+    // Guardar el mensaje antes de limpiarlo (necesario para WhatsApp)
+    const mensajeParaWhatsApp = nota.trim();
+
     setNota("");
     setFechaRecordatorio(null);
-    setHoraRecordatorio("");
+    setHoraRecordatorio(null);
 
     cargarHistorial(null);
+
+    // Solo abrir WhatsApp si el tipo seleccionado es "whatsapp"
+    if (tipoSeleccionado === "whatsapp") {
+      // Usar el teléfono en caché si está disponible, sino obtenerlo
+      let numeroWhatsApp = telefonoCliente;
+      
+      if (!numeroWhatsApp) {
+        numeroWhatsApp = await obtenerTelefonoCliente();
+        if (numeroWhatsApp) {
+          setTelefonoCliente(numeroWhatsApp);
+        }
+      }
+      
+      if (!numeroWhatsApp) {
+        message.warning("No se pudo obtener el número de teléfono del cliente");
+        return;
+      }
+
+      const mensajeCodificado = encodeURIComponent(mensajeParaWhatsApp);
+      const urlWhatsApp = `https://web.whatsapp.com/send?phone=${numeroWhatsApp}&text=${mensajeCodificado}`;
+      
+      // Abrir en una nueva ventana/pestaña
+      window.open(urlWhatsApp, "_blank");
+    }
+  };
+
+  // ======================================================
+  // 📌 LLAMAR POR WHATSAPP
+  // ======================================================
+  const handleLlamarWhatsApp = async () => {
+    // Usar el teléfono en caché si está disponible, sino obtenerlo
+    let numeroWhatsApp = telefonoCliente;
+    
+    if (!numeroWhatsApp) {
+      numeroWhatsApp = await obtenerTelefonoCliente();
+      if (numeroWhatsApp) {
+        setTelefonoCliente(numeroWhatsApp);
+      }
+    }
+    
+    if (!numeroWhatsApp) {
+      message.warning("No se pudo obtener el número de teléfono del cliente");
+      return;
+    }
+
+    const urlWhatsApp = `https://web.whatsapp.com/send?phone=${numeroWhatsApp}`;
+    window.open(urlWhatsApp, "_blank");
+    message.info("Se abrió WhatsApp Web. Haz clic en el botón de llamada para iniciar la llamada.");
   };
 
   // ======================================================
@@ -238,30 +336,16 @@ const HistorialInteracciones: React.FC = () => {
   );
 
   // ======================================================
-  // 📌 HORAS DISPONIBLES
-  // ======================================================
-  const horas = Array.from({ length: 24 }, (_, i) => ({
-    label: `${i.toString().padStart(2, "0")}:00`,
-    value: `${i}`,
-  }));
-
-  // ======================================================
   // 📌 RENDER
   // ======================================================
   return (
-    <div style={{ width: "100%" }}>
+    <div className={styles.container}>
       <Title level={5} style={{ marginBottom: 12 }}>
         Historial de Interacciones
       </Title>
 
       <Card
-        style={{
-          background: "#F0F0F0",
-          boxShadow: "inset 1px 1px 3px rgba(0, 0, 0, 0.35)",
-          borderRadius: 8,
-          border: "1px solid #DCDCDC",
-          padding: 6,
-        }}
+        className={styles.mainCard}
         bodyStyle={{
           padding: 6,
           display: "flex",
@@ -270,25 +354,14 @@ const HistorialInteracciones: React.FC = () => {
         }}
       >
         {/* === BARRA SUPERIOR === */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: 6,
-          }}
-        >
+        <div className={styles.topBar}>
           <Input
             placeholder="Buscar..."
             prefix={<SearchOutlined />}
             size="small"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            style={{
-              maxWidth: 220,
-              borderRadius: 6,
-              backgroundColor: "#F9F9F9",
-              fontSize: 12,
-            }}
+            className={styles.searchInput}
           />
 
           <Dropdown
@@ -299,13 +372,7 @@ const HistorialInteracciones: React.FC = () => {
             <Button
               icon={<FilterOutlined />}
               size="small"
-              style={{
-                color: "#005FF8",
-                border: "1px solid #DCDCDC",
-                borderRadius: 6,
-                backgroundColor: "#FAFAFA",
-                fontSize: 12,
-              }}
+              className={styles.filterButton}
             >
               Filtros
             </Button>
@@ -314,20 +381,98 @@ const HistorialInteracciones: React.FC = () => {
 
         <Divider style={{ margin: "4px 0" }} />
 
+        {/* === AGREGAR INTERACCIÓN === */}
+        <div className={styles.addSection}>
+          <div className={styles.tipoButtonsContainer}>
+            {tiposConfig.map((t) => (
+              <Tooltip title={t.nombre} key={t.id}>
+                <Button
+                  shape="round"
+                  size="small"
+                  icon={t.icon}
+                  onClick={() => setTipoSeleccionado(t.id as TipoInteraccion)}
+                  style={{
+                    background: t.color,
+                    border: "none",
+                    boxShadow:
+                      tipoSeleccionado === t.id
+                        ? "0 0 0 2px rgba(0,0,0,0.25) inset"
+                        : "none",
+                  }}
+                />
+              </Tooltip>
+            ))}
+          </div>
+
+          {/* === TEXTO === */}
+          <div className={styles.inputContainer}>
+            <div
+              className={styles.textAreaWrapper}
+              style={{ background: colores[tipoSeleccionado] }}
+            >
+              <Input.TextArea
+                placeholder="Escriba una nota"
+                value={nota}
+                onChange={(e) => setNota(e.target.value)}
+                autoSize={{ minRows: 1, maxRows: 4 }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  boxShadow: "none",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            <Button
+              type="primary"
+              shape="round"
+              size="middle"
+              className={styles.sendButton}
+              icon={<SendOutlined style={{ color: "#fff" }} />}
+              onClick={handleEnviar}
+            />
+          </div>
+
+          {/* === CONTROLES DE FECHA/HORA — SOLO SI ES RECORDATORIO === */}
+          {tipoSeleccionado === "recordatorio" && (
+            <div className={styles.dateTimeControls}>
+              <DatePicker
+                placeholder="Fecha"
+                value={fechaRecordatorio}
+                onChange={setFechaRecordatorio}
+                className={styles.datePicker}
+              />
+              <TimePicker
+                placeholder="Seleccionar hora"
+                format="HH:mm"
+                value={horaRecordatorio}
+                showNow={false}
+                placement="topLeft"
+                getPopupContainer={() => document.body}
+                onChange={(t) => {
+                  setHoraRecordatorio(t);
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        <Divider style={{ margin: "4px 0" }} />
+
         {/* === LISTA === */}
-        <Space
-          direction="vertical"
-          style={{
-            width: "100%",
-            height: "400px",
-            maxHeight: "400px",
-            overflowY: "auto",
-            paddingRight: 4,
-          }}
-          size={4}
-        >
+        <Space direction="vertical" className={styles.listContainer} size={4}>
           {interaccionesFiltradas.length > 0 ? (
-            interaccionesFiltradas.map((item) => {
+            interaccionesFiltradas
+              .sort((a, b) => {
+                // Ordenar de forma descendente (más reciente primero)
+                const fechaA = new Date(a.fechaCreacion).getTime();
+                const fechaB = new Date(b.fechaCreacion).getTime();
+                return fechaB - fechaA;
+              })
+              .map((item) => {
               const tipo = mapTipos[item.idTipo] ?? "nota";
               const fechaCreacion = new Date(
                 item.fechaCreacion
@@ -428,97 +573,6 @@ const HistorialInteracciones: React.FC = () => {
             </Text>
           )}
         </Space>
-
-        <Divider style={{ margin: "6px 0" }} />
-
-        {/* === AGREGAR INTERACCIÓN === */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <Space size={4}>
-            {tiposConfig.map((t) => (
-              <Tooltip title={t.nombre} key={t.id}>
-                <Button
-                  shape="round"
-                  size="small"
-                  icon={t.icon}
-                  onClick={() => setTipoSeleccionado(t.id as TipoInteraccion)}
-                  style={{
-                    background: t.color,
-                    border: "none",
-                    boxShadow:
-                      tipoSeleccionado === t.id
-                        ? "0 0 0 2px rgba(0,0,0,0.25) inset"
-                        : "none",
-                  }}
-                />
-              </Tooltip>
-            ))}
-          </Space>
-
-          {/* === TEXTO === */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div
-              style={{
-                flex: 1,
-                background: colores[tipoSeleccionado],
-                borderRadius: 8,
-                padding: "6px 8px",
-              }}
-            >
-              <Input.TextArea
-                placeholder="Escriba una nota"
-                value={nota}
-                onChange={(e) => setNota(e.target.value)}
-                autoSize={{ minRows: 2, maxRows: 4 }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  boxShadow: "none",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  resize: "none",
-                }}
-              />
-            </div>
-
-            <Button
-              type="primary"
-              shape="round"
-              size="middle"
-              style={{ background: "#005FF8", height: 37 }}
-              icon={<SendOutlined style={{ color: "#fff" }} />}
-              onClick={handleEnviar}
-            />
-          </div>
-
-          {/* === CONTROLES DE FECHA/HORA — SOLO SI ES RECORDATORIO === */}
-          {tipoSeleccionado === "recordatorio" && (
-            <div
-              style={{
-                background: "#EFEFEF",
-                padding: 8,
-                borderRadius: 8,
-                marginTop: -4,
-                display: "flex",
-                gap: 8,
-              }}
-            >
-              <DatePicker
-                placeholder="Fecha"
-                value={fechaRecordatorio}
-                onChange={setFechaRecordatorio}
-                style={{ width: "60%" }}
-              />
-
-              <Select
-                placeholder="Hora"
-                value={horaRecordatorio}
-                onChange={(v) => setHoraRecordatorio(v)}
-                options={horas}
-                style={{ width: "40%" }}
-              />
-            </div>
-          )}
-        </div>
       </Card>
     </div>
   );
