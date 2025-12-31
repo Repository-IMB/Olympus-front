@@ -1,23 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { Card, Divider, Space, Typography, Row, Col, Spin, Input, Button, message } from "antd";
-import { RightOutlined, EditOutlined, SaveOutlined, CloseOutlined } from "@ant-design/icons";
+import { Card, Divider, Space, Typography, Row, Col, Spin } from "antd";
+import { RightOutlined } from "@ant-design/icons";
 import { getCookie } from "../../utils/cookies";
-import { jwtDecode } from "jwt-decode";
-import Cookies from "js-cookie";
 import ModalHorarios from "./InformacionProductoModales/ModalHorarios";
 import ModalInversion from "./InformacionProductoModales/ModalInversion";
 import ModalDocentes from "./InformacionProductoModales/ModalDocentes";
 import api from "../../servicios/api";
-import {
-  obtenerSpeechPorProducto,
-  crearSpeech,
-  actualizarSpeech,
-} from "../../servicios/SpeechServicio";
-import type { SpeechDTO } from "../../modelos/Speech";
 import styles from "./InformacionProducto.module.css";
 
 const { Text, Title } = Typography;
-const { TextArea } = Input;
 
 type ModalKey = null | "horarios" | "inversion" | "docentes";
 
@@ -177,11 +168,6 @@ interface InformacionProductoProps {
   oportunidadId?: string;
 }
 
-interface TokenData {
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"?: string;
-}
-
 const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId }) => {
   const [openModal, setOpenModal] = useState<ModalKey>(null);
   const [productoData, setProductoData] = useState<Producto | null>(null);
@@ -199,14 +185,6 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
   const [descuentoTemporal, setDescuentoTemporal] = useState<number | null>(null);
   const [tabSeleccionado, setTabSeleccionado] = useState(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
-
-  // Estados para Speech
-  const [speechData, setSpeechData] = useState<SpeechDTO | null>(null);
-  const [speechTexto, setSpeechTexto] = useState<string>("");
-  const [speechEditando, setSpeechEditando] = useState<boolean>(false);
-  const [speechCargando, setSpeechCargando] = useState<boolean>(false);
-  const [speechGuardando, setSpeechGuardando] = useState<boolean>(false);
-  const [nombreUsuario, setNombreUsuario] = useState<string>("");
 
   const tabs = ["Producto actual", "Speech", "Ver brochure"];
 
@@ -290,115 +268,35 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
     cargarDatosProducto();
   }, [oportunidadId]);
 
-  // Obtener nombre del usuario del token (para auditoría)
-  // Nota: El idAsesor se obtiene automáticamente del token en el backend
-  useEffect(() => {
-    const token = Cookies.get("token");
-    if (token) {
-      try {
-        const decoded: TokenData = jwtDecode(token);
-        const nombre = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"];
-        if (nombre) setNombreUsuario(nombre);
-      } catch (error) {
-        console.error("Error al decodificar token:", error);
-      }
-    }
-  }, []);
-
-  // Cargar speech cuando cambia el producto
-  // El idAsesor se obtiene automáticamente del token JWT en el backend
-  const cargarSpeech = async () => {
-    if (!productoData?.id) return;
-    
-    setSpeechCargando(true);
-    try {
-      console.log("ProductoData,", productoData)
-      const speech = await obtenerSpeechPorProducto(productoData.id);
-      setSpeechData(speech);
-      setSpeechTexto(speech?.texto || "");
-    } catch (error) {
-      console.error("Error al cargar speech:", error);
-      setSpeechData(null);
-      setSpeechTexto("");
-    } finally {
-      setSpeechCargando(false);
-    }
-  };
-
-  // Efecto para cargar speech cuando se tiene el producto
-  useEffect(() => {
-    if (productoData?.id) {
-      cargarSpeech();
-    }
-  }, [productoData?.id]);
-
-  // Guardar o crear speech
-  // El idAsesor se obtiene automáticamente del token JWT en el backend
-  const handleGuardarSpeech = async () => {
-    if (!productoData?.id) {
-      message.error("No se puede guardar: falta información del producto");
-      return;
-    }
-
-    if (!speechTexto.trim()) {
-      message.warning("El texto del speech no puede estar vacío");
-      return;
-    }
-
-    setSpeechGuardando(true);
-    try {
-      if (speechData?.id) {
-        // Actualizar speech existente
-        await actualizarSpeech({
-          id: speechData.id,
-          idProducto: productoData.id,
-          texto: speechTexto,
-          usuarioModificacion: nombreUsuario,
-        });
-        message.success("Speech actualizado correctamente");
-      } else {
-        // Crear nuevo speech
-        await crearSpeech({
-          idProducto: productoData.id,
-          texto: speechTexto,
-          usuarioCreacion: nombreUsuario,
-        });
-        message.success("Speech creado correctamente");
-      }
-      
-      // Recargar el speech
-      await cargarSpeech();
-      setSpeechEditando(false);
-    } catch (error: any) {
-      console.error("Error al guardar speech:", error);
-      const mensajeError = error?.response?.data?.mensaje || error?.message || "Error al guardar el speech";
-      message.error(mensajeError);
-    } finally {
-      setSpeechGuardando(false);
-    }
-  };
-
-  // Cancelar edición
-  const handleCancelarEdicion = () => {
-    setSpeechTexto(speechData?.texto || "");
-    setSpeechEditando(false);
-  };
 
   // Manejar clic en tabs
   const handleTabClick = (index: number) => {
     setTabSeleccionado(index);
 
+    // Si se selecciona "Speech" (índice 1), emitir evento para mostrar speech
+    if (index === 1) {
+      window.dispatchEvent(
+        new CustomEvent("mostrarSpeech", {
+          detail: { productoId: productoData?.id },
+        })
+      );
+    }
     // Si se selecciona "Ver brochure" (índice 2) y hay URL de brochure, emitir evento
-    if (index === 2 && productoData?.brochure) {
+    else if (index === 2 && productoData?.brochure) {
       window.dispatchEvent(
         new CustomEvent("mostrarBrochure", {
           detail: { brochureUrl: productoData.brochure },
         })
       );
-    } else if (index !== 2) {
-      // Si se selecciona otro tab, ocultar el brochure
+    } else {
+      // Si se selecciona otro tab, ocultar el brochure y speech
       window.dispatchEvent(
         new CustomEvent("ocultarBrochure", {
+          detail: {},
+        })
+      );
+      window.dispatchEvent(
+        new CustomEvent("ocultarSpeech", {
           detail: {},
         })
       );
@@ -652,80 +550,8 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
             <div className={styles.loadingContainer}>
               <Spin size="large" />
             </div>
-          ) : tabSeleccionado === 1 ? (
-            /* === Contenido de Speech === */
-            <div style={{ padding: "8px 0" }}>
-              {speechCargando ? (
-                <div style={{ textAlign: "center", padding: 20 }}>
-                  <Spin />
-                </div>
-              ) : (
-                <div>
-                  <div style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text strong>Tu Speech para este producto</Text>
-                    {!speechEditando && (
-                      <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={() => setSpeechEditando(true)}
-                        size="small"
-                      >
-                        Editar
-                      </Button>
-                    )}
-                  </div>
-                  
-                  {speechEditando ? (
-                    <div>
-                      <TextArea
-                        value={speechTexto}
-                        onChange={(e) => setSpeechTexto(e.target.value)}
-                        placeholder="Escribe tu speech personalizado para este producto..."
-                        autoSize={{ minRows: 4, maxRows: 12 }}
-                        style={{ marginBottom: 12 }}
-                      />
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <Button
-                          icon={<CloseOutlined />}
-                          onClick={handleCancelarEdicion}
-                          disabled={speechGuardando}
-                        >
-                          Cancelar
-                        </Button>
-                        <Button
-                          type="primary"
-                          icon={<SaveOutlined />}
-                          onClick={handleGuardarSpeech}
-                          loading={speechGuardando}
-                        >
-                          Guardar
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        background: "#f5f5f5",
-                        borderRadius: 8,
-                        padding: 12,
-                        minHeight: 100,
-                      }}
-                    >
-                      {speechData?.texto ? (
-                        <Text style={{ whiteSpace: "pre-wrap" }}>{speechData.texto}</Text>
-                      ) : (
-                        <Text type="secondary" italic>
-                          No tienes un speech configurado para este producto. 
-                          Haz clic en "Editar" para crear uno.
-                        </Text>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
           ) : (
-            /* === Contenido de Producto actual (existente) === */
+            /* === Contenido de Producto actual === */
             <div>
               <Space direction="vertical" style={{ width: "100%" }} size={4}>
               {detalles.map(([label, value]) => (
