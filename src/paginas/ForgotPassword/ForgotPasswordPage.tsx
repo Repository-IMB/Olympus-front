@@ -1,31 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Eye, EyeOff, X, CheckCircle } from 'lucide-react';
-import { useLogin } from '../../hooks/useLogin';
-import estilos from './Login.module.css';
+import { useNavigate, Link } from 'react-router-dom';
+import { CheckCircle } from 'lucide-react';
+import { useForgotPassword } from '../../hooks/useForgotPassword';
+import estilos from './ForgotPasswordPage.module.css';
 
 interface ErroresValidacion {
   email?: string;
 }
 
-function LoginPage() {
-  const location = useLocation();
+function ForgotPasswordPage() {
+  const navigate = useNavigate();
   const {
     correo,
-    password,
     setCorreo,
-    setPassword,
     error,
     cargando,
-    manejarLogin
-  } = useLogin();
-
-  const [mostrarPassword, setMostrarPassword] = useState(false);
-  const [slideIndex, setSlideIndex] = useState(0);
+    exito,
+    solicitarRecuperacion
+  } = useForgotPassword();
+  
   const [erroresValidacion, setErroresValidacion] = useState<ErroresValidacion>({});
   const [touched, setTouched] = useState({ email: false });
-  const [mostrarModalError, setMostrarModalError] = useState(false);
-  const [mostrarModalExito, setMostrarModalExito] = useState(false);
 
   // Función para validar email
   const validarEmail = (email: string): boolean => {
@@ -60,7 +55,7 @@ function LoginPage() {
   };
 
   // Validar antes de enviar
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Marcar el campo como tocado
@@ -80,11 +75,11 @@ function LoginPage() {
     // Limpiar errores de validación antes de enviar
     setErroresValidacion({});
 
-    // Proceder con el login
-    manejarLogin(e);
+    // Proceder con la solicitud
+    solicitarRecuperacion(e);
   };
 
-  // Carrusel de imágenes hardcodeadas
+  // Carrusel de imágenes hardcodeadas (igual que Login)
   const slides = [
     {
       title: "Gestiona tus oportunidades",
@@ -129,6 +124,8 @@ function LoginPage() {
     }
   ];
 
+  const [slideIndex, setSlideIndex] = useState(0);
+
   // Auto-avanzar el carrusel
   useEffect(() => {
     const interval = setInterval(() => {
@@ -137,36 +134,6 @@ function LoginPage() {
     return () => clearInterval(interval);
   }, [slides.length]);
 
-  // Mostrar modal cuando hay error del servidor y limpiar campos
-  useEffect(() => {
-    if (error) {
-      setMostrarModalError(true);
-      // Limpiar errores de validación cuando hay un error del servidor
-      setErroresValidacion({});
-      // Limpiar campos cuando las credenciales son incorrectas
-      setCorreo('');
-      setPassword('');
-      setTouched({ email: false });
-    }
-  }, [error]);
-
-  // Mostrar modal de éxito si viene de reset password
-  useEffect(() => {
-    if (location.state?.message) {
-      setMostrarModalExito(true);
-      // Limpiar el estado de location después de mostrarlo
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
-
-  // Cerrar modal (sin limpiar campos nuevamente, ya se limpiaron cuando apareció el error)
-  const cerrarModal = () => {
-    setMostrarModalError(false);
-  };
-
-  const cerrarModalExito = () => {
-    setMostrarModalExito(false);
-  };
 
   return (
     <div className={estilos.contenedorLogin}>
@@ -175,18 +142,16 @@ function LoginPage() {
         <div className={estilos.formularioContainer}>
           <div className={estilos.logoContainer}>
             <div className={estilos.logo}>
-              {/* <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="25" cy="25" r="23" stroke="#1f1f1f" strokeWidth="2"/>
-                <path d="M20 15 L25 20 L30 15" stroke="#1f1f1f" strokeWidth="2" fill="none"/>
-                <path d="M20 25 L25 30 L30 25" stroke="#1f1f1f" strokeWidth="2" fill="none"/>
-                <path d="M20 35 L25 40 L30 35" stroke="#1f1f1f" strokeWidth="2" fill="none"/>
-              </svg> */}
               <img src="/logo.png" alt="Olympus" style={{ width: 250 }} />
             </div>
-            {/* <span className={estilos.logoText}>OLYMPUS</span> */}
           </div>
 
           <form className={estilos.formulario} onSubmit={handleSubmit}>
+            <h2 className={estilos.titulo}>Recuperar Contraseña</h2>
+            <p className={estilos.subtitulo}>
+              Ingresa tu correo electrónico y te enviaremos las instrucciones para recuperar tu contraseña.
+            </p>
+
             <div className={estilos.inputGroup}>
               <label className={estilos.label}>Email</label>
               <input
@@ -200,45 +165,17 @@ function LoginPage() {
               {erroresValidacion.email && (
                 <span className={estilos.errorMensaje}>{erroresValidacion.email}</span>
               )}
+              {error && !erroresValidacion.email && (
+                <span className={estilos.errorMensaje}>{error}</span>
+              )}
             </div>
-
-            <div className={estilos.inputGroup}>
-              <label className={estilos.label}>Password</label>
-              <div className={estilos.inputContainer}>
-                <input
-                  className={estilos.input}
-                  type={mostrarPassword ? "text" : "password"}
-                  placeholder="Contraseña"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className={estilos.eyeButton}
-                  onClick={() => setMostrarPassword(!mostrarPassword)}
-                  aria-label={mostrarPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                >
-                  {mostrarPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-
-            {/* <div className={estilos.optionsRow}>
-              <label className={estilos.checkboxLabel}>
-                <input type="checkbox" className={estilos.checkbox} defaultChecked />
-                <span>Remember me</span>
-              </label>
-              <a href="#" className={estilos.forgotLink}>Forgot Password?</a>
-            </div> */}
             
             <button className={estilos.boton} type="submit" disabled={cargando}>
-              {cargando ? 'Ingresando...' : 'Sign in'}
+              {cargando ? 'Enviando...' : 'Recuperar'}
             </button>
 
             <p className={estilos.registerText}>
-              <Link to="/forgot-password" className={estilos.forgotLink}>
-                ¿Olvidaste tu contraseña?
-              </Link>
+              ¿Recordaste tu contraseña? <Link to="/login" className={estilos.registerLink}>Volver al Login</Link>
             </p>
           </form>
         </div>
@@ -269,46 +206,23 @@ function LoginPage() {
         </div>
       </div>
 
-      {/* Modal de error de credenciales */}
-      {mostrarModalError && (
-        <div className={estilos.modalOverlay} onClick={cerrarModal}>
-          <div className={estilos.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div className={estilos.modalHeader}>
-              <h3 className={estilos.modalTitle}>Error de autenticación</h3>
-              <button className={estilos.modalCloseButton} onClick={cerrarModal} aria-label="Cerrar">
-                <X size={20} />
-              </button>
-            </div>
-            <div className={estilos.modalBody}>
-              <p className={estilos.modalMessage}>
-                Usuario o contraseña incorrectos. Por favor, verifica tus credenciales e intenta nuevamente.
-              </p>
-            </div>
-            <div className={estilos.modalFooter}>
-              <button className={estilos.modalButton} onClick={cerrarModal}>
-                Volver
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de éxito al restablecer contraseña */}
-      {mostrarModalExito && (
-        <div className={estilos.modalOverlay} onClick={cerrarModalExito}>
+      {/* Modal de éxito */}
+      {exito && (
+        <div className={estilos.modalOverlay} onClick={() => navigate('/login')}>
           <div className={estilos.modalContent} onClick={(e) => e.stopPropagation()}>
             <div className={estilos.modalSuccessContent}>
               <div className={estilos.successIconContainer}>
                 <CheckCircle className={estilos.successIcon} size={64} />
               </div>
-              <h3 className={estilos.modalSuccessTitle}>¡Contraseña actualizada!</h3>
+              <h3 className={estilos.modalSuccessTitle}>¡Correo enviado!</h3>
               <p className={estilos.modalSuccessMessage}>
-                Tu contraseña ha sido restablecida exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña.
+                Hemos enviado las instrucciones para recuperar tu contraseña a <strong>{correo}</strong>. 
+                Por favor, revisa tu bandeja de entrada.
               </p>
             </div>
             <div className={estilos.modalFooter}>
-              <button className={estilos.modalButton} onClick={cerrarModalExito}>
-                Iniciar sesión
+              <button className={estilos.modalButton} onClick={() => navigate('/login')}>
+                Volver al Login
               </button>
             </div>
           </div>
@@ -318,4 +232,4 @@ function LoginPage() {
   );
 }
 
-export default LoginPage;
+export default ForgotPasswordPage;
