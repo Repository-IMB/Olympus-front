@@ -25,70 +25,8 @@ import { obtenerProductoPorId, obtenerTiposEstadoProducto, actualizarProducto } 
 import type { Producto, TipoEstadoProducto } from "../../interfaces/IProducto";
 import { obtenerDepartamentos } from "../../servicios/DepartamentosService";
 import ModalProducto from "./ModalProducto";
-
-/* =========================
-   TIPOS
-   ========================= */
-interface Modulo {
-  id: number;
-  orden: number;
-  nombre: string;
-  codigo: string;
-  docente: string;
-  fechaInicio: string;
-  fechaFin: string;
-  estado: string;
-  sesion: string;
-  horasSincronicas: number;
-  horasAsincronicas: number;
-  diasClase: string[];
-}
-
-const modulos = [
-  {
-    id: 1,
-    orden: 1,
-    nombre: "Auditor Laborales Del Presente",
-    codigo: "IMP02052G1",
-    docente: "María González",
-    fechaInicio: "05/06/2025",
-    fechaFin: "12/06/2025",
-    estado: "Activo",
-    // Datos adicionales para la vista de calendario
-    sesion: "Sesión 1",
-    horasSincronicas: 8,
-    horasAsincronicas: 4,
-    diasClase: ["Lunes", "Miércoles", "Viernes"], // Días de la semana que hay clase
-  },
-  {
-    id: 2,
-    orden: 2,
-    nombre: "PET Contabilidad Financiera - Setiembre G1",
-    codigo: "IMP02053G1",
-    docente: "Carlos Rodríguez",
-    fechaInicio: "02/07/2025",
-    fechaFin: "09/07/2025",
-    estado: "Activo",
-    sesion: "Sesión 2",
-    horasSincronicas: 10,
-    horasAsincronicas: 5,
-    diasClase: ["Martes", "Jueves"],
-  },
-  {
-    id: 3,
-    orden: 3,
-    nombre: "CEP Actualización G - CAV",
-    codigo: "IMP02054G1",
-    docente: "Ana Martínez",
-    fechaInicio: "20/06/2025",
-    fechaFin: "27/06/2025",
-    estado: "Inactivo",
-    sesion: "Sesión 3",
-    horasSincronicas: 6,
-    horasAsincronicas: 3,
-    diasClase: ["Lunes", "Miércoles"],
-  },
-];
+import { obtenerModulosPorProducto, obtenerModulos } from "../../servicios/ModuloService";
+import type { IModulo as Modulo } from "../../interfaces/IModulo";
 
 const coloresModulos = [
   '#1890ff', // azul
@@ -108,13 +46,20 @@ export default function DetalleProducto() {
   const [tiposEstadoProducto, setTiposEstadoProducto] = useState<TipoEstadoProducto[]>([]);
   const [moduloSeleccionado, setModuloSeleccionado] = useState<Modulo | null>(null);
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
-  const [moduloBuscado, setModuloBuscado] = useState<string>("");
+  const [moduloBuscado, setModuloBuscado] = useState<number | null>(null);
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
+  const [modulos, setModulos] = useState<Modulo[]>([]);
+  const [modulosDisponibles, setModulosDisponibles] = useState<any[]>([]);
+
 
   /* =========================
      CARGAR PRODUCTO POR ID
   ========================= */
   useEffect(() => {
+    console.log("🔵 DetalleProducto - useParams completo:", { id });
+    console.log("🔵 DetalleProducto - ID del parámetro:", id);
+    console.log("🔵 DetalleProducto - Tipo de ID:", typeof id);
+    console.log("🔵 DetalleProducto - ID convertido a número:", Number(id));
     const cargarDatos = async () => {
       try {
         setLoading(true);
@@ -127,10 +72,17 @@ export default function DetalleProducto() {
         const tiposData = await obtenerTiposEstadoProducto();
         setTiposEstadoProducto(tiposData);
         
+        // Cargar todos los módulos disponibles
+        const todosLosModulos = await obtenerModulos();
+        setModulosDisponibles(todosLosModulos);
+        
         // Cargar producto
         if (id) {
           const productoData = await obtenerProductoPorId(Number(id));
           setProducto(productoData);
+
+          const modulosData = await obtenerModulosPorProducto(Number(id));
+          setModulos(modulosData);
         }
       } catch (error) {
         console.error("Error al cargar datos:", error);
@@ -143,21 +95,11 @@ export default function DetalleProducto() {
     cargarDatos();
   }, [id]);
 
-
-
-  // Mock de módulos disponibles para asignar (esto vendría del backend)
-  const modulosDisponibles = [
-    { id: 101, nombre: "Gestión de Proyectos Avanzada", codigo: "GPA2025" },
-    { id: 102, nombre: "Marketing Digital Estratégico", codigo: "MDE2025" },
-    { id: 103, nombre: "Finanzas Corporativas", codigo: "FNC2025" },
-    { id: 104, nombre: "Recursos Humanos y Talento", codigo: "RHT2025" },
-  ];
-
   const handleAsignarModulo = () => {
     // Aquí iría la lógica para asignar el módulo seleccionado
     console.log("Asignando módulo:", moduloBuscado);
     setModalAsignarVisible(false);
-    setModuloBuscado("");
+    setModuloBuscado(null);
   };
 
   const handleEditarProducto = () => {
@@ -187,17 +129,17 @@ export default function DetalleProducto() {
 
   // Función para obtener los días que hay clase
   const obtenerDiasConClase = (modulo: Modulo) => {
-    if (!modulo) return [];
+    if (!modulo || !modulo.fechaInicio || !modulo.fechaFinPorSesiones) return [];
     
     const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-    const fechaInicio = dayjs(modulo.fechaInicio, "DD/MM/YYYY");
-    const fechaFin = dayjs(modulo.fechaFin, "DD/MM/YYYY");
+    const fechaInicio = dayjs(modulo.fechaInicio);
+    const fechaFin = dayjs(modulo.fechaFinPorSesiones);
     const diasConClase: string[] = [];
     
     let fechaActual = fechaInicio;
     while (fechaActual.isBefore(fechaFin) || fechaActual.isSame(fechaFin, 'day')) {
       const diaSemana = diasSemana[fechaActual.day()];
-      if (modulo.diasClase.includes(diaSemana)) {
+      if (modulo.diasClase?.includes(diaSemana)) {
         diasConClase.push(fechaActual.format("YYYY-MM-DD"));
       }
       fechaActual = fechaActual.add(1, 'day');
@@ -213,53 +155,65 @@ export default function DetalleProducto() {
       dataIndex: 'orden',
       key: 'orden',
       width: 80,
-      sorter: (a: Modulo, b: Modulo) => a.orden - b.orden,
+      sorter: (a: Modulo, b: Modulo) => (a.orden || 0) - (b.orden || 0),
     },
     {
       title: 'Nombre del módulo',
-      dataIndex: 'nombre',
-      key: 'nombre',
-      sorter: (a: Modulo, b: Modulo) => a.nombre.localeCompare(b.nombre),
+      dataIndex: 'moduloNombre',
+      key: 'moduloNombre',
+      sorter: (a: Modulo, b: Modulo) => (a.moduloNombre || '').localeCompare(b.moduloNombre || ''),
+      render: (text: string) => text || '-'
     },
     {
       title: 'Código del módulo',
-      dataIndex: 'codigo',
-      key: 'codigo',
-      sorter: (a: Modulo, b: Modulo) => a.codigo.localeCompare(b.codigo),
+      dataIndex: 'moduloCodigo',
+      key: 'moduloCodigo',
+      sorter: (a: Modulo, b: Modulo) => (a.moduloCodigo || '').localeCompare(b.moduloCodigo || ''),
+      render: (text: string) => text || '-'
     },
     {
       title: 'Docente',
-      dataIndex: 'docente',
-      key: 'docente',
-      sorter: (a: Modulo, b: Modulo) => a.docente.localeCompare(b.docente),
+      dataIndex: 'docenteNombre',
+      key: 'docenteNombre',
+      sorter: (a: Modulo, b: Modulo) =>
+        (a.docenteNombre ?? "").localeCompare(b.docenteNombre ?? ""),
+      render: (text: string) => text || '-'
     },
     {
       title: 'Fecha de Inicio',
       dataIndex: 'fechaInicio',
       key: 'fechaInicio',
       sorter: (a: Modulo, b: Modulo) => {
-        const dateA = a.fechaInicio.split('/').reverse().join('');
-        const dateB = b.fechaInicio.split('/').reverse().join('');
-        return dateA.localeCompare(dateB);
+        if (!a.fechaInicio || !b.fechaInicio) return 0;
+        const dateA = new Date(a.fechaInicio).getTime();
+        const dateB = new Date(b.fechaInicio).getTime();
+        return dateA - dateB;
       },
+      render: (fecha: string) => fecha ? dayjs(fecha).format('DD/MM/YYYY') : '-'
     },
     {
       title: 'Fecha de Fin',
-      dataIndex: 'fechaFin',
-      key: 'fechaFin',
+      dataIndex: 'fechaFinPorSesiones',
+      key: 'fechaFinPorSesiones',
       sorter: (a: Modulo, b: Modulo) => {
-        const dateA = a.fechaFin.split('/').reverse().join('');
-        const dateB = b.fechaFin.split('/').reverse().join('');
-        return dateA.localeCompare(dateB);
+        if (!a.fechaFinPorSesiones || !b.fechaFinPorSesiones) return 0;
+        const dateA = new Date(a.fechaFinPorSesiones).getTime();
+        const dateB = new Date(b.fechaFinPorSesiones).getTime();
+        return dateA - dateB;
       },
+      render: (fecha: string) => fecha ? dayjs(fecha).format('DD/MM/YYYY') : '-'
     },
     {
       title: 'Estado',
       dataIndex: 'estado',
       key: 'estado',
-      sorter: (a: Modulo, b: Modulo) => a.estado.localeCompare(b.estado),
-      render: (estado: string) => (
-        <Tag color={estado === 'Activo' ? 'green' : 'red'}>{estado}</Tag>
+      sorter: (a: Modulo, b: Modulo) => {
+        const estadoA = a.estado ? 'Activo' : 'Inactivo';
+        const estadoB = b.estado ? 'Activo' : 'Inactivo';
+        return estadoA.localeCompare(estadoB);
+      },
+      render: (estado: boolean) => (
+        <Tag color={estado ? 'green' : 'red'}>{estado ? 'Activo' : 'Inactivo'}</Tag>
       ),
     },
     {
@@ -273,8 +227,9 @@ export default function DetalleProducto() {
             type="primary"
             icon={<EyeOutlined />}
             onClick={(e) => {
-              e.stopPropagation(); // MUY IMPORTANTE
-              navigate(`/producto/modulos/detalle/${record.id}`);
+              e.stopPropagation();
+              if (!record.moduloId) return;
+              navigate(`/producto/modulos/detalle/${record.moduloId}`);
             }}
             style={{ 
               backgroundColor: '#1f1f1f',
@@ -286,14 +241,14 @@ export default function DetalleProducto() {
     },
   ];
 
-  // const diasConClase = moduloSeleccionado ? obtenerDiasConClase(moduloSeleccionado) : [];
-
   const diasClasesPorFecha: Record<
     string,
     { moduloId: number; nombre: string; color: string }[]
   > = {};
 
   modulos.forEach((modulo, index) => {
+    if (!modulo.moduloId || typeof modulo.moduloId !== 'number') return;
+    
     const color = coloresModulos[index % coloresModulos.length];
     const dias = obtenerDiasConClase(modulo);
 
@@ -303,8 +258,8 @@ export default function DetalleProducto() {
       }
 
       diasClasesPorFecha[fecha].push({
-        moduloId: modulo.id,
-        nombre: modulo.nombre,
+        moduloId: modulo.moduloId!,
+        nombre: modulo.moduloNombre || 'Sin nombre',
         color,
       });
     });
@@ -336,22 +291,78 @@ export default function DetalleProducto() {
           <Card className={styles.productCard} style={{ marginBottom: 16 }}>
             <h3 className={styles.title}>{producto.nombre}</h3>
 
-            <div className={styles.infoList}>
-              <Item label="Departamento" value={producto.departamentoNombre || "-"} />
-              <Item label="Código del producto" value={producto.codigoLanzamiento} />
-              <Item label="Descripción" value={producto.datosImportantes || "-"} />
-              <Item
-                label="Costo base del producto"
-                value={`USD ${producto.costoBase}`}
-              />
-              <Item label="Modalidad" value={producto.modalidad || "-"} />
-              <Item
-                label="Estado"
-                value={<Tag color={producto.estado ? "green" : "red"}>{producto.estadoProductoTipoNombre || (producto.estado ? "Activo" : "Inactivo")}</Tag>}
-              />
-              <Item label="Link de brochure" value={producto.brochure || "-"} />
-              <Item label="Link de Excel" value={producto.linkExcel || "-"} />
-              <Item label="Link página web" value={producto.linkPagWeb || "-"} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+              {/* COLUMNA IZQUIERDA - Información del producto */}
+              <div>
+                <div className={styles.infoList}>
+                  <Item label="Departamento" value={producto.departamentoNombre || "-"} />
+                  <Item label="Código del producto" value={producto.codigoLanzamiento} />
+                  <Item label="Descripción" value={producto.datosImportantes || "-"} />
+                  <Item
+                    label="Costo base del producto"
+                    value={`USD ${producto.costoBase}`}
+                  />
+                  <Item label="Modalidad" value={producto.modalidad || "-"} />
+                  <Item
+                    label="Estado"
+                    value={<Tag color={producto.estado ? "green" : "red"}>{producto.estadoProductoTipoNombre || (producto.estado ? "Activo" : "Inactivo")}</Tag>}
+                  />
+                  <Item label="Link de brochure" value={producto.brochure || "-"} />
+                  <Item label="Link de Excel" value={producto.linkExcel || "-"} />
+                  <Item label="Link página web" value={producto.linkPagWeb || "-"} />
+                </div>
+              </div>
+
+              {/* COLUMNA DERECHA - Estadísticas y Objetivos */}
+              <div>
+                {/* Estadísticas */}
+                <div style={{ marginBottom: 24 }}>
+                  <h4 style={{ marginBottom: 12, fontSize: 14, fontWeight: 600 }}>Estadísticas</h4>
+                  {producto.estadisticas && producto.estadisticas.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {producto.estadisticas.map((stat: any, index: number) => (
+                        <div 
+                          key={index}
+                          style={{ 
+                            padding: '8px 12px',
+                            backgroundColor: '#f5f5f5',
+                            borderRadius: 4,
+                            fontSize: 13
+                          }}
+                        >
+                          {stat.texto || '-'}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ color: '#8c8c8c', fontSize: 13 }}>Sin estadísticas</div>
+                  )}
+                </div>
+
+                {/* Objetivos */}
+                <div>
+                  <h4 style={{ marginBottom: 12, fontSize: 14, fontWeight: 600 }}>Objetivos</h4>
+                  {producto.objetivos && producto.objetivos.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {producto.objetivos.map((obj: any, index: number) => (
+                        <div 
+                          key={index}
+                          style={{ 
+                            padding: '8px 12px',
+                            backgroundColor: '#f5f5f5',
+                            borderRadius: 4,
+                            fontSize: 13
+                          }}
+                        >
+                          {obj.texto || '-'}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ color: '#8c8c8c', fontSize: 13 }}>Sin objetivos</div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
@@ -416,7 +427,7 @@ export default function DetalleProducto() {
         <Table
           dataSource={modulos}
           columns={columns}
-          rowKey="id"
+          rowKey="estructuraCurricularModuloId"
           pagination={{ pageSize: 10 }}
           size="small"
           onRow={(record) => ({
@@ -424,7 +435,7 @@ export default function DetalleProducto() {
             style: { cursor: 'pointer' },
           })}
           rowClassName={(record) =>
-            moduloSeleccionado?.id === record.id ? styles.selectedRow : ''
+            moduloSeleccionado?.estructuraCurricularModuloId === record.estructuraCurricularModuloId ? styles.selectedRow : ''
           }
         />
       </Card>
@@ -449,50 +460,46 @@ export default function DetalleProducto() {
             <div style={{ marginBottom: 8 }}>
               <span style={{ color: '#8c8c8c' }}>Nombre del Módulo:</span>{" "}
               <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.nombre}
+                {moduloSeleccionado.moduloNombre}
               </span>
             </div>
 
             <div style={{ marginBottom: 8 }}>
               <span style={{ color: '#8c8c8c' }}>Código del módulo:</span>{" "}
               <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.codigo}
+                {moduloSeleccionado.moduloCodigo || '-'}
               </span>
             </div>
 
             <div style={{ marginBottom: 8 }}>
-              <span style={{ color: '#8c8c8c' }}>Sesión:</span>{" "}
+              <span style={{ color: '#8c8c8c' }}>Sesiones:</span>{" "}
               <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.sesion}
+                {typeof moduloSeleccionado.sesiones === 'number' ? moduloSeleccionado.sesiones : "-"}
               </span>
             </div>
 
             <div style={{ marginBottom: 8 }}>
-              <span style={{ color: '#8c8c8c' }}>Fecha de Presentación:</span>{" "}
+              <span style={{ color: '#8c8c8c' }}>Fecha de Inicio:</span>{" "}
               <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.fechaInicio}
+                {moduloSeleccionado.fechaInicio ? dayjs(moduloSeleccionado.fechaInicio).format('DD/MM/YYYY') : '-'}
               </span>
               <span style={{ color: '#8c8c8c', marginLeft: 24 }}>Fecha Final:</span>{" "}
               <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.fechaFin}
+                {moduloSeleccionado.fechaFinPorSesiones ? dayjs(moduloSeleccionado.fechaFinPorSesiones).format('DD/MM/YYYY') : '-'}
               </span>
             </div>
 
             <div style={{ marginBottom: 8 }}>
-              <span style={{ color: '#8c8c8c' }}>Horas sincrónicas:</span>{" "}
+              <span style={{ color: '#8c8c8c' }}>Duración:</span>{" "}
               <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.horasSincronicas}
-              </span>
-              <span style={{ color: '#8c8c8c', marginLeft: 24 }}>Horas asincrónicas:</span>{" "}
-              <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.horasAsincronicas}
+                {moduloSeleccionado.duracionHoras ?? '-'} horas
               </span>
             </div>
 
             <div>
-              <span style={{ color: '#8c8c8c' }}>Días de clase:</span>{" "}
+              <span style={{ color: '#8c8c8c' }}>Docente:</span>{" "}
               <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.diasClase.join(", ")}
+                {moduloSeleccionado.docenteNombre || '-'}
               </span>
             </div>
           </div>
@@ -522,7 +529,7 @@ export default function DetalleProducto() {
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {sesiones.map((s, idx) => {
-                  const modulo = modulos.find(m => m.id === s.moduloId);
+                  const modulo = modulos.find(m => m.moduloId === s.moduloId);
                   if (!modulo) return null;
 
                   return (
@@ -538,17 +545,16 @@ export default function DetalleProducto() {
                     >
                       {/* Nombre del módulo */}
                       <div style={{ fontWeight: 600 }}>
-                        {modulo.nombre}
+                        {modulo.moduloNombre || 'Sin nombre'}
                       </div>
 
-                      {/* Nombre de la sesión */}
                       <div>
-                        {modulo.sesion}
+                        {typeof modulo.sesiones === 'number' ? `Sesión ${modulo.sesiones}` : 'Sin sesión'}
                       </div>
 
                       {/* Horas */}
                       <div style={{ fontSize: 11, color: "#8c8c8c" }}>
-                        {modulo.horasSincronicas} hs sincrónicas
+                        {modulo.duracionHoras ?? '-'} hs totales
                       </div>
                     </div>
                   );
@@ -641,7 +647,7 @@ export default function DetalleProducto() {
         open={modalAsignarVisible}
         onCancel={() => {
           setModalAsignarVisible(false);
-          setModuloBuscado("");
+          setModuloBuscado(null);
         }}
         footer={[
           <Button 
@@ -662,21 +668,20 @@ export default function DetalleProducto() {
           </label>
           <Select
             showSearch
-            placeholder="Buscar módulo por nombre o código"
+            placeholder="Buscar módulo por nombre"
             style={{ width: '100%' }}
             value={moduloBuscado || undefined}
             onChange={(value) => setModuloBuscado(value)}
             filterOption={(input, option) => {
-              const modulo = modulosDisponibles.find(m => m.codigo === option?.value);
+              const modulo = modulosDisponibles.find(m => m.id === option?.value);
               if (!modulo) return false;
               const searchText = input.toLowerCase();
-              return modulo.nombre.toLowerCase().includes(searchText) || 
-                     modulo.codigo.toLowerCase().includes(searchText);
+              return modulo.nombre.toLowerCase().includes(searchText);
             }}
           >
-            {modulosDisponibles.map(mod => (
-              <Select.Option key={mod.id} value={mod.codigo}>
-                {mod.nombre} - {mod.codigo}
+            {modulosDisponibles.filter(mod => mod.estado).map(mod => (
+              <Select.Option key={mod.id} value={mod.id}>
+                {mod.nombre}
               </Select.Option>
             ))}
           </Select>

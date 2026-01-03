@@ -9,6 +9,8 @@ import {
   Modal,
   Select,
   Tooltip,
+  Spin,
+  message,
 } from "antd";
 import {
   ArrowLeftOutlined,
@@ -20,28 +22,10 @@ import {
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import styles from "./DetalleModulo.module.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ModalEditarProducto from "../Productos/ModalProducto";
 import ModalModulo from "./ModalModulo";
-
-/* =========================
-   MOCK MÓDULO (temporal)
-   ========================= */
-const modulo = {
-  id: 1,
-  nombre: "Auditoría Financiera con Power BI",
-  codigo: "IMP02052G1020G2",
-  tituloCertificado: "Certificado en Auditoría Financiera Avanzada",
-  descripcion: "Curso de auditoría con herramientas de Power BI para análisis financiero avanzado",
-  fechaPresentacion: "15/03/2025",
-  fechaFinal: "15/05/2025",
-  horasVivo: 7.5,
-  horasAsincronicas: 12,
-  diasClase: ["Lunes", "Miércoles"],
-  codigosProducto: ["IMP02052G1020G2"],
-  fechaCreacion: "12/03/2024",
-  activo: true
-};
+import { obtenerModuloPorId, actualizarModulo, type IModulo } from "../../servicios/ModuloService";
 
 const departamentos = [
   { id: 1, nombre: "Ventas" },
@@ -68,6 +52,7 @@ const estados = [
   { id: 10, nombre: "Grupo completo" },
 ];
 
+// Datos mock temporales para productos, docentes y sesiones
 const productosAsociados = [
   {
     id: 1,
@@ -77,24 +62,6 @@ const productosAsociados = [
     estadoProducto: "Activo",
     idProducto: 1,
     orden: 1,
-  },
-  {
-    id: 2,
-    nombre: "PET Contabilidad Financiera",
-    codigoEdicion: "IMP02053G1",
-    edicionSesion: "Setiembre G1",
-    estadoProducto: "Activo",
-    idProducto: 2,
-    orden: 4,
-  },
-  {
-    id: 3,
-    nombre: "PET Auditoría",
-    codigoEdicion: "IMP02054G1",
-    edicionSesion: "Setiembre G1",
-    estadoProducto: "Inactivo",
-    idProducto: 3,
-    orden: 2,
   },
 ];
 
@@ -120,22 +87,6 @@ const sesionesVivo = [
     horaFin: "10:30 AM",
     tipo: "Teórica",
   },
-  {
-    id: 2,
-    evento: "Sesión 2",
-    fecha: "miércoles, 12 de marzo",
-    horaInicio: "4:00 PM",
-    horaFin: "5:30 PM",
-    tipo: "Práctica",
-  },
-  {
-    id: 3,
-    evento: "Sesión 3",
-    fecha: "lunes, 15 de mayo",
-    horaInicio: "11:00 AM",
-    horaFin: "12:30 PM",
-    tipo: "Evaluación",
-  },
 ];
 
 const obtenerLetraDia = (nombreCompleto: string): string => {
@@ -151,9 +102,25 @@ const obtenerLetraDia = (nombreCompleto: string): string => {
   return mapeo[nombreCompleto] || nombreCompleto;
 };
 
+const obtenerNombreCompletoDia = (numero: string): string => {
+  const mapeo: Record<string, string> = {
+    "1": "Lunes",
+    "2": "Martes",
+    "3": "Miércoles",
+    "4": "Jueves",
+    "5": "Viernes",
+    "6": "Sábado",
+    "7": "Domingo",
+  };
+  return mapeo[numero] || numero;
+};
+
 export default function DetalleModulo() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  
+  const [modulo, setModulo] = useState<IModulo | null>(null);
+  const [loading, setLoading] = useState(true);
   
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [modalAsociarProductoVisible, setModalAsociarProductoVisible] = useState(false);
@@ -163,21 +130,44 @@ export default function DetalleModulo() {
   const [modalEditarProductoVisible, setModalEditarProductoVisible] = useState(false);
   const [productoEditando, setProductoEditando] = useState<any | null>(null);
 
-  // Convertir el módulo mock al formato que espera ModalModulo
-  const moduloParaEditar = {
-    ...modulo,
-    modulo: modulo.nombre,
-    diasClase: modulo.diasClase.map(dia => obtenerLetraDia(dia))
+  // Cargar datos del módulo
+  useEffect(() => {
+    if (id) {
+      cargarModulo();
+    }
+  }, [id]);
+
+  const cargarModulo = async () => {
+    try {
+      setLoading(true);
+      const data = await obtenerModuloPorId(Number(id));
+      setModulo(data);
+    } catch (error) {
+      message.error("Error al cargar el módulo");
+      console.error("Error:", error);
+      navigate(-1); // Volver si hay error
+    } finally {
+      setLoading(false);
+    }
   };
 
   const abrirModalEditar = () => {
     setModalEditarVisible(true);
   };
 
-  const handleSubmitModalEditar = (values: any) => {
-    console.log("Módulo editado:", values);
-    // Aquí iría la lógica para actualizar en el backend
-    setModalEditarVisible(false);
+  const handleSubmitModalEditar = async (values: any) => {
+    try {
+      if (modulo) {
+        await actualizarModulo(modulo.id!, values, modulo);
+        message.success("Módulo actualizado correctamente");
+        await cargarModulo(); // Recargar datos
+      }
+      setModalEditarVisible(false);
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.message || "Error al actualizar el módulo";
+      message.error(errorMsg);
+      console.error("Error:", error);
+    }
   };
 
   const handleCancelModalEditar = () => {
@@ -408,6 +398,43 @@ export default function DetalleModulo() {
     },
   ];
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (!modulo) {
+    return (
+      <div className={styles.container}>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          style={{ marginBottom: 16 }}
+          onClick={() => navigate(-1)}
+        >
+          Volver
+        </Button>
+        <Card>
+          <p>No se encontró el módulo</p>
+        </Card>
+      </div>
+    );
+  }
+
+  // Convertir días de semana de números a nombres
+  const diasClaseNombres = modulo.diasSemana
+    ? modulo.diasSemana.split(',').map(d => obtenerNombreCompletoDia(d.trim())).join(', ')
+    : '-';
+
+  // Preparar el módulo para editar
+  const moduloParaEditar = {
+    ...modulo,
+    modulo: modulo.nombre,
+    diasClase: modulo.diasSemana ? modulo.diasSemana.split(',').map(d => d.trim()) : []
+  };
+
   return (
     <div className={styles.container}>
       {/* HEADER / VOLVER */}
@@ -424,14 +451,22 @@ export default function DetalleModulo() {
         <h3 className={styles.title}>{modulo.nombre}</h3>
 
         <div className={styles.infoList}>
-          <Item label="Código del módulo" value={modulo.codigo} />
-          <Item label="Título del certificado" value={modulo.tituloCertificado} />
-          <Item label="Descripción" value={modulo.descripcion} />
-          <Item label="Fecha de presentación" value={modulo.fechaPresentacion} />
-          <Item label="Fecha final" value={modulo.fechaFinal} />
-          <Item label="Horas sincrónicas" value={modulo.horasVivo} />
-          <Item label="Horas asincrónicas" value={modulo.horasAsincronicas} />
-          <Item label="Días de clase" value={modulo.diasClase.join(', ')} />
+          <Item label="ID" value={modulo.id} />
+          <Item label="Código del módulo" value={modulo.codigoModulo || '-'} />
+          <Item label="Título del certificado" value={modulo.tituloCertificado || '-'} />
+          <Item label="Descripción" value={modulo.descripcion || '-'} />
+          <Item label="Fecha de presentación" value={modulo.fechaPresentacion || '-'} />
+          <Item label="Fecha final" value={modulo.fechaFinal || '-'} />
+          <Item label="Horas sincrónicas" value={modulo.horasVivo || 0} />
+          <Item label="Horas asincrónicas" value={modulo.horasAsincronicas || 0} />
+          <Item label="Días de clase" value={diasClaseNombres} />
+          <Item label="Código de producto relacionado" value={modulo.productosCodigoLanzamiento || '-'} />
+          <Item 
+            label="Estado" 
+            value={<Tag color={modulo.estado ? 'green' : 'red'}>
+              {modulo.estado ? 'Activo' : 'Inactivo'}
+            </Tag>} 
+          />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
@@ -542,7 +577,7 @@ export default function DetalleModulo() {
           marginBottom: 16 
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
-            Cronograma de sesiones (3)
+            Cronograma de sesiones ({sesionesVivo.length})
           </h4>
           <Space>
             <Button 

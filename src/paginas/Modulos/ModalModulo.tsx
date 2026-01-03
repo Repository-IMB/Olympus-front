@@ -10,45 +10,38 @@ import {
   Select,
   Space,
   Button,
+  message
 } from "antd";
 import { useEffect, useState } from "react";
 import dayjs, { Dayjs } from "dayjs";
-
-interface Modulo {
-  id: number;
-  modulo: string;
-  codigosProducto: string[];
-  diasClase: string[];
-  fechaCreacion: string;
-  activo: boolean;
-}
+import type { IModulo, ISesion, ISesionHorario } from "../../interfaces/IModulo";
 
 interface ModalModuloProps {
   visible: boolean;
   onCancel: () => void;
   onSubmit: (values: any) => void;
-  moduloEditar?: Modulo | null;
+  moduloEditar?: IModulo | null;
   modoEdicion?: boolean;
 }
 
 const DIAS = [
-  { key: "D", label: "D" },
-  { key: "L", label: "L" },
-  { key: "M", label: "M" },
-  { key: "X", label: "X" },
-  { key: "J", label: "J" },
-  { key: "V", label: "V" },
-  { key: "S", label: "S" },
+  { key: "1", label: "L" },  // Lunes
+  { key: "2", label: "M" },  // Martes
+  { key: "3", label: "X" },  // Miércoles
+  { key: "4", label: "J" },  // Jueves
+  { key: "5", label: "V" },  // Viernes
+  { key: "6", label: "S" },  // Sábado
+  { key: "7", label: "D" },  // Domingo
 ];
 
-const DIAS_comp = [
-  { key: "Lunes", label: "Lunes" },
-  { key: "Martes", label: "Martes" },
-  { key: "Miércoles", label: "Miércoles" },
-  { key: "Jueves", label: "Jueves" },
-  { key: "Viernes", label: "Viernes" },
-  { key: "Sábado", label: "Sábado" },
-  { key: "Domingo", label: "Domingo" },
+const DIAS_COMPLETOS = [
+  { key: "1", label: "Lunes" },
+  { key: "2", label: "Martes" },
+  { key: "3", label: "Miércoles" },
+  { key: "4", label: "Jueves" },
+  { key: "5", label: "Viernes" },
+  { key: "6", label: "Sábado" },
+  { key: "7", label: "Domingo" },
 ];
 
 export default function ModalModulo({
@@ -72,37 +65,111 @@ export default function ModalModulo({
       const total = diffHoras > 0 ? diffHoras * nroSesiones : 0;
 
       form.setFieldsValue({
-        horasSync: Number(total.toFixed(2)),
+        duracionHoras: Number(total.toFixed(2)),
       });
     } else {
-      form.setFieldsValue({ horasSync: 0 });
+      form.setFieldsValue({ duracionHoras: 0 });
     }
   }, [horaInicio, horaFin, nroSesiones, form]);
 
   // Efecto para cargar datos cuando se edita
   useEffect(() => {
     if (visible && modoEdicion && moduloEditar) {
-      setDiasClase(moduloEditar.diasClase);
-
-      form.setFieldsValue({
-        nombre: moduloEditar.modulo,
-        codigo: moduloEditar.codigosProducto[0],
-        diasClase: moduloEditar.diasClase,
-        tituloCertificado: "",
-        descripcion: "",
-        fechaPresentacion: null,
-        horaInicio: null,
-        horaFin: null,
-        nroSesiones: 0,
-        horasSync: 0,
-        horasAsync: 0,
-        horaInicioSabado: null,
-        horaFinSabado: null,
-        diaAsync: undefined,
-        horaAsync: null,
-      });
+      console.log('=== DEBUG CARGA DE DATOS ===');
+      console.log('moduloEditar completo:', JSON.stringify(moduloEditar, null, 2));
+      console.log('fechaPresentacion:', moduloEditar.fechaPresentacion);
+      console.log('sesionesHorarios:', moduloEditar.sesionesHorarios);
+      
+      // Extraer días desde sesionesHorarios
+      const diasArray: string[] = [];
+      let primeraHoraInicio: string | null = null;
+      let primeraHoraFin: string | null = null;
+      let horaInicioSabado: string | null = null;
+      let horaFinSabado: string | null = null;
+      
+      if (moduloEditar.sesionesHorarios && moduloEditar.sesionesHorarios.length > 0) {
+        moduloEditar.sesionesHorarios.forEach((horario: ISesionHorario) => {
+          console.log('Procesando horario:', {
+            diaSemana: horario.diaSemana,
+            esAsincronica: horario.esAsincronica,
+            horaInicio: horario.horaInicio,
+            horaFin: horario.horaFin
+          });
+          
+          if (!horario.esAsincronica && horario.diaSemana > 0) {
+            const diaStr = String(horario.diaSemana);
+            if (!diasArray.includes(diaStr)) {
+              diasArray.push(diaStr);
+            }
+            
+            if (horario.diaSemana === 6) {
+              horaInicioSabado = horario.horaInicio;
+              horaFinSabado = horario.horaFin;
+            } else if (!primeraHoraInicio) {
+              primeraHoraInicio = horario.horaInicio;
+              primeraHoraFin = horario.horaFin;
+            }
+          }
+        });
+      }
+      
+      // Buscar horario asincrónico
+      const horarioAsync = moduloEditar.sesionesHorarios?.find((h: ISesionHorario) => h.esAsincronica);
+      console.log('Horario async encontrado:', horarioAsync);
+      
+      // Contar sesiones
+      const sesionesSincronicas = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 22) || [];
+      const sesionesAsincronicas = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 26) || [];
+      
+      const totalSesionesSincronicas = sesionesSincronicas.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
+      const totalSesionesAsincronicas = sesionesAsincronicas.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
+      
+      console.log('Días extraídos:', diasArray);
+      console.log('Sesiones síncronas:', totalSesionesSincronicas);
+      console.log('Sesiones asíncronas:', totalSesionesAsincronicas);
+      
+      const valoresFormulario = {
+        nombre: moduloEditar.nombre,
+        codigo: moduloEditar.codigo || "",
+        tituloCertificado: moduloEditar.tituloCertificado || "",
+        descripcion: moduloEditar.descripcion || "",
+        fechaPresentacion: moduloEditar.fechaPresentacion 
+          ? dayjs(moduloEditar.fechaPresentacion) 
+          : null,
+        horaInicio: primeraHoraInicio 
+          ? dayjs(primeraHoraInicio, "HH:mm:ss") 
+          : null,
+        horaFin: primeraHoraFin 
+          ? dayjs(primeraHoraFin, "HH:mm:ss") 
+          : null,
+        horaInicioSabado: horaInicioSabado 
+          ? dayjs(horaInicioSabado, "HH:mm:ss") 
+          : null,
+        horaFinSabado: horaFinSabado 
+          ? dayjs(horaFinSabado, "HH:mm:ss") 
+          : null,
+        nroSesiones: totalSesionesSincronicas,
+        duracionHoras: moduloEditar.duracionHoras || 0,
+        nroSesionesAsync: totalSesionesAsincronicas,
+        diaAsync: horarioAsync && horarioAsync.diaSemana > 0 
+          ? String(horarioAsync.diaSemana) 
+          : undefined,
+        horaInicioAsync: horarioAsync?.horaInicio 
+          ? dayjs(horarioAsync.horaInicio, "HH:mm:ss") 
+          : null,
+        horaFinAsync: horarioAsync?.horaFin 
+          ? dayjs(horarioAsync.horaFin, "HH:mm:ss") 
+          : null,
+      };
+      
+      console.log('Valores a setear en formulario:', valoresFormulario);
+      console.log('diaAsync calculado:', valoresFormulario.diaAsync);
+      console.log('fechaPresentacion calculada:', valoresFormulario.fechaPresentacion);
+      console.log('===========================');
+      
+      setDiasClase(diasArray);
+      form.setFieldsValue(valoresFormulario);
     } else if (visible && !modoEdicion) {
-      // Limpiar formulario en modo creación
       form.resetFields();
       setDiasClase([]);
     }
@@ -121,16 +188,75 @@ export default function ModalModulo({
   };
 
   const handleSubmit = () => {
+    if (diasClase.length === 0) {
+      message.error("Seleccione al menos un día de clase");
+      return;
+    }
+
     form
       .validateFields()
       .then((values) => {
-        const payload = {
-          ...values,
-          diasClase,
+        const payload: any = {
+          nombre: values.nombre,
+          codigo: values.codigo || "",
+          descripcion: values.descripcion || "",
+          duracionHoras: Number(values.duracionHoras) || 0,
+          tituloCertificado: values.tituloCertificado || "",
+          numeroSesiones: Number(values.nroSesiones) || 0,
+          numeroSesionesAsincronicas: Number(values.nroSesionesAsync) || 0,
+          diasClase: diasClase.join(","),
+          estado: true,
+          preserveSessions: false,
         };
+
+        // Fecha de presentación - IMPORTANTE: enviar string vacío si no hay fecha
+        if (values.fechaPresentacion) {
+          payload.fechaPresentacion = dayjs(values.fechaPresentacion).format("YYYY-MM-DD");
+        } else {
+          payload.fechaPresentacion = ""; // ⬅️ String vacío en lugar de omitir
+        }
+
+        // Horarios síncronos - REQUERIDOS
+        if (values.horaInicio && values.horaFin) {
+          payload.horaInicioSync = dayjs(values.horaInicio).format("HH:mm:ss");
+          payload.horaFinSync = dayjs(values.horaFin).format("HH:mm:ss");
+        } else {
+          message.error("Debe seleccionar hora de inicio y fin");
+          return;
+        }
+
+        // Horarios asincrónicos
+        if (Number(values.nroSesionesAsync) > 0) {
+          // Validar campos requeridos
+          if (!values.diaAsync) {
+            message.error("Debe seleccionar el día de la clase asincrónica");
+            return;
+          }
+          
+          // IMPORTANTE: Usar "DiasAsync" en lugar de "diaAsync"
+          payload.diasAsync = String(values.diaAsync); // ⬅️ Puede ser que el backend espere "diasAsync" como string
+          payload.horaInicioAsync = values.horaInicioAsync 
+            ? dayjs(values.horaInicioAsync).format("HH:mm:ss")
+            : "00:00:00";
+          
+          payload.horaFinAsync = values.horaFinAsync 
+            ? dayjs(values.horaFinAsync).format("HH:mm:ss")
+            : "00:00:00";
+        } else {
+          // Si no hay sesiones async, enviar valores por defecto
+          payload.horaInicioAsync = "00:00:00";
+          payload.horaFinAsync = "00:00:00";
+        }
+
+        if (modoEdicion && moduloEditar?.id) {
+          payload.id = moduloEditar.id;
+        }
+
+        console.log('=== PAYLOAD DESDE MODAL ===');
+        console.log(JSON.stringify(payload, null, 2));
+        console.log('===========================');
+
         onSubmit(payload);
-        form.resetFields();
-        setDiasClase([]);
       })
       .catch((error) => {
         console.error("Error de validación:", error);
@@ -165,10 +291,10 @@ export default function ModalModulo({
               name="codigo"
               rules={[
                 { required: true, message: "Ingrese código" },
-                { pattern: /^[a-zA-Z0-9]+$/, message: "Solo alfanumérico" },
+                { pattern: /^[a-zA-Z0-9-]+$/, message: "Solo alfanumérico y guiones" },
               ]}
             >
-              <Input />
+              <Input placeholder="MOD-VENT-001" />
             </Form.Item>
           </Col>
         </Row>
@@ -177,7 +303,7 @@ export default function ModalModulo({
         <Row gutter={16}>
           <Col span={24}>
             <Form.Item label="Título del certificado" name="tituloCertificado">
-              <Input />
+              <Input placeholder="Certificado en..." />
             </Form.Item>
           </Col>
         </Row>
@@ -190,7 +316,7 @@ export default function ModalModulo({
               name="descripcion"
               rules={[{ required: true, message: "Ingrese descripción" }]}
             >
-              <Input.TextArea rows={3} />
+              <Input.TextArea rows={3} placeholder="Descripción del módulo" />
             </Form.Item>
           </Col>
         </Row>
@@ -203,7 +329,7 @@ export default function ModalModulo({
               name="fechaPresentacion"
               rules={[{ required: true, message: "Seleccione fecha" }]}
             >
-              <DatePicker style={{ width: "100%" }} />
+              <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
             </Form.Item>
           </Col>
 
@@ -241,13 +367,13 @@ export default function ModalModulo({
           </Col>
 
           <Col span={8}>
-            <Form.Item label="Horas sincrónicas" name="horasSync">
+            <Form.Item label="Duración (horas)" name="duracionHoras">
               <InputNumber disabled style={{ width: "100%" }} />
             </Form.Item>
           </Col>
 
           <Col span={8}>
-            <Form.Item label="Horas asincrónicas" name="horasAsync">
+            <Form.Item label="Sesiones asincrónicas" name="nroSesionesAsync">
               <InputNumber min={0} style={{ width: "100%" }} />
             </Form.Item>
           </Col>
@@ -278,7 +404,7 @@ export default function ModalModulo({
         </Row>
 
         {/* 7mo renglón - Horarios especiales para sábado */}
-        {diasClase.includes("S") && (
+        {diasClase.includes("6") && (
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
@@ -305,7 +431,7 @@ export default function ModalModulo({
         {/* Clases asincrónicas */}
         <Form.Item shouldUpdate>
           {() =>
-            form.getFieldValue("horasAsync") > 0 && (
+            (form.getFieldValue("nroSesionesAsync") || 0) > 0 && (
               <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item
@@ -314,7 +440,7 @@ export default function ModalModulo({
                     rules={[{ required: true, message: "Seleccione día" }]}
                   >
                     <Select placeholder="Seleccione día">
-                      {DIAS_comp.map((d) => (
+                      {DIAS_COMPLETOS.map((d) => (
                         <Select.Option key={d.key} value={d.key}>
                           {d.label}
                         </Select.Option>
@@ -325,9 +451,25 @@ export default function ModalModulo({
 
                 <Col span={12}>
                   <Form.Item
-                    label="Hora clase asincrónica"
-                    name="horaAsync"
-                    rules={[{ required: true, message: "Seleccione hora" }]}
+                    label="Hora inicio asincrónica"
+                    name="horaInicioAsync"
+                  >
+                    <TimePicker style={{ width: "100%" }} format="HH:mm" />
+                  </Form.Item>
+                </Col>
+              </Row>
+            )
+          }
+        </Form.Item>
+
+        <Form.Item shouldUpdate>
+          {() =>
+            (form.getFieldValue("nroSesionesAsync") || 0) > 0 && (
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    label="Hora fin asincrónica"
+                    name="horaFinAsync"
                   >
                     <TimePicker style={{ width: "100%" }} format="HH:mm" />
                   </Form.Item>

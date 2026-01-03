@@ -10,11 +10,22 @@ export const baseUrl: string =
    OBTENER TODOS
 ========================= */
 export const obtenerProductos = async (): Promise<Producto[]> => {
-  const response = await api.get(
-    "/api/VTAModVentaProducto/ObtenerTodas"
-  );
-
-  return response.data?.productos ?? [];
+  
+  try {
+    const response = await api.get(
+      "/api/VTAModVentaProducto/ObtenerTodas"
+    );
+    
+    // Intenta diferentes estructuras posibles
+    const productos = response.data?.productos 
+      || response.data?.data 
+      || response.data 
+      || [];
+    return productos;
+  } catch (error) {
+    console.error("🔴 ProductoService: error en obtenerProductos:", error);
+    throw error;
+  }
 };
 
 /* =========================
@@ -42,11 +53,27 @@ export const obtenerTiposEstadoProducto = async (): Promise<TipoEstadoProducto[]
 export const obtenerProductoPorId = async (
   id: number
 ): Promise<Producto> => {
-  const response = await api.get(
-    `/api/VTAModVentaProducto/ObtenerPorId/${id}`
-  );
-
-  return response.data;
+  
+  try {
+    const response = await api.get(
+      `/api/VTAModVentaProducto/ObtenerPorId/${id}`
+    );
+    
+    // Intenta diferentes estructuras posibles
+    const producto = response.data?.producto 
+      || response.data?.data 
+      || response.data;
+    
+    // Verifica si el producto existe (id mayor a 0)
+    if (!producto || producto.id === 0 || !producto.id) {
+      throw new Error(`No se encontró el producto con ID ${id}. El backend devolvió un producto vacío.`);
+    }
+    
+    return producto;
+  } catch (error: any) {
+    console.error("🔴 ProductoService: error en obtenerProductoPorId:", error);
+    throw error;
+  }
 };
 
 /* =========================
@@ -98,10 +125,9 @@ export const actualizarProducto = async (
 /* =========================
    ELIMINAR
 ========================= */
-/* TODAVIA NO SE USA
 export const eliminarProducto = async (id: number): Promise<void> => {
   await api.delete(
     `/api/VTAModVentaProducto/Eliminar/${id}`
   );
 };
-*/
+

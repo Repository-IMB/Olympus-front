@@ -71,14 +71,19 @@ const navigate = useNavigate();
   };
 
   const cargarProductos = async () => {
+    console.log("🔵 Iniciando cargarProductos...");
     setLoading(true);
     try {
+      console.log("🔵 Llamando a obtenerProductos()...");
       const data = await obtenerProductos();
+      console.log("🔵 Productos recibidos:", data);
       setProductos(data);
     } catch (error) {
+      console.error("🔴 Error al cargar los productos:", error);
       message.error("Error al cargar los productos");
       console.error(error);
     } finally {
+      console.log("🔵 Finalizando cargarProductos");
       setLoading(false);
     }
   };
@@ -249,7 +254,12 @@ const navigate = useNavigate();
          <Tooltip title="Ver detalle">
           <span
             className={estilos.actionIcon}
-            onClick={() => navigate(`/producto/productos/detalle/${record.id}`)}
+            onClick={() => {
+              console.log("🔵 Record completo:", record);
+              console.log("🔵 Navegando a detalle con ID:", record.id);
+              console.log("🔵 URL que se construirá:", `/producto/productos/detalle/${record.id}`);
+              navigate(`/producto/productos/detalle/${record.id}`);
+            }}
           >
             <EyeOutlined />
           </span>

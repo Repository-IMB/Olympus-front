@@ -6,10 +6,12 @@ import {
   Tag,
   Select,
   DatePicker,
-  Tooltip
+  Tooltip,
+  message,
+  Spin
 } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import dayjs, { Dayjs } from "dayjs";
 import estilos from "./Modulos.module.css";
 import type { ColumnsType } from "antd/es/table";
@@ -21,30 +23,28 @@ import {
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import ModalModulo from "./ModalModulo";
+import { 
+  obtenerModulos, 
+  crearModulo, 
+  actualizarModulo,
+  obtenerModuloPorId,
+  type IModulo 
+} from "../../servicios/ModuloService";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
-interface Modulo {
-  id: number;
-  modulo: string;
-  codigosProducto: string[];
-  diasClase: string[];
-  fechaCreacion: string; // DD/MM/YYYY
-  activo: boolean;
-}
-
-const obtenerNombreCompletoDia = (letra: string): string => {
+const obtenerNombreCompletoDia = (numero: string): string => {
   const mapeo: Record<string, string> = {
-    D: "Domingo",
-    L: "Lunes",
-    M: "Martes",
-    X: "Miércoles",
-    J: "Jueves",
-    V: "Viernes",
-    S: "Sábado",
+    "1": "Lunes",
+    "2": "Martes",
+    "3": "Miércoles",
+    "4": "Jueves",
+    "5": "Viernes",
+    "6": "Sábado",
+    "7": "Domingo",
   };
-  return mapeo[letra] || letra;
+  return mapeo[numero] || numero;
 };
 
 export default function Modulos() {
@@ -55,38 +55,31 @@ export default function Modulos() {
   >(null);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [moduloEditando, setModuloEditando] = useState<Modulo | null>(null);
+  const [moduloEditando, setModuloEditando] = useState<IModulo | null>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
+
+  const [modulos, setModulos] = useState<IModulo[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
-  // Datos mock
-  const modulos: Modulo[] = [
-    {
-      id: 1,
-      modulo: "Introducción a Programación",
-      codigosProducto: ["PROG-101"],
-      diasClase: ["L", "X"],
-      fechaCreacion: "12/03/2024",
-      activo: true,
-    },
-    {
-      id: 2,
-      modulo: "SQL Avanzado",
-      codigosProducto: ["BD-201", "PROG-101"],
-      diasClase: ["M", "J"],
-      fechaCreacion: "25/04/2024",
-      activo: true,
-    },
-    {
-      id: 3,
-      modulo: "Marketing Digital Básico",
-      codigosProducto: ["MKT-301"],
-      diasClase: ["V"],
-      fechaCreacion: "10/02/2024",
-      activo: false,
-    },
-  ];
+  // Cargar módulos al montar el componente
+  useEffect(() => {
+    cargarModulos();
+  }, []);
+
+  const cargarModulos = async () => {
+    setLoading(true);
+    try {
+      const data = await obtenerModulos();
+      setModulos(data);
+    } catch (error) {
+      message.error("Error al cargar los módulos");
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const modulosFiltrados = useMemo(() => {
     return modulos.filter((m) => {
@@ -94,12 +87,13 @@ export default function Modulos() {
 
       const coincideBusqueda =
         !busqueda ||
-        m.modulo.toLowerCase().includes(busqueda) ||
-        m.codigosProducto.some((c) => c.toLowerCase().includes(busqueda));
+        m.nombre.toLowerCase().includes(busqueda) ||
+        (m.productosCodigoLanzamiento && 
+         m.productosCodigoLanzamiento.toLowerCase().includes(busqueda));
 
       const coincideProducto =
         !productoSeleccionado ||
-        m.codigosProducto.includes(productoSeleccionado);
+        m.productosCodigoLanzamiento === productoSeleccionado;
 
       const coincideFecha = (() => {
         if (!dateRange) return true;
@@ -107,7 +101,7 @@ export default function Modulos() {
         const [inicio, fin] = dateRange;
         if (!inicio || !fin) return true;
 
-        const fechaModulo = dayjs(m.fechaCreacion, "DD/MM/YYYY");
+        const fechaModulo = dayjs(m.fechaCreacion);
 
         return (
           (fechaModulo.isAfter(inicio.startOf("day")) ||
@@ -119,7 +113,15 @@ export default function Modulos() {
 
       return coincideBusqueda && coincideProducto && coincideFecha;
     });
-  }, [searchText, productoSeleccionado, dateRange]);
+  }, [searchText, productoSeleccionado, dateRange, modulos]);
+
+  // Obtener códigos de producto únicos para el filtro
+  const codigosProducto = useMemo(() => {
+    const codigos = modulos
+      .map(m => m.productosCodigoLanzamiento)
+      .filter(c => c && c.trim() !== "");
+    return [...new Set(codigos)];
+  }, [modulos]);
 
   const abrirModalCrear = () => {
     setModoEdicion(false);
@@ -127,21 +129,46 @@ export default function Modulos() {
     setModalVisible(true);
   };
 
-  const abrirModalEditar = (modulo: Modulo) => {
-    setModoEdicion(true);
-    setModuloEditando(modulo);
-    setModalVisible(true);
+  const abrirModalEditar = async (modulo: IModulo) => {
+    try {
+      setLoading(true);
+      // Obtener el módulo completo con todos sus campos
+      const moduloCompleto = await obtenerModuloPorId(modulo.id!);
+      console.log('Módulo completo:', JSON.stringify(moduloCompleto, null, 2));
+      
+      setModoEdicion(true);
+      setModuloEditando(moduloCompleto); // ⬅️ Usar el módulo completo
+      setModalVisible(true);
+    } catch (error) {
+      message.error("Error al cargar el módulo");
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmitModal = (values: any) => {
-    if (modoEdicion) {
-      console.log("Módulo editado:", values);
-      // Aquí iría la lógica para actualizar en el backend
-    } else {
-      console.log("Módulo creado:", values);
-      // Aquí iría la lógica para crear en el backend
+  const handleSubmitModal = async (values: any) => {
+    try {
+      if (modoEdicion && moduloEditando) {
+        // preserveSessions = false para que actualice las sesiones
+        await actualizarModulo(moduloEditando.id!, values, false);
+        message.success("Módulo actualizado correctamente");
+      } else {
+        await crearModulo(values);
+        message.success("Módulo creado correctamente");
+      }
+      setModalVisible(false);
+      await cargarModulos();
+    } catch (error: any) {
+      console.log('=== ERROR COMPLETO ===');
+      console.log('Response:', error?.response);
+      console.log('Data:', error?.response?.data);
+      console.log('====================');
+      
+      const errorMsg = error?.response?.data?.message || "Error al guardar el módulo";
+      message.error(errorMsg);
+      console.error("Error:", error);
     }
-    setModalVisible(false);
   };
 
   const handleCancelModal = () => {
@@ -150,44 +177,50 @@ export default function Modulos() {
     setModoEdicion(false);
   };
 
-  const columnas: ColumnsType<Modulo> = [
+  const columnas: ColumnsType<IModulo> = [
     {
       title: "Id",
       dataIndex: "id",
       key: "id",
       width: 80,
-      sorter: (a, b) => a.id - b.id,
+      sorter: (a, b) => (a.id || 0) - (b.id || 0),
     },
     {
       title: "Módulo",
-      dataIndex: "modulo",
-      key: "modulo",
-      sorter: (a, b) => a.modulo.localeCompare(b.modulo),
+      dataIndex: "nombre",
+      key: "nombre",
+      sorter: (a, b) => a.nombre.localeCompare(b.nombre),
     },
     {
       title: "Código de Producto Relacionado",
-      dataIndex: "codigosProducto",
-      key: "codigosProducto",
-      render: (codigos: string[]) => codigos.join(" - "),
+      dataIndex: "productosCodigoLanzamiento",
+      key: "productosCodigoLanzamiento",
+      render: (codigo: string) => codigo || "-",
     },
     {
       title: "Días de clase",
-      dataIndex: "diasClase",
-      key: "diasClase",
-      render: (dias: string[]) =>
-        dias.map((d) => obtenerNombreCompletoDia(d)).join(" - "),
+      dataIndex: "diasSemana",
+      key: "diasSemana",
+      render: (dias: string) => {
+        if (!dias || dias.trim() === "") return "-";
+        return dias
+          .split(",")
+          .map((d) => obtenerNombreCompletoDia(d.trim()))
+          .join(" - ");
+      },
     },
     {
       title: "Fecha de creación",
       dataIndex: "fechaCreacion",
       key: "fechaCreacion",
+      render: (fecha: string) => dayjs(fecha).format("DD/MM/YYYY"),
     },
     {
       title: "Estado",
-      dataIndex: "activo",
-      key: "activo",
-      render: (activo: boolean) =>
-        activo ? (
+      dataIndex: "estado",
+      key: "estado",
+      render: (estado: boolean) =>
+        estado ? (
           <Tag color="green">Activo</Tag>
         ) : (
           <Tag color="red">Inactivo</Tag>
@@ -196,7 +229,7 @@ export default function Modulos() {
     {
       title: "Acciones",
       key: "acciones",
-      render: (_, record: Modulo) => (
+      render: (_, record: IModulo) => (
         <Space size="middle">
           <Tooltip title="Editar">
             <span
@@ -263,9 +296,11 @@ export default function Modulos() {
             style={{ width: 260 }}
             onChange={(value) => setProductoSeleccionado(value)}
           >
-            <Option value="PROG-101">Programación</Option>
-            <Option value="BD-201">Base de datos</Option>
-            <Option value="MKT-301">Marketing Digital</Option>
+            {codigosProducto.map((codigo) => (
+              <Option key={codigo} value={codigo}>
+                {codigo}
+              </Option>
+            ))}
           </Select>
 
           <RangePicker
@@ -279,12 +314,14 @@ export default function Modulos() {
         </div>
 
         {/* TABLA */}
-        <Table
-          columns={columnas}
-          dataSource={modulosFiltrados}
-          rowKey="id"
-          pagination={{ pageSize: 10 }}
-        />
+        <Spin spinning={loading}>
+          <Table
+            columns={columnas}
+            dataSource={modulosFiltrados}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+          />
+        </Spin>
       </div>
 
       {/* MODAL REUTILIZABLE */}
