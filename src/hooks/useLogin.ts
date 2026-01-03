@@ -58,11 +58,9 @@ export function useLogin() {
     if (cargando) return;
     setError(null);
     setCargando(true);
-    console.log("Iniciando login para:", correo);
 
     try {
       const res = await iniciarSesion({ correo, password });
-      console.log("respuesta iniciarSesion:", res);
       const token =
         (res && (res as any).token) ??
         (res as any).data?.token ??
@@ -78,28 +76,23 @@ export function useLogin() {
       }
 
       localStorage.setItem("token", token);
-      console.log("token guardado en localStorage");
       try {
         setTokenCookie(token);
-        console.log("token guardado en cookie");
       } catch (cookieErr) {
-        console.warn("No se pudo guardar cookie:", cookieErr);
       }
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       try {
         if (navigate) {
-          console.log("navegando con useNavigate a /leads/SalesProcess");
           navigate("/leads/SalesProcess", { replace: true });
         } else {
-          console.log("useNavigate no disponible, usando window.location");
           window.location.href = "/leads/SalesProcess";
         }
       } catch (navErr) {
-        console.error("Error en navigate:", navErr);
+        // console.error("Error en navigate:", navErr);
         window.location.href = "/leads/SalesProcess";
       }
     } catch (err: any) {
-      console.error("Error en manejarLogin:", err);
+      // console.error("Error en manejarLogin:", err);
       const msg =
         err?.response?.data?.mensaje ??
         err?.response?.data?.message ??

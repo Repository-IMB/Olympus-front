@@ -377,7 +377,7 @@ const HistorialInteracciones: React.FC = () => {
               }}
               style={{ margin: 0 }}
             />
-            <span style={{ fontSize: 12, fontWeight: 500 }}>{t.nombre}</span>
+            <span style={{ fontSize: 13, fontWeight: 500 }}>{t.nombre}</span>
           </div>
         ))}
       </Space>
@@ -479,7 +479,7 @@ const HistorialInteracciones: React.FC = () => {
                   background: "transparent",
                   border: "none",
                   boxShadow: "none",
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
                   resize: "none",
                 }}
@@ -594,8 +594,7 @@ const HistorialInteracciones: React.FC = () => {
                   }}
                   bodyStyle={{ padding: 4 }}
                 >
-                  {/* ✅ BOTÓN ARRIBA IZQUIERDA SOLO PARA RECORDATORIO */}
-                  {/* ✅ BOTÓN ARRIBA IZQUIERDA SOLO PARA RECORDATORIO */}
+                  {/* BOTÓN ARRIBA IZQUIERDA SOLO PARA RECORDATORIO */}
                   {tipo === "recordatorio" && (
                     <div
                       style={{
@@ -652,7 +651,7 @@ const HistorialInteracciones: React.FC = () => {
                     {tipo === "recordatorio" && fechaRecordatorioBonita && (
                       <div
                         style={{
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: 600,
                           color: "#000",
                           marginBottom: 2,
@@ -673,7 +672,7 @@ const HistorialInteracciones: React.FC = () => {
                       {item.detalle}
                     </Text>
 
-                    <Text style={{ fontSize: 8, color: "#5D5D5D" }}>
+                    <Text style={{ fontSize: 10, color: "#5D5D5D" }}>
                       {fechaCreacion} – {item.nombreAsesor ?? "—"}
                     </Text>
                   </div>

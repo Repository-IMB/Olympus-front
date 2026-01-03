@@ -206,7 +206,7 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
   // Función para cargar los datos del producto
   const cargarDatosProducto = async (mantenerDocentesSeleccionados: boolean = false) => {
     if (!oportunidadId) {
-      console.warn("⚠️ No hay ID de oportunidad disponible para InformacionProducto");
+      // console.warn("⚠️ No hay ID de oportunidad disponible para InformacionProducto");
       return;
     }
 
@@ -223,10 +223,6 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
       const res = await api.get<ProductoDetalleResponse>(`/api/VTAModVentaProducto/DetallePorOportunidad/${oportunidadId}`, {
         headers: { Authorization: `Bearer ${token}` }, // opcional si tu interceptor ya lo añade
       });
-
-      console.log("🔄 Datos recibidos del API:", res.data);
-      console.log("💰 Inversiones recibidas:", res.data.inversiones);
-
       setProductoData(res.data.producto);
       setHorariosData(res.data.horarios || []);
       setInversionesData(res.data.inversiones || []);
@@ -244,7 +240,7 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
           }
         }
       } catch (err) {
-        console.debug("no fue posible dispatch evento costoOfrecidoActualizado", err);
+        // console.debug("no fue posible dispatch evento costoOfrecidoActualizado", err);
       }
 
       setEstructurasData(res.data.estructuras || []);
@@ -254,9 +250,7 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
       setBeneficiosData(res.data.beneficios || []);
       setDocentesData(res.data.docentesPorModulo || []);
     } catch (err: any) {
-      console.error("❌ Error al obtener datos del producto:", err?.response?.data ?? err.message);
-      // Puedes propagar o setear un estado de error si lo necesitas:
-      // setErrorState(err?.response?.data?.message ?? err.message ?? "Error al cargar producto");
+      // console.error("❌ Error al obtener datos del producto:", err?.response?.data ?? err.message);
     } finally {
       setLoading(false);
     }
@@ -384,19 +378,6 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
     }
 
     const tieneDescuento = porcentajeDescuento > 0;
-
-    console.log("📊 Datos de inversión en vista previa:", {
-      costoBase,
-      porcentajeDescuento,
-      costoConDescuento,
-      costoOfrecidoDelBackend: inversion.costoOfrecido,
-      tieneDescuento,
-      descuentoTemporal,
-      descuentoGuardado: inversion.descuentoPorcentaje,
-      usandoDescuentoTemporal: descuentoTemporal !== null,
-      inversionCompleta: inversion
-    });
-
     return {
       costoBase,
       porcentajeDescuento,

@@ -89,21 +89,11 @@ const EstadoMatriculado: React.FC<{
     useState<boolean>(false);
   const arrivedViaCobranza = cameFromCobranza || arrivedFromCobranza;
   const [creatingId, setCreatingId] = useState<number | null>(null);
-  console.log(
-    "origenOcurrenciaId (raw):",
-    origenOcurrenciaId,
-    "normalized:",
-    origenOcurrenciaIdNorm,
-    "cameFromConvertido:",
-    cameFromConvertido,
-    "cameFromCobranza:",
-    cameFromCobranza
-  );
 
-  // 🔴 ERROR
+  // ERROR
   const [errorValidacion, setErrorValidacion] = useState<string>("");
 
-  // 🟢 ÉXITO
+  // ÉXITO
   const [exitoMensaje, setExitoMensaje] = useState<string>("");
 
   const token = getCookie("token");
@@ -529,8 +519,6 @@ const EstadoMatriculado: React.FC<{
   // Confirmar pagos en Cobranza (sin tocar lógica existente) — ahora al terminar,
   // si todas las cuotas quedan pagadas, se genera la ocurrencia Convertido automáticamente
   const handleConfirmarPagos = async () => {
-    console.log("handleConfirmarPagos - idPlan:", idPlan, "cuotas:", cuotas);
-
     if (!activo) return;
     if (!idPlan) return;
 
@@ -614,16 +602,6 @@ const EstadoMatriculado: React.FC<{
 
   // Confirmar desde Convertido:
   const handleConfirmarConvertido = async () => {
-    console.log(
-      "handleConfirmarConvertido - arrivedFromCobranza:",
-      arrivedFromCobranza,
-      "cameFromCobranza:",
-      cameFromCobranza,
-      "arrivedViaCobranza:",
-      arrivedViaCobranza,
-      "idPlan:",
-      idPlan
-    );
 
     if (!activo) return;
     if (!idPlan) return;
