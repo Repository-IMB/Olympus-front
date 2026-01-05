@@ -14,6 +14,16 @@ import CreateClient from './paginas/CreateClient/CreateClient';
 import CreateOpportunity from './paginas/CreateOpportunity/CreateOpportunity';
 import SelectClient from './paginas/SelectClient/SelectClient';
 import Usuarios from './paginas/Usuarios/Usuarios';
+import Departamentos from './paginas/Departamentos/Departamentos';
+import Docentes from './paginas/Docentes/Docentes';
+import Modulos from './paginas/Modulos/Modulos';
+import Alumnos from './paginas/Alumnos/Alumnos';
+import Productos from './paginas/Productos/Productos';
+import DetalleProducto from './paginas/Productos/DetalleProducto';
+import DetalleModulo from './paginas/Modulos/DetalleModulo';
+import DetalleAlumno from "./paginas/Alumnos/DetalleAlumno";
+
+
 
 function App() {
   const navigate = useNavigate();
@@ -122,9 +132,15 @@ function App() {
           <Route path="/leads/oportunidades/:id" element={<Leads />} />
           <Route path="/leads/oportunidad/:id" element={<Oportunidad />} />
           <Route path="/leads/asignacion" element={<Asignacion />} />
-
-          <Route path="usuarios/usuarios" element={<Usuarios />} />
-
+          <Route path="/usuarios/usuarios" element={<Usuarios />} />
+          <Route path="/producto/departamentos" element={<Departamentos />} />
+          <Route path="/producto/docentes" element={<Docentes />} />
+          <Route path="/producto/modulos" element={<Modulos />} />
+          <Route path="/producto/alumnos" element={<Alumnos />} />
+          <Route path="/producto/productos" element={<Productos />} />
+          <Route path="/producto/productos/detalle/:id" element={<DetalleProducto />} />
+          <Route path="/producto/modulos/detalle/:id" element={<DetalleModulo />} />
+          <Route path="/producto/alumnos/detalle/:id" element={<DetalleAlumno />} />
         </Route>
       </Route>
 
