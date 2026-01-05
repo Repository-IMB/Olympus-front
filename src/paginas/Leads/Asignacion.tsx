@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Input,
   Select,
@@ -14,6 +15,7 @@ import {
   Space,
   Form,
   TimePicker,
+  Tooltip,
 } from "antd";
 import {
   SearchOutlined,
@@ -21,6 +23,7 @@ import {
   CloseOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import { type Lead } from "../../config/leadsTableItems";
 import estilos from "./Asignacion.module.css";
@@ -116,6 +119,7 @@ export default function Asignacion() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
+  const navigate = useNavigate();
 const token = getCookie("token");
 
 const getUserIdFromToken = () => {
@@ -135,6 +139,11 @@ const getUserIdFromToken = () => {
     return 0;
   }
 };
+
+  const handleClick = (id: number) => {
+    navigate(`/leads/oportunidades/${id}`);
+  };
+
   const handleReasignarMasivo = () => {
     if (selectedRows.length > 0) setModalOpen(true);
   };
@@ -757,6 +766,21 @@ const getUserIdFromToken = () => {
             </div>
           );
         },
+      },
+      {
+        title: "Acciones",
+        key: "actions",
+        render: (_: any, record: Lead) => (
+          <Tooltip title="Ver Detalle">
+            <Button
+              type="primary"
+              icon={<EyeOutlined />}
+              size="small"
+              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+              onClick={() => handleClick(record.id)}
+            />
+          </Tooltip>
+        ),
       },
     ],
     []
