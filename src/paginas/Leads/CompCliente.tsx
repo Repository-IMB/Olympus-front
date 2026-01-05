@@ -104,8 +104,6 @@ const paises: Record<number, string> = {
 };
 
 export default function ModalEditarCliente({ id, onUpdated, onCelularObtenido }: Props) {
-  console.log("🔷 CompCliente RENDERIZADO - Props recibidas:", { id, onUpdated, onCelularObtenido });
-
   const [visible, setVisible] = useState<boolean>(false);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState<boolean>(false);
@@ -133,15 +131,11 @@ export default function ModalEditarCliente({ id, onUpdated, onCelularObtenido }:
       try {
         setLoading(true);
         setError(null);
-        console.log("CompCliente - Haciendo petición a:", `/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`);
-
         const res = await api.get(`/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         if (!mounted) return;
-
-        console.log("CompCliente - Potencial Data recibida:", res.data);
         const data: PotencialData = res.data;
         setPotencialData(data);
 

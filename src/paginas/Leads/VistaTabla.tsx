@@ -111,9 +111,8 @@ export default function VistaTablaComponent() {
         );
 
         setData(oportunidadesFormateadas);
-        console.log("✅ Oportunidades mapeadas:", oportunidadesFormateadas);
       } catch (error) {
-        console.error("Error al obtener oportunidades:", error);
+        // console.error("Error al obtener oportunidades:", error);
       } finally {
         setLoading(false);
       }

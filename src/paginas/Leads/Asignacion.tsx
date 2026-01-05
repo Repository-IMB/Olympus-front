@@ -21,6 +21,7 @@ import {
   CloseOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 import { type Lead } from "../../config/leadsTableItems";
 import estilos from "./Asignacion.module.css";
@@ -61,6 +62,8 @@ interface OportunidadBackend {
   fechaModificacion: string;
   fechaFormulario: string;
   usuarioModificacion: string;
+  totalMarcaciones?: number;
+  recordatorios?: string[];
 }
 
 interface Asesor {
@@ -74,6 +77,11 @@ interface SkippedSource {
   formName: string;
   motivo: string;
   createdDate?: string | null;
+}
+
+interface OportunidadConRecordatorios extends OportunidadBackend {
+  totalMarcaciones: number;
+  recordatorios: string[]; // ISO strings
 }
 
 export default function Asignacion() {
@@ -131,7 +139,7 @@ const getUserIdFromToken = () => {
 
     return id ? Number(id) : 0;
   } catch (e) {
-    console.error("Error decodificando token", e);
+    // console.error("Error decodificando token", e);
     return 0;
   }
 };
@@ -308,24 +316,24 @@ const getUserIdFromToken = () => {
           "",
       });
 
-      if ((data?.respuesta?.codigo ?? data?.Respuesta?.Codigo ?? "1") === "0") {
-        message.success("Importación finalizada correctamente.");
-        obtenerOportunidades(); // refresca la tabla principal
-      } else {
-        console.log(
-          data?.respuesta?.mensaje ??
-            data?.Respuesta?.Mensaje ??
-            data?.mensaje ??
-            "Importación finalizada con advertencias."
-        );
-      }
+      // if ((data?.respuesta?.codigo ?? data?.Respuesta?.Codigo ?? "1") === "0") {
+      //   message.success("Importación finalizada correctamente.");
+      //   obtenerOportunidades();
+      // } else {
+      //   console.log(
+      //     data?.respuesta?.mensaje ??
+      //       data?.Respuesta?.Mensaje ??
+      //       data?.mensaje ??
+      //       "Importación finalizada con advertencias."
+      //   );
+      // }
     } catch (err: any) {
       console.error("Error al importar:", err);
-      message.error(
-        err?.response?.data?.mensaje ||
-          err?.message ||
-          "Error al ejecutar importación"
-      );
+      // message.error(
+      //   err?.response?.data?.mensaje ||
+      //     err?.message ||
+      //     "Error al ejecutar importación"
+      // );
     } finally {
       setImportLoading(false);
     }
@@ -347,60 +355,57 @@ const getUserIdFromToken = () => {
       if (!token) throw new Error("No se encontró el token de autenticación");
 
       const response = await axios.get(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
-        }/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio`,
+        `${import.meta.env.VITE_API_URL || "http://localhost:7020"}/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const data = response.data;
-      if (data && data.oportunidad && Array.isArray(data.oportunidad)) {
-        // 1️⃣ Eliminar duplicados por id (nos quedamos con el más reciente)
-        const oportunidadesUnicasMap = new Map<number, OportunidadBackend>();
+      if (data && Array.isArray(data.oportunidad)) {
+        const raw = data.oportunidad as any[];
 
-        for (const op of data.oportunidad as OportunidadBackend[]) {
-          const existente = oportunidadesUnicasMap.get(op.id);
+        const map = new Map<number, OportunidadConRecordatorios>();
 
-          if (!existente) {
-            oportunidadesUnicasMap.set(op.id, op);
+        raw.forEach((op) => {
+          if (!map.has(op.id)) {
+            const base: Partial<OportunidadConRecordatorios> = {
+              ...op,
+              totalMarcaciones: Number(op.totalMarcaciones ?? 0),
+              recordatorios: [],
+            };
+            map.set(op.id, base as OportunidadConRecordatorios);
           } else {
-            const fechaExistente = new Date(existente.fechaCreacion).getTime();
-            const fechaNueva = new Date(op.fechaCreacion).getTime();
-
-            // Nos quedamos con el más reciente
-            if (fechaNueva > fechaExistente) {
-              oportunidadesUnicasMap.set(op.id, op);
+            const existing = map.get(op.id)!;
+            const nm = Number(op.totalMarcaciones ?? 0);
+            if (!isNaN(nm) && nm > (existing.totalMarcaciones ?? 0)) {
+              existing.totalMarcaciones = nm;
             }
           }
-        }
 
-        // 2️⃣ Convertir a array
-        const oportunidadesUnicas = Array.from(oportunidadesUnicasMap.values());
-
-        // 3️⃣ Ordenar (como ya lo hacías)
-        const oportunidadesOrdenadas = oportunidadesUnicas.sort((a, b) => {
-          const fechaA = new Date(a.fechaCreacion).getTime();
-          const fechaB = new Date(b.fechaCreacion).getTime();
-          return fechaB - fechaA;
+          if (op.fechaRecordatorio) {
+            const entry = map.get(op.id)!;
+            entry.recordatorios.push(op.fechaRecordatorio);
+          }
         });
 
-        setOportunidades(oportunidadesOrdenadas);
+        const agrupadas = Array.from(map.values()).map((o) => {
+          const filtered = (o.recordatorios ?? []).filter(Boolean);
+          filtered.sort((a, b) => new Date(a).getTime() - new Date(b).getTime()); // ascendente
+          return { ...o, recordatorios: filtered };
+        });
 
-        console.log("✅ Oportunidades únicas:", oportunidadesOrdenadas.length);
+        agrupadas.sort((a, b) => {
+          const fa = new Date(a.fechaCreacion ?? 0).getTime();
+          const fb = new Date(b.fechaCreacion ?? 0).getTime();
+          return fb - fa;
+        });
 
-        console.log(
-          "✅ Oportunidades obtenidas:",
-          oportunidadesOrdenadas.length
-        );
+        setOportunidades(agrupadas);
       } else {
         setOportunidades([]);
-        console.warn("⚠️ No se encontraron oportunidades en la respuesta");
       }
     } catch (err: any) {
       const errorMessage =
-        err?.response?.data?.mensaje ||
-        err?.message ||
-        "Error al cargar las oportunidades";
+        err?.response?.data?.mensaje || err?.message || "Error al cargar las oportunidades";
       setError(errorMessage);
       message.error(errorMessage);
       setOportunidades([]);
@@ -446,6 +451,18 @@ const getUserIdFromToken = () => {
     }
   };
 
+  const getReminderColor = (fechaRecordatorio: string): string => {
+    const now = new Date();
+    const reminderDate = new Date(fechaRecordatorio);
+    const diffMs = reminderDate.getTime() - now.getTime();
+    const hoursRemaining = diffMs / (1000 * 60 * 60);
+
+    if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
+    if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
+    if (hoursRemaining < 24) return "#ffd666"; // amarillo
+    return "#1677ff"; // azul
+  };
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchText, filterEstado, filterOrigen, filterPais, filterAsesor, dateRange, oportunidades,filterCodigoLanzamiento,filterCodigoLinkedin,]);
@@ -468,6 +485,8 @@ const getUserIdFromToken = () => {
         pais: o.personaPaisNombre || "-",
         fechaCreacion: o.fechaCreacion,
         fechaFormulario: o.fechaFormulario,
+        totalMarcaciones: o.totalMarcaciones ?? 0,
+        recordatorios: o.recordatorios ?? [],
       })),
     [oportunidades]
   );
@@ -531,6 +550,8 @@ const getUserIdFromToken = () => {
     });
     return Array.from(paises).sort();
   }, [leadsMapeados]);
+
+  
 
   const leadsFiltrados = useMemo(() => {
     let filtrados = [...leadsMapeados];
@@ -675,6 +696,59 @@ const getUserIdFromToken = () => {
         key: "pais",
         sorter: (a, b) => (a.pais || "").localeCompare(b.pais || ""),
       },
+      {
+        title: "Total Marcaciones",
+        dataIndex: "totalMarcaciones",
+        key: "totalMarcaciones",
+        sorter: (a: Lead, b: Lead) =>
+          (a.totalMarcaciones ?? 0) - (b.totalMarcaciones ?? 0),
+        render: (totalMarcaciones: number) => (
+          <span>{typeof totalMarcaciones === "number" ? totalMarcaciones : "-"}</span>
+        ),
+        align: "center",
+        width: 140,
+      },
+      {
+        title: "Recordatorio",
+        key: "recordatorios",
+        width: 240,
+        render: (_: any, record: Lead) =>
+          !record.recordatorios || record.recordatorios.length === 0 ? (
+            "-"
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {record.recordatorios
+                .filter(Boolean)
+                .sort((a: string, b: string) => new Date(a).getTime() - new Date(b).getTime())
+                .slice(0, 3)
+                .map((r: string, i: number) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      backgroundColor: getReminderColor(r),
+                      color: "#ffffff",
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <FileTextOutlined style={{ fontSize: "12px" }} />
+                    {new Date(r).toLocaleDateString("es-ES")}{" "}
+                    {new Date(r).toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
+                  </div>
+                ))}
+            </div>
+          ),
+      },
+
       {
         title: "Fecha Creación",
         dataIndex: "fechaCreacion",
@@ -1002,6 +1076,7 @@ const getUserIdFromToken = () => {
                     .toLowerCase()
                     .includes(input.toLowerCase())
                 }
+                listHeight={200}
               >
                 {asesores.map((a) => (
                   <Option key={a.idUsuario} value={a.idUsuario}>

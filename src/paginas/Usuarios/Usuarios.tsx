@@ -185,8 +185,7 @@ export default function Usuarios() {
       }));
       setUsuarios(listado);
     } catch (err) {
-      console.log(err);
-      message.error("Error al cargar usuarios");
+      // message.error("Error al cargar usuarios");
     } finally {
       setLoading(false);
     }
