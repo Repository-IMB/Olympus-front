@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Input,
   Select,
@@ -14,6 +15,7 @@ import {
   Space,
   Form,
   TimePicker,
+  Tooltip,
 } from "antd";
 import {
   SearchOutlined,
@@ -21,6 +23,7 @@ import {
   CloseOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import { type Lead } from "../../config/leadsTableItems";
 import estilos from "./Asignacion.module.css";
@@ -116,6 +119,7 @@ export default function Asignacion() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
+  const navigate = useNavigate();
 const token = getCookie("token");
 
 const getUserIdFromToken = () => {
@@ -135,6 +139,11 @@ const getUserIdFromToken = () => {
     return 0;
   }
 };
+
+  const handleClick = (id: number) => {
+    navigate(`/leads/oportunidades/${id}`);
+  };
+
   const handleReasignarMasivo = () => {
     if (selectedRows.length > 0) setModalOpen(true);
   };
@@ -199,7 +208,7 @@ const getUserIdFromToken = () => {
         await axios.post(
           `${
             import.meta.env.VITE_API_URL || "http://localhost:7020"
-          }/api/VTAModVentaHistorialInteraccion/InsertarMasivo`,
+          }/api/VTAModVentaHistorialInteraccion/Insertar`,
           payloadInteraccion,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -515,7 +524,7 @@ const getUserIdFromToken = () => {
   const asesoresUnicos = useMemo(() => {
   const setAsesores = new Set<string>();
   leadsMapeados.forEach((lead) => {
-    if (lead.asesor && lead.asesor !== "-") {
+    if (lead.asesor && lead.asesor !== "-" && lead.asesor.toUpperCase() !== "SIN ASESOR") {
       setAsesores.add(lead.asesor);
     }
   });
@@ -758,6 +767,22 @@ const getUserIdFromToken = () => {
           );
         },
       },
+      {
+        title: "Acciones",
+        key: "actions",
+        align: "center",
+        render: (_: any, record: Lead) => (
+          <Tooltip title="Ver Detalle">
+            <Button
+              type="primary"
+              icon={<EyeOutlined />}
+              size="small"
+              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+              onClick={() => handleClick(record.id)}
+            />
+          </Tooltip>
+        ),
+      },
     ],
     []
   );
@@ -832,13 +857,20 @@ const getUserIdFromToken = () => {
         {/* Filtros - Abajo */}
         <div className={estilos.filtersRow}>
             <Select
+              showSearch
               value={filterAsesor}
               onChange={setFilterAsesor}
               placeholder="Seleccionar asesor"
               listHeight={200}
               virtual={false}
+              filterOption={(input, option) =>
+                (option?.children as unknown as string)
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
             >
             <Option value="Todos">Todos los asesores</Option>
+            <Option value="SIN ASESOR">SIN ASESOR</Option>
             {asesoresUnicos.map((a) => (
               <Option key={a} value={a}>
                 {a}
@@ -846,11 +878,17 @@ const getUserIdFromToken = () => {
             ))}
           </Select>
           <Select
+            showSearch
             value={filterCodigoLinkedin}
             onChange={setFilterCodigoLinkedin}
             className={estilos.filterSelect}
             placeholder="Seleccionar codigo Linkedin"
             virtual={false}
+            filterOption={(input, option) =>
+              (option?.children as unknown as string)
+                .toLowerCase()
+                .includes(input.toLowerCase())
+            }
           >
             <Option value="Todos">Todos codigos Linkedin</Option>
             {codigosLinkedinUnicos.map((codigoLinkedin) => (
@@ -861,11 +899,17 @@ const getUserIdFromToken = () => {
           </Select>
           
           <Select
+            showSearch
             value={filterCodigoLanzamiento}
             onChange={setFilterCodigoLanzamiento}
             className={estilos.filterSelect}
             placeholder="Seleccionar codigo lanzamiento"
             virtual={false}
+            filterOption={(input, option) =>
+              (option?.children as unknown as string)
+                .toLowerCase()
+                .includes(input.toLowerCase())
+            }
           >
             <Option value="Todos">Todos codigos lanzamiento</Option>
             {codigoLanzamientoUnicos.map((codigoLanzamiento) => (
@@ -901,10 +945,16 @@ const getUserIdFromToken = () => {
             ))}
           </Select>
           <Select
+            showSearch
             value={filterPais}
             onChange={setFilterPais}
             className={estilos.filterSelect}
             placeholder="Seleccionar país"
+            filterOption={(input, option) =>
+              (option?.children as unknown as string)
+                .toLowerCase()
+                .includes(input.toLowerCase())
+            }
           >
             <Option value="Todos">Todos los países</Option>
             {paisesUnicos.map((pais) => (
