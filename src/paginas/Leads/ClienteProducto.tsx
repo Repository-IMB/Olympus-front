@@ -43,12 +43,10 @@ const ProductoDetalle: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("ClienteProducto - ID de oportunidad recibido:", id);
-
     const token = getCookie("token");
 
     if (!id) {
-      console.warn("⚠️ No hay ID de oportunidad disponible");
+      // // console.warn("⚠️ No hay ID de oportunidad disponible");
       setLoading(false);
       return;
     }
@@ -58,12 +56,6 @@ const ProductoDetalle: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-
-        console.log(
-          "ClienteProducto - Haciendo petición a:",
-          `/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`
-        );
-
         const res = await api.get(`/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -73,7 +65,7 @@ const ProductoDetalle: React.FC = () => {
         setPotencialData(res.data);
       } catch (err: any) {
         if (!mounted) return;
-        console.error("ClienteProducto - Error al obtener potencial:", err);
+        // console.error("ClienteProducto - Error al obtener potencial:", err);
         setError(err?.response?.data?.message ?? err.message ?? "Error al obtener los datos del cliente");
       } finally {
         if (!mounted) return;

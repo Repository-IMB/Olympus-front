@@ -10,4 +10,6 @@ export interface Lead {
   pais: string;
   fechaFormulario: string;
   correo?: string; // Opcional para compatibilidad con datos antiguos
+  totalMarcaciones?: number;
+  recordatorios?: string[];
 }

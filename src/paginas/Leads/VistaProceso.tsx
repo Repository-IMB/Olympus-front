@@ -104,7 +104,6 @@ export default function VistaLeads() {
         });
 
         setLeads(oportunidadesFormateadas);
-        console.log("✅ Leads mapeados:", oportunidadesFormateadas);
       } catch (error) {
         console.error("Error al obtener leads:", error);
       }

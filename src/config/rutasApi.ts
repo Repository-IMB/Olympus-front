@@ -178,11 +178,9 @@ export async function obtenerLanzamientos(): Promise<Lanzamiento[]> {
     });
 
     const lanzamientos = Array.from(lanzamientosUnicos.values());
-    console.log('Lanzamientos únicos extraídos:', lanzamientos);
-
     return lanzamientos;
   } catch (err: any) {
-    console.error("obtenerLanzamientos axios error", err?.response?.status, err?.response?.data);
+    // console.error("obtenerLanzamientos axios error", err?.response?.status, err?.response?.data);
     throw err;
   }
 }

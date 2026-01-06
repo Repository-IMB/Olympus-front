@@ -65,7 +65,6 @@ export default function TablaEstadosReducida({
       );
       setHistorial(res.data.historialEstado || []);
     } catch (err) {
-      console.error("❌ Error al obtener historial:", err);
       message.error("Error al obtener historial de estados");
     }
   };
@@ -139,7 +138,6 @@ export default function TablaEstadosReducida({
       setFormData({ idMotivo: 1, idEstado: 1, observaciones: "" });
       fetchHistorial();
     } catch (err) {
-      console.error("❌ Error al agregar estado:", err);
       message.error("Error al agregar estado");
     }
   };
@@ -168,7 +166,6 @@ export default function TablaEstadosReducida({
       message.success("Historial actualizado");
       fetchHistorial();
     } catch (err) {
-      console.error("❌ Error al actualizar historial:", err);
       message.error("Error al actualizar llamadas");
     }
   };
