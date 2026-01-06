@@ -17,7 +17,6 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   EyeOutlined,
-  EditOutlined,
   FileTextOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
@@ -213,7 +212,9 @@ export default function OpportunitiesInterface() {
   const asesoresUnicos = useMemo(() => {
     const asesores = new Set<string>();
     opportunities.forEach((op) => {
-      if (op.asesorNombre) asesores.add(op.asesorNombre);
+      if (op.asesorNombre && op.asesorNombre !== "-" && op.asesorNombre.toUpperCase() !== "SIN ASESOR") {
+        asesores.add(op.asesorNombre);
+      }
     });
     return Array.from(asesores).sort();
   }, [opportunities]);
@@ -408,26 +409,17 @@ export default function OpportunitiesInterface() {
     {
       title: "Acciones",
       key: "actions",
+      align: "center",
       render: (_: any, record: Opportunity) => (
-        <Space size="small">
-          <Tooltip title="Ver Detalle">
-            <Button
-              type="primary"
-              icon={<EyeOutlined />}
-              size="small"
-              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
-              onClick={() => handleClick(record.id)}
-            />
-          </Tooltip>
-          <Tooltip title="Editar">
-            <Button
-              type="primary"
-              icon={<EditOutlined />}
-              size="small"
-              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
-            />
-          </Tooltip>
-        </Space>
+        <Tooltip title="Ver Detalle">
+          <Button
+            type="primary"
+            icon={<EyeOutlined />}
+            size="small"
+            style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+            onClick={() => handleClick(record.id)}
+          />
+        </Tooltip>
       ),
     },
   ];
@@ -509,16 +501,23 @@ export default function OpportunitiesInterface() {
             ))}
           </Select>
           <Select
+            showSearch
             value={filterAsesor}
             onChange={setFilterAsesor}
             placeholder="Seleccionar asesor"
-            style={{ width: "200px", borderRadius: "6px" }}
-            disabled={asesoresUnicos.length === 0}
+            listHeight={200}
+            virtual={false}
+            filterOption={(input, option) =>
+              (option?.children as unknown as string)
+                .toLowerCase()
+                .includes(input.toLowerCase())
+            }
           >
             <Option value="Todos">Todos los asesores</Option>
-            {asesoresUnicos.map((asesor) => (
-              <Option key={asesor} value={asesor}>
-                {asesor}
+            <Option value="SIN ASESOR">SIN ASESOR</Option>
+            {asesoresUnicos.map((a) => (
+              <Option key={a} value={a}>
+                {a}
               </Option>
             ))}
           </Select>
