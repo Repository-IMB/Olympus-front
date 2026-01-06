@@ -208,7 +208,7 @@ const getUserIdFromToken = () => {
         await axios.post(
           `${
             import.meta.env.VITE_API_URL || "http://localhost:7020"
-          }/api/VTAModVentaHistorialInteraccion/InsertarMasivo`,
+          }/api/VTAModVentaHistorialInteraccion/Insertar`,
           payloadInteraccion,
           { headers: { Authorization: `Bearer ${token}` } }
         );
