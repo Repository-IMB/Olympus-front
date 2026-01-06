@@ -770,6 +770,7 @@ const getUserIdFromToken = () => {
       {
         title: "Acciones",
         key: "actions",
+        align: "center",
         render: (_: any, record: Lead) => (
           <Tooltip title="Ver Detalle">
             <Button
