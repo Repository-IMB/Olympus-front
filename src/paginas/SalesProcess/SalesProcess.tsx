@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, ClipboardList } from "lucide-react";
 import { Button, Card, Badge, Layout, Spin, Alert } from "antd";
@@ -39,7 +39,7 @@ interface TokenData {
 // SALES CARD
 // =========================
 
-const SalesCard = ({ sale }: { sale: Opportunity }) => {
+const SalesCard = memo(({ sale }: { sale: Opportunity }) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -122,7 +122,9 @@ const SalesCard = ({ sale }: { sale: Opportunity }) => {
       ))}
     </Card>
   );
-};
+});
+
+SalesCard.displayName = 'SalesCard';
 
 const { Content } = Layout;
 
@@ -134,6 +136,26 @@ export default function SalesProcess() {
   const [activeFilter, setActiveFilter] = useState("todos");
   const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
     useState(false);
+
+  // Función para obtener altura inicial según el tamaño de pantalla
+  const getInitialHeight = () => {
+    const width = window.innerWidth;
+    if (width < 600) return 250; // Mobile
+    if (width < 768) return 280; // Tablet vertical
+    if (width < 1024) return 320; // Tablet horizontal
+    return 350; // Desktop
+  };
+
+  // Estados para el redimensionamiento vertical
+  const [salesSectionHeight, setSalesSectionHeight] = useState(getInitialHeight());
+  const [isResizing, setIsResizing] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const resizeRef = useRef({
+    startY: 0,
+    startHeight: 0,
+    rafId: null as number | null,
+    currentHeight: 0
+  });
 
   const navigate = useNavigate();
 
@@ -291,6 +313,130 @@ export default function SalesProcess() {
 
     fetchOpportunities();
   }, [idUsuario, idRol]);
+
+  // =========================
+  // RESPONSIVE: Ajustar altura al redimensionar ventana
+  // =========================
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      let maxHeight = 800;
+      let minHeight = 200;
+
+      // Ajustar límites según el tamaño de pantalla
+      if (width < 600) {
+        maxHeight = 500;
+        minHeight = 250;
+      } else if (width < 768) {
+        maxHeight = 600;
+        minHeight = 300;
+      } else if (width < 1024) {
+        maxHeight = 700;
+        minHeight = 300;
+      }
+
+      // Ajustar altura actual si excede los nuevos límites
+      setSalesSectionHeight(prev => Math.max(minHeight, Math.min(maxHeight, prev)));
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // =========================
+  // REDIMENSIONAMIENTO
+  // =========================
+  const handleResizeStart = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setIsResizing(true);
+
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    resizeRef.current = {
+      ...resizeRef.current,
+      startY: clientY,
+      startHeight: salesSectionHeight
+    };
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault();
+
+      // Cancelar animación anterior si existe
+      if (resizeRef.current.rafId !== null) {
+        cancelAnimationFrame(resizeRef.current.rafId);
+      }
+
+      // Usar requestAnimationFrame para actualizar suavemente
+      resizeRef.current.rafId = requestAnimationFrame(() => {
+        if (!sectionRef.current) return;
+
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+        // Límites dinámicos según el ancho de pantalla
+        const width = window.innerWidth;
+        let maxHeight = 800;
+        let minHeight = 200;
+
+        if (width < 600) {
+          maxHeight = 500;
+          minHeight = 250;
+        } else if (width < 768) {
+          maxHeight = 600;
+          minHeight = 300;
+        } else if (width < 1024) {
+          maxHeight = 700;
+          minHeight = 300;
+        }
+
+        const delta = clientY - resizeRef.current.startY;
+        const newHeight = Math.max(minHeight, Math.min(maxHeight, resizeRef.current.startHeight + delta));
+
+        // Actualizar DOM directamente sin re-render
+        sectionRef.current.style.height = `${newHeight}px`;
+        resizeRef.current.currentHeight = newHeight;
+      });
+    };
+
+    const handleEnd = () => {
+      // Cancelar cualquier animación pendiente
+      if (resizeRef.current.rafId !== null) {
+        cancelAnimationFrame(resizeRef.current.rafId);
+        resizeRef.current.rafId = null;
+      }
+
+      // Actualizar el estado React SOLO al final
+      setSalesSectionHeight(resizeRef.current.currentHeight);
+
+      setIsResizing(false);
+      document.body.style.cursor = "default";
+      document.body.style.userSelect = "auto";
+    };
+
+    window.addEventListener("mousemove", handleMove, { passive: false });
+    window.addEventListener("mouseup", handleEnd);
+    window.addEventListener("touchmove", handleMove, { passive: false });
+    window.addEventListener("touchend", handleEnd);
+
+    return () => {
+      // Limpiar en caso de desmontaje
+      if (resizeRef.current.rafId !== null) {
+        cancelAnimationFrame(resizeRef.current.rafId);
+      }
+
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleEnd);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("touchend", handleEnd);
+    };
+  }, [isResizing]);
 
   // =========================
   // CATEGORIZAR (igual que tu lógica)
@@ -491,8 +637,12 @@ export default function SalesProcess() {
             Proceso de Ventas
           </h1>
 
-          {/* Sección principal */}
-          <div className="sales-section">
+          {/* Sección principal con altura redimensionable */}
+          <div
+            ref={sectionRef}
+            className={`sales-section resizable-section ${isResizing ? 'is-resizing' : ''}`}
+            style={{ height: `${salesSectionHeight}px` }}
+          >
             <div className="stages-grid">
               {Object.entries(salesData).map(([stage, items]) => (
                 <div key={stage} className={`stage-column ${stage}`}>
@@ -514,6 +664,15 @@ export default function SalesProcess() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Divisor de redimensionamiento */}
+          <div
+            className="resize-handle"
+            onMouseDown={handleResizeStart}
+            onTouchStart={handleResizeStart}
+          >
+            <div className="resize-handle-bar"></div>
           </div>
 
           {/* =========================
@@ -550,8 +709,15 @@ export default function SalesProcess() {
                 Object.entries(otrosEstados)
                   .filter(
                     ([estado]) =>
-                      estado !== "noCalificado" && estado !== "seguimiento"
+                      estado !== "seguimiento" &&
+                      estado !== "coorporativo" &&
+                      estado !== "ventaCruzada"
                   )
+                  .sort(([estadoA], [estadoB]) => {
+                    // Definir el orden deseado
+                    const orden = ["noCalificado", "perdido", "cobranza", "convertido"];
+                    return orden.indexOf(estadoA) - orden.indexOf(estadoB);
+                  })
                   .map(([estado, items]) => (
                     <div key={estado} className="other-state-column">
                       <div className="column-header">
