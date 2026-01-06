@@ -33,11 +33,9 @@ const ControlOportunidades = ({ idOportunidad }: { idOportunidad?: string }) => 
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      console.log("✅ Controles obtenidos:", res.data);
       setControles(res.data.controlOportunidad || []);
     } catch (err: any) {
-      console.error("❌ Error al obtener controles:", err);
-      message.error("Error al obtener los controles");
+      // console.error("❌ Error al obtener controles:", err);
     }
   };
 
@@ -66,9 +64,6 @@ const ControlOportunidades = ({ idOportunidad }: { idOportunidad?: string }) => 
         idMigracion: 0,
         estado: true, // siempre true, no se muestra
       };
-
-      console.log("📤 Enviando body:", body);
-
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/VTAModVentaControlOportunidad/Insertar`,
         body,
@@ -77,16 +72,11 @@ const ControlOportunidades = ({ idOportunidad }: { idOportunidad?: string }) => 
         }
       );
 
-      console.log("✅ Respuesta POST:", res);
-
       message.success("Control agregado correctamente");
       handleClose();
       await fetchControles();
     } catch (err: any) {
-      console.error("❌ Error al guardar el control:", err.response?.data || err);
-      message.error(
-        err.response?.data?.message || "Error al guardar el control"
-      );
+      // console.error("❌ Error al guardar el control:", err.response?.data || err);
     } finally {
       setLoading(false);
     }

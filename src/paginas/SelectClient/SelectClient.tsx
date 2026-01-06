@@ -33,12 +33,10 @@ const SelectClient: React.FC<SelectClientProps> = ({
       try {
         setLoading(true);
         const data = await obtenerClientesPotenciales();
-        console.log("Clientes obtenidos:", data);
-        // Ordenar de manera descendente por ID (más recientes primero)
         const clientesOrdenados = data.sort((a, b) => b.id - a.id);
         setClientes(clientesOrdenados);
       } catch (error) {
-        console.error("Error al cargar clientes:", error);
+        // console.error("Error al cargar clientes:", error);
       } finally {
         setLoading(false);
       }
@@ -70,7 +68,6 @@ const SelectClient: React.FC<SelectClientProps> = ({
       if (onSelectClient) {
         onSelectClient(clienteSeleccionado);
       } else {
-        console.log("Cliente seleccionado:", clienteSeleccionado);
         navigate("/leads/CreateOpportunity", {
           state: { client: clienteSeleccionado },
         });

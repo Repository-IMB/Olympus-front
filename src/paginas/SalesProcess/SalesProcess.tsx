@@ -212,8 +212,6 @@ export default function SalesProcess() {
         );
 
         const raw = res.data?.oportunidad || [];
-        console.log("RAW oportunidad[0] 👉", raw?.[0]);
-
         // ✅ Agrupar por oportunidad para evitar duplicados
         const grouped: Record<number, Opportunity> = {};
 
