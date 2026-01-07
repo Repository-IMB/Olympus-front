@@ -33,6 +33,8 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { Content } = Layout;
 
+const STORAGE_KEY = "opportunities_filters";
+
 interface TokenData {
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
   "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
@@ -46,6 +48,7 @@ interface Opportunity {
   productoNombre: string;
   fechaCreacion: string;
   personaCorreo: string;
+  personaTelefono?: string;
   asesorNombre: string;
   totalMarcaciones?: number;
   recordatorios: string[];
@@ -64,18 +67,80 @@ const getReminderColor = (fechaRecordatorio: string): string => {
   return "#1677ff"; // azul
 };
 
+// Función para cargar filtros desde localStorage
+const loadFiltersFromStorage = (): {
+  searchText: string;
+  filterEstado: string;
+  filterAsesor: string;
+  dateRange: [Dayjs | null, Dayjs | null] | null;
+} => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        searchText: parsed.searchText || "",
+        filterEstado: parsed.filterEstado || "Todos",
+        filterAsesor: parsed.filterAsesor || "Todos",
+        dateRange: parsed.dateRange
+          ? ([
+              parsed.dateRange[0] ? dayjs(parsed.dateRange[0]) : null,
+              parsed.dateRange[1] ? dayjs(parsed.dateRange[1]) : null,
+            ] as [Dayjs | null, Dayjs | null])
+          : null,
+      };
+    }
+  } catch (e) {
+    console.error("Error al cargar filtros desde localStorage", e);
+  }
+  return {
+    searchText: "",
+    filterEstado: "Todos",
+    filterAsesor: "Todos",
+    dateRange: null,
+  };
+};
+
+// Función para guardar filtros en localStorage
+const saveFiltersToStorage = (
+  searchText: string,
+  filterEstado: string,
+  filterAsesor: string,
+  dateRange: [Dayjs | null, Dayjs | null] | null
+) => {
+  try {
+    const toSave = {
+      searchText,
+      filterEstado,
+      filterAsesor,
+      dateRange: dateRange
+        ? [
+            dateRange[0]?.toISOString() || null,
+            dateRange[1]?.toISOString() || null,
+          ]
+        : null,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch (e) {
+    console.error("Error al guardar filtros en localStorage", e);
+  }
+};
+
 export default function OpportunitiesInterface() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
     useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [filterEstado, setFilterEstado] = useState<string>("Todos");
-  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
+  
+  // Cargar filtros desde localStorage al inicializar
+  const initialFilters = loadFiltersFromStorage();
+  const [searchText, setSearchText] = useState(initialFilters.searchText);
+  const [filterEstado, setFilterEstado] = useState(initialFilters.filterEstado);
+  const [filterAsesor, setFilterAsesor] = useState(initialFilters.filterAsesor);
   const [dateRange, setDateRange] = useState<
     [Dayjs | null, Dayjs | null] | null
-  >(null);
+  >(initialFilters.dateRange);
 
   const navigate = useNavigate();
 
@@ -125,6 +190,11 @@ export default function OpportunitiesInterface() {
     return { idUsuario: idU, rolNombre: rNombre, idRol: idR };
   }, [token]);
 
+  // Guardar filtros en localStorage cuando cambien
+  useEffect(() => {
+    saveFiltersToStorage(searchText, filterEstado, filterAsesor, dateRange);
+  }, [searchText, filterEstado, filterAsesor, dateRange]);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchText, filterEstado, filterAsesor, dateRange, opportunities]);
@@ -158,6 +228,7 @@ export default function OpportunitiesInterface() {
               productoNombre: op.productoNombre,
               fechaCreacion: op.fechaCreacion,
               personaCorreo: op.personaCorreo,
+              personaTelefono: op.personaTelefono,
               asesorNombre: op.asesorNombre,
               totalMarcaciones: Number(op.totalMarcaciones ?? 0),
               recordatorios: [],
@@ -174,7 +245,7 @@ export default function OpportunitiesInterface() {
             new Date(b.fechaCreacion).getTime() -
             new Date(a.fechaCreacion).getTime()
         );
-
+        console.log("Aca las agrupadas", agrupadas);
         setOpportunities(agrupadas);
       } catch (e: any) {
         console.error("Error al obtener oportunidades", e);
@@ -200,6 +271,8 @@ export default function OpportunitiesInterface() {
     setFilterEstado("Todos");
     setFilterAsesor("Todos");
     setDateRange(null);
+    // Limpiar localStorage también
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   const estadosUnicos = useMemo(() => {
@@ -227,6 +300,7 @@ export default function OpportunitiesInterface() {
         return (
           op.personaNombre.toLowerCase().includes(busqueda) ||
           (op.personaCorreo || "").toLowerCase().includes(busqueda) ||
+          (op.personaTelefono || "").toLowerCase().includes(busqueda) ||
           op.productoNombre.toLowerCase().includes(busqueda) ||
           op.id.toString().includes(busqueda)
         );
@@ -305,6 +379,14 @@ export default function OpportunitiesInterface() {
       sorter: (a: Opportunity, b: Opportunity) =>
         (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
       render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Teléfono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaTelefono || "").localeCompare(b.personaTelefono || ""),
+      render: (personaTelefono: string) => personaTelefono || "-",
     },
     {
       title: "Estado",
@@ -488,7 +570,7 @@ export default function OpportunitiesInterface() {
           }}
         >
           <Input
-            placeholder="Buscar por nombre, correo, programa o ID"
+            placeholder="Buscar por nombre, correo, teléfono, programa o ID"
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
