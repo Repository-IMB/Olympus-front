@@ -35,6 +35,8 @@ const { Option } = Select;
 
 const { Content } = Layout;
 
+const STORAGE_KEY = "opportunities_filters";
+
 interface TokenData {
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
   "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
@@ -47,10 +49,83 @@ interface Opportunity {
   productoNombre: string;
   fechaCreacion: string;
   personaCorreo: string;
-  fechaRecordatorio: string | null;
+  personaTelefono?: string;
   asesorNombre: string;
   totalMarcaciones?: number;
+  recordatorios: string[];
 }
+
+const getReminderColor = (fechaRecordatorio: string): string => {
+  const now = new Date();
+  const reminderDate = new Date(fechaRecordatorio);
+
+  const diffMs = reminderDate.getTime() - now.getTime();
+  const hoursRemaining = diffMs / (1000 * 60 * 60);
+
+  if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
+  if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
+  if (hoursRemaining < 24) return "#ffd666"; // amarillo
+  return "#1677ff"; // azul
+};
+
+// Función para cargar filtros desde localStorage
+const loadFiltersFromStorage = (): {
+  searchText: string;
+  filterEstado: string;
+  filterAsesor: string;
+  dateRange: [Dayjs | null, Dayjs | null] | null;
+} => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        searchText: parsed.searchText || "",
+        filterEstado: parsed.filterEstado || "Todos",
+        filterAsesor: parsed.filterAsesor || "Todos",
+        dateRange: parsed.dateRange
+          ? ([
+              parsed.dateRange[0] ? dayjs(parsed.dateRange[0]) : null,
+              parsed.dateRange[1] ? dayjs(parsed.dateRange[1]) : null,
+            ] as [Dayjs | null, Dayjs | null])
+          : null,
+      };
+    }
+  } catch (e) {
+    console.error("Error al cargar filtros desde localStorage", e);
+  }
+  return {
+    searchText: "",
+    filterEstado: "Todos",
+    filterAsesor: "Todos",
+    dateRange: null,
+  };
+};
+
+// Función para guardar filtros en localStorage
+const saveFiltersToStorage = (
+  searchText: string,
+  filterEstado: string,
+  filterAsesor: string,
+  dateRange: [Dayjs | null, Dayjs | null] | null
+) => {
+  try {
+    const toSave = {
+      searchText,
+      filterEstado,
+      filterAsesor,
+      dateRange: dateRange
+        ? [
+            dateRange[0]?.toISOString() || null,
+            dateRange[1]?.toISOString() || null,
+          ]
+        : null,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch (e) {
+    console.error("Error al guardar filtros en localStorage", e);
+  }
+};
 
 export default function OpportunitiesInterface() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -58,12 +133,16 @@ export default function OpportunitiesInterface() {
   const [error, setError] = useState<string | null>(null);
   const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
     useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [filterEstado, setFilterEstado] = useState<string>("Todos");
-  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
+  
+  // Cargar filtros desde localStorage al inicializar
+  const initialFilters = loadFiltersFromStorage();
+  const [searchText, setSearchText] = useState(initialFilters.searchText);
+  const [filterEstado, setFilterEstado] = useState(initialFilters.filterEstado);
+  const [filterAsesor, setFilterAsesor] = useState(initialFilters.filterAsesor);
   const [dateRange, setDateRange] = useState<
     [Dayjs | null, Dayjs | null] | null
-  >(null);
+  >(initialFilters.dateRange);
+
   const navigate = useNavigate();
   const { isMobile, isTablet } = useBreakpoint();
 
@@ -106,6 +185,11 @@ export default function OpportunitiesInterface() {
     return { idUsuario: idU, rolNombre: rNombre, idRol: idR };
   }, [token]);
 
+  // Guardar filtros en localStorage cuando cambien
+  useEffect(() => {
+    saveFiltersToStorage(searchText, filterEstado, filterAsesor, dateRange);
+  }, [searchText, filterEstado, filterAsesor, dateRange]);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchText, filterEstado, filterAsesor, dateRange, opportunities]);
@@ -129,17 +213,37 @@ export default function OpportunitiesInterface() {
           }
         );
 
-        const data = res.data;
-        const items: Opportunity[] = data?.oportunidad ?? [];
+        const raw: any[] = res.data?.oportunidad ?? [];
+        const map = new Map<number, Opportunity>();
 
-        // ordenar por fecha creación descendente
-        const sortedOpportunities = items.sort(
-          (a: Opportunity, b: Opportunity) =>
+        raw.forEach((op) => {
+          if (!map.has(op.id)) {
+            map.set(op.id, {
+              id: op.id,
+              personaNombre: op.personaNombre,
+              nombreEstado: op.nombreEstado,
+              productoNombre: op.productoNombre,
+              fechaCreacion: op.fechaCreacion,
+              personaCorreo: op.personaCorreo,
+              personaTelefono: op.personaTelefono,
+              asesorNombre: op.asesorNombre,
+              totalMarcaciones: Number(op.totalMarcaciones ?? 0),
+              recordatorios: [],
+            });
+          }
+
+          if (op.fechaRecordatorio) {
+            map.get(op.id)!.recordatorios.push(op.fechaRecordatorio);
+          }
+        });
+
+        const agrupadas = Array.from(map.values()).sort(
+          (a, b) =>
             new Date(b.fechaCreacion).getTime() -
             new Date(a.fechaCreacion).getTime()
         );
-
-        setOpportunities(sortedOpportunities);
+        console.log("Aca las agrupadas", agrupadas);
+        setOpportunities(agrupadas);
       } catch (e: any) {
         console.error("Error al obtener oportunidades", e);
         setError(
@@ -164,6 +268,8 @@ export default function OpportunitiesInterface() {
     setFilterEstado("Todos");
     setFilterAsesor("Todos");
     setDateRange(null);
+    // Limpiar localStorage también
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   // Obtener estados únicos
@@ -195,15 +301,13 @@ export default function OpportunitiesInterface() {
     if (searchText.trim()) {
       const busqueda = searchText.toLowerCase().trim();
       filtradas = filtradas.filter((op) => {
-        const nombreMatch = op.personaNombre.toLowerCase().includes(busqueda);
-        const correoMatch = (op.personaCorreo || "")
-          .toLowerCase()
-          .includes(busqueda);
-        const productoMatch = op.productoNombre
-          .toLowerCase()
-          .includes(busqueda);
-        const idMatch = op.id.toString().includes(busqueda);
-        return nombreMatch || correoMatch || productoMatch || idMatch;
+        return (
+          op.personaNombre.toLowerCase().includes(busqueda) ||
+          (op.personaCorreo || "").toLowerCase().includes(busqueda) ||
+          (op.personaTelefono || "").toLowerCase().includes(busqueda) ||
+          op.productoNombre.toLowerCase().includes(busqueda) ||
+          op.id.toString().includes(busqueda)
+        );
       });
     }
 
@@ -241,59 +345,71 @@ export default function OpportunitiesInterface() {
     asesoresUnicos,
   ]);
 
-  // Columnas responsivas según el breakpoint
-  const columns = useMemo(() => {
-    const baseColumns: ColumnType<Opportunity>[] = [
-      {
-        title: "Fecha y Hora",
-        dataIndex: "fechaCreacion",
-        key: "fechaCreacion",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          new Date(a.fechaCreacion).getTime() -
-          new Date(b.fechaCreacion).getTime(),
-        render: (fechaCreacion: string) => (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-            <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
-            <div>
-              <div style={{ color: "#000000", fontSize: "14px" }}>
-                {new Date(fechaCreacion).toLocaleDateString()}
-              </div>
-              {!isMobile && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    color: "#8c8c8c",
-                    fontSize: "13px",
-                  }}
-                >
-                  <ClockCircleOutlined style={{ fontSize: "12px" }} />
-                  {new Date(fechaCreacion).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-              )}
+  const columns: ColumnsType<Opportunity> = [
+    {
+      title: "Fecha y Hora",
+      dataIndex: "fechaCreacion",
+      key: "fechaCreacion",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        new Date(a.fechaCreacion).getTime() -
+        new Date(b.fechaCreacion).getTime(),
+      render: (fechaCreacion: string) => (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+          <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
+          <div>
+            <div style={{ color: "#000000", fontSize: "14px" }}>
+              {new Date(fechaCreacion).toLocaleDateString()}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                color: "#8c8c8c",
+                fontSize: "13px",
+              }}
+            >
+              <ClockCircleOutlined style={{ fontSize: "12px" }} />
+              {new Date(fechaCreacion).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </div>
           </div>
-        ),
-      },
-      {
-        title: "Nombre Completo",
-        dataIndex: "personaNombre",
-        key: "personaNombre",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          a.personaNombre.localeCompare(b.personaNombre),
-      },
-      {
-        title: "Estado",
-        dataIndex: "nombreEstado",
-        key: "nombreEstado",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          a.nombreEstado.localeCompare(b.nombreEstado),
-        render: (nombreEstado: string) => {
-          let color = "green";
+        </div>
+      ),
+    },
+    {
+      title: "Nombre Completo",
+      dataIndex: "personaNombre",
+      key: "personaNombre",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        a.personaNombre.localeCompare(b.personaNombre),
+    },
+    {
+      title: "Correo",
+      dataIndex: "personaCorreo",
+      key: "personaCorreo",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Teléfono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaTelefono || "").localeCompare(b.personaTelefono || ""),
+      render: (personaTelefono: string) => personaTelefono || "-",
+    },
+    {
+      title: "Estado",
+      dataIndex: "nombreEstado",
+      key: "nombreEstado",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        a.nombreEstado.localeCompare(b.nombreEstado),
+      render: (nombreEstado: string) => {
+        let color = "green";
 
           if (nombreEstado === "Calificado") {
             color = "blue";
@@ -483,7 +599,7 @@ export default function OpportunitiesInterface() {
         {/* Filtros */}
         <div className={styles.filters}>
           <Input
-            placeholder="Buscar por nombre, correo, programa o ID"
+            placeholder="Buscar por nombre, correo, teléfono, programa o ID"
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
