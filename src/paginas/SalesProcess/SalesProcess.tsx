@@ -364,12 +364,12 @@ export default function SalesProcess() {
 
     Object.values(initialSalesData).forEach((arr) => {
       arr.sort(sortByFechaDesc);
-      arr.splice(100); // 🔥 máximo 100 por columna
+      arr.splice(100);
     });
 
     Object.values(initialOtrosEstados).forEach((arr) => {
       arr.sort(sortByFechaDesc);
-      arr.splice(100); // 🔥 máximo 100 por columna
+      arr.splice(100);
     });
 
     return { salesData: initialSalesData, otrosEstados: initialOtrosEstados };
