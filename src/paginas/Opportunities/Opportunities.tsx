@@ -31,6 +31,8 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { Content } = Layout;
 
+const STORAGE_KEY = "opportunities_filters";
+
 interface TokenData {
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
   "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
@@ -44,6 +46,7 @@ interface Opportunity {
   productoNombre: string;
   fechaCreacion: string;
   personaCorreo: string;
+  personaTelefono?: string;
   asesorNombre: string;
   totalMarcaciones?: number;
   recordatorios: string[];
@@ -62,18 +65,80 @@ const getReminderColor = (fechaRecordatorio: string): string => {
   return "#1677ff"; // azul
 };
 
+// Función para cargar filtros desde localStorage
+const loadFiltersFromStorage = (): {
+  searchText: string;
+  filterEstado: string;
+  filterAsesor: string;
+  dateRange: [Dayjs | null, Dayjs | null] | null;
+} => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        searchText: parsed.searchText || "",
+        filterEstado: parsed.filterEstado || "Todos",
+        filterAsesor: parsed.filterAsesor || "Todos",
+        dateRange: parsed.dateRange
+          ? ([
+              parsed.dateRange[0] ? dayjs(parsed.dateRange[0]) : null,
+              parsed.dateRange[1] ? dayjs(parsed.dateRange[1]) : null,
+            ] as [Dayjs | null, Dayjs | null])
+          : null,
+      };
+    }
+  } catch (e) {
+    console.error("Error al cargar filtros desde localStorage", e);
+  }
+  return {
+    searchText: "",
+    filterEstado: "Todos",
+    filterAsesor: "Todos",
+    dateRange: null,
+  };
+};
+
+// Función para guardar filtros en localStorage
+const saveFiltersToStorage = (
+  searchText: string,
+  filterEstado: string,
+  filterAsesor: string,
+  dateRange: [Dayjs | null, Dayjs | null] | null
+) => {
+  try {
+    const toSave = {
+      searchText,
+      filterEstado,
+      filterAsesor,
+      dateRange: dateRange
+        ? [
+            dateRange[0]?.toISOString() || null,
+            dateRange[1]?.toISOString() || null,
+          ]
+        : null,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch (e) {
+    console.error("Error al guardar filtros en localStorage", e);
+  }
+};
+
 export default function OpportunitiesInterface() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
     useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [filterEstado, setFilterEstado] = useState<string>("Todos");
-  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
+  
+  // Cargar filtros desde localStorage al inicializar
+  const initialFilters = loadFiltersFromStorage();
+  const [searchText, setSearchText] = useState(initialFilters.searchText);
+  const [filterEstado, setFilterEstado] = useState(initialFilters.filterEstado);
+  const [filterAsesor, setFilterAsesor] = useState(initialFilters.filterAsesor);
   const [dateRange, setDateRange] = useState<
     [Dayjs | null, Dayjs | null] | null
-  >(null);
+  >(initialFilters.dateRange);
 
   const navigate = useNavigate();
 
@@ -171,33 +236,45 @@ useEffect(() => {
 
       const map = new Map<number, Opportunity>();
 
-      raw.forEach((op) => {
-        if (!map.has(op.id)) {
-          map.set(op.id, {
-            id: op.id,
-            personaNombre: op.personaNombre,
-            nombreEstado: op.nombreEstado,
-            productoNombre: op.productoNombre,
-            fechaCreacion: op.fechaCreacion,
-            personaCorreo: op.personaCorreo,
-            asesorNombre: op.asesorNombre,
-            totalMarcaciones: Number(op.totalMarcaciones ?? 0),
-            recordatorios: [],
-          });
-        }
+        raw.forEach((op) => {
+          if (!map.has(op.id)) {
+            map.set(op.id, {
+              id: op.id,
+              personaNombre: op.personaNombre,
+              nombreEstado: op.nombreEstado,
+              productoNombre: op.productoNombre,
+              fechaCreacion: op.fechaCreacion,
+              personaCorreo: op.personaCorreo,
+              personaTelefono: op.personaTelefono,
+              asesorNombre: op.asesorNombre,
+              totalMarcaciones: Number(op.totalMarcaciones ?? 0),
+              recordatorios: [],
+            });
+          }
 
         if (op.fechaRecordatorio) {
           map.get(op.id)!.recordatorios.push(op.fechaRecordatorio);
         }
       });
 
-      setOpportunities(Array.from(map.values()));
-    } catch (e: any) {
-      setError(e?.response?.data?.message ?? "Error al obtener oportunidades");
-    } finally {
-      setLoading(false);
-    }
-  };
+        const agrupadas = Array.from(map.values()).sort(
+          (a, b) =>
+            new Date(b.fechaCreacion).getTime() -
+            new Date(a.fechaCreacion).getTime()
+        );
+        console.log("Aca las agrupadas", agrupadas);
+        setOpportunities(agrupadas);
+      } catch (e: any) {
+        console.error("Error al obtener oportunidades", e);
+        setError(
+          e?.response?.data?.message ??
+            e.message ??
+            "Error al obtener oportunidades"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
   fetchOpportunities();
 }, [
@@ -221,6 +298,8 @@ useEffect(() => {
     setFilterEstado("Todos");
     setFilterAsesor("Todos");
     setDateRange(null);
+    // Limpiar localStorage también
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   const estadosUnicos = useMemo(() => {
@@ -240,6 +319,46 @@ useEffect(() => {
     });
     return Array.from(asesores).sort();
   }, [opportunities]);
+
+  const opportunitiesFiltradas = useMemo(() => {
+    let filtradas = [...opportunities];
+
+    if (searchText.trim()) {
+      const busqueda = searchText.toLowerCase().trim();
+      filtradas = filtradas.filter((op) => {
+        return (
+          op.personaNombre.toLowerCase().includes(busqueda) ||
+          (op.personaCorreo || "").toLowerCase().includes(busqueda) ||
+          (op.personaTelefono || "").toLowerCase().includes(busqueda) ||
+          op.productoNombre.toLowerCase().includes(busqueda) ||
+          op.id.toString().includes(busqueda)
+        );
+      });
+    }
+
+    if (filterEstado !== "Todos") {
+      filtradas = filtradas.filter((op) => op.nombreEstado === filterEstado);
+    }
+
+    if (filterAsesor !== "Todos") {
+      filtradas = filtradas.filter((op) => op.asesorNombre === filterAsesor);
+    }
+
+    if (dateRange && dateRange[0] && dateRange[1]) {
+      const inicio = dateRange[0].startOf("day");
+      const fin = dateRange[1].endOf("day");
+
+      filtradas = filtradas.filter((op) => {
+        const f = dayjs(op.fechaCreacion);
+        return (
+          (f.isAfter(inicio) || f.isSame(inicio, "day")) &&
+          (f.isBefore(fin) || f.isSame(fin, "day"))
+        );
+      });
+    }
+
+    return filtradas;
+  }, [opportunities, searchText, filterEstado, filterAsesor, dateRange]);
 
   const columns: ColumnsType<Opportunity> = [
     {
@@ -289,6 +408,14 @@ useEffect(() => {
       sorter: (a: Opportunity, b: Opportunity) =>
         (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
       render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Teléfono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaTelefono || "").localeCompare(b.personaTelefono || ""),
+      render: (personaTelefono: string) => personaTelefono || "-",
     },
     {
       title: "Estado",
@@ -463,7 +590,7 @@ useEffect(() => {
           }}
         >
           <Input
-            placeholder="Buscar por nombre, correo, programa o ID"
+            placeholder="Buscar por nombre, correo, teléfono, programa o ID"
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
