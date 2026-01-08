@@ -25,7 +25,7 @@ const ESTADOS_MAP: Record<number, string> = {
 type HistorialEstado = {
   id: number;
   idOportunidad: number;
-  idAsesor: number;
+  IdPersonal: number;
   idMotivo: number;
   idEstado: number;
   observaciones: string;
@@ -113,7 +113,7 @@ export default function TablaEstadosReducida({
     try {
       const body = {
         idOportunidad: Number(idOportunidad),
-        idAsesor: Number(getUserIdFromToken()),
+        IdPersonal: Number(getUserIdFromToken()),
         idMotivo: formData.idMotivo,
         idEstado: formData.idEstado,
         observaciones: formData.observaciones,
@@ -321,7 +321,7 @@ export default function TablaEstadosReducida({
                         </div>
                       </div>
                       <div style={{ textAlign: "center" }}>
-                        {item.idAsesor || "-"}
+                        {item.IdPersonal || "-"}
                       </div>
                     </div>
 

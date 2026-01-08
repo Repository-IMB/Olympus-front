@@ -1,77 +1,15 @@
 import { useParams } from "react-router-dom";
 import { Button, Card, Row, Col, Space } from "antd";
-import {
-  EditOutlined,
-  CopyOutlined,
-  FileOutlined,
-  PlusCircleOutlined,
-  FileTextOutlined,
-  WhatsAppOutlined,
-  BellOutlined,
-} from "@ant-design/icons";
 import { useState } from "react";
 import TablaEstadosReducida from "./TablaEstados";
 import ModalEditarCliente from "./CompCliente";
 import OportunidadActual from "./OportunidadActual";
 import ControlOportunidades from "./Control";
 
-const colMinWidth = 200;
-
-// 📍 Mapa de países
-const paises: Record<number, string> = {
-  1: "Angola",
-  2: "Argentina",
-  3: "Aruba",
-  4: "Belice",
-  5: "Bolivia",
-  6: "Brasil",
-  7: "Canada",
-  8: "Chile",
-  9: "Colombia",
-  10: "Costa Rica",
-  11: "Cuba",
-  12: "Ecuador",
-  13: "El Salvador",
-  14: "España",
-  15: "Estados Unidos",
-  16: "Guatemala",
-  17: "Guyana",
-  18: "Haití",
-  19: "Honduras",
-  20: "Italia",
-  21: "Kuwait",
-  22: "México",
-  23: "Nicaragua",
-  24: "Panamá",
-  25: "Paraguay",
-  26: "Perú",
-  27: "Puerto Rico",
-  28: "República Dominicana",
-  29: "Trinidad y Tobago",
-  30: "United States",
-  31: "Uruguay",
-  32: "Venezuela",
-};
-
-interface Cliente {
-  id: number;
-  idPais: number;
-  nombres: string;
-  apellidos: string;
-  celular: string;
-  prefijoPaisCelular: string;
-  correo: string;
-  areaTrabajo: string;
-  industria: string;
-  desuscrito: boolean;
-  estado: boolean;
-}
 
 export default function Oportunidad() {
   const { id } = useParams<{ id: string }>();
   const [celularCliente, setCelularCliente] = useState<string>("");
-
-
 
   return (
     <Row gutter={[16, 16]} style={{ padding: 16 }}>

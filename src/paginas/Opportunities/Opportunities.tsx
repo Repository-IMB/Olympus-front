@@ -46,7 +46,7 @@ interface Opportunity {
   productoNombre: string;
   fechaCreacion: string;
   personaCorreo: string;
-  asesorNombre: string;
+  personalNombre: string;
   totalMarcaciones?: number;
   recordatorios: string[];
 }
@@ -158,7 +158,7 @@ export default function OpportunitiesInterface() {
               productoNombre: op.productoNombre,
               fechaCreacion: op.fechaCreacion,
               personaCorreo: op.personaCorreo,
-              asesorNombre: op.asesorNombre,
+              personalNombre: op.personalNombre,
               totalMarcaciones: Number(op.totalMarcaciones ?? 0),
               recordatorios: [],
             });
@@ -213,7 +213,7 @@ export default function OpportunitiesInterface() {
   const asesoresUnicos = useMemo(() => {
     const asesores = new Set<string>();
     opportunities.forEach((op) => {
-      if (op.asesorNombre) asesores.add(op.asesorNombre);
+      if (op.personalNombre) asesores.add(op.personalNombre);
     });
     return Array.from(asesores).sort();
   }, [opportunities]);
@@ -238,7 +238,7 @@ export default function OpportunitiesInterface() {
     }
 
     if (filterAsesor !== "Todos") {
-      filtradas = filtradas.filter((op) => op.asesorNombre === filterAsesor);
+      filtradas = filtradas.filter((op) => op.personalNombre === filterAsesor);
     }
 
     if (dateRange && dateRange[0] && dateRange[1]) {
@@ -399,11 +399,11 @@ export default function OpportunitiesInterface() {
     },
     {
       title: "Asesor",
-      dataIndex: "asesorNombre",
-      key: "asesorNombre",
+      dataIndex: "personalNombre",
+      key: "personalNombre",
       sorter: (a: Opportunity, b: Opportunity) =>
-        (a.asesorNombre || "").localeCompare(b.asesorNombre || ""),
-      render: (asesorNombre: string) => asesorNombre || "-",
+        (a.personalNombre || "").localeCompare(b.personalNombre || ""),
+      render: (personalNombre: string) => personalNombre || "-",
     },
     {
       title: "Acciones",

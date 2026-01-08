@@ -42,8 +42,8 @@ interface OportunidadBackend {
   personaNombre: string;
   idProducto: number;
   productoNombre: string;
-  idAsesor: number;
-  asesorNombre: string;
+  IdPersonal: number;
+  personalNombre: string;
   personaCorreo: string;
   codigoLanzamiento: string;
   codigoLinkedin: string;
@@ -215,7 +215,7 @@ const getUserIdFromToken = () => {
 
       const payload = {
         IdOportunidades: selectedRows.map((r) => r.id),
-        IdAsesor: asesor.idPersona,
+        IdPersonal: asesor.idPersona,
         UsuarioModificacion: Number(getUserIdFromToken()).toString(),
         FechaRecordatorio: fechaRecordatorioISO,
         HoraRecordatorio: horaRecordatorio,
@@ -479,7 +479,7 @@ const getUserIdFromToken = () => {
         codigoLanzamiento: o.codigoLanzamiento || "-",
         codigoLinkedin: o.codigoLinkedin || "-",
         nombre: o.personaNombre || "-",
-        asesor: o.asesorNombre || "-",
+        asesor: o.personalNombre || "-",
         estado: o.nombreEstado || "-",
         origen: o.origen || "-",
         pais: o.personaPaisNombre || "-",

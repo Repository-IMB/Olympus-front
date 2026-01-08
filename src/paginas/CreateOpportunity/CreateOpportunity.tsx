@@ -139,7 +139,7 @@ const CreateOpportunity: React.FC = () => {
       );
       const horaRecordatorio = dayjs(values.hora).format("HH:mm");
 
-      // ======> Aquí enviamos IdPersona (y mantenemos IdAsesor por compatibilidad)
+      // ======> Aquí enviamos IdPersona (y mantenemos IdPersonal por compatibilidad)
       const payload = {
         IdPotencialCliente: idPotencialCliente,
         IdProducto: selectedLanzamientoId,
@@ -151,7 +151,7 @@ const CreateOpportunity: React.FC = () => {
         UsuarioCreacion: "SYSTEM",
         UsuarioModificacion: "SYSTEM",
         IdPersona: values.asesor, //
-        IdAsesor: values.asesor,  // <-- opcional: mantener por compatibilidad backend
+        IdPersonal: values.asesor,  // <-- opcional: mantener por compatibilidad backend
       };
 
       await insertarOportunidadHistorialRegistrado(payload);

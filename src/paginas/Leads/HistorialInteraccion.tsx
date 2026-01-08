@@ -22,7 +22,7 @@ interface OportunidadDetalle {
     totalOportunidadesPersona: number;
     origen: string | null;
     idPersonaAsignada?: number | null;
-    personaAsignadaNombre?: string | null;
+    personalAsignadaNombre?: string | null;
     personaAsignadaApellidos?: string | null;
     personaAsignadaCorreo?: string | null;
     fechaFormulario: string;
@@ -132,15 +132,15 @@ export default function HistorialInteraccion() {
     historialActualData?.cantidadLlamadasNoContestadas ?? 0
   );
 
-  const personaAsignadaNombre = (
-    oportunidadData.personaAsignadaNombre ?? ""
+  const personalAsignadaNombre = (
+    oportunidadData.personalAsignadaNombre ?? ""
   ).trim();
   const personaAsignadaApellidos = (
     oportunidadData.personaAsignadaApellidos ?? ""
   ).trim();
   const nombreCompletoPersonaAsignada =
-    personaAsignadaNombre || personaAsignadaApellidos
-      ? `${personaAsignadaNombre} ${personaAsignadaApellidos}`.trim()
+    personalAsignadaNombre || personaAsignadaApellidos
+      ? `${personalAsignadaNombre} ${personaAsignadaApellidos}`.trim()
       : null;
 
   const asignadoDisplay =

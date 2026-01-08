@@ -261,7 +261,7 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
       const body = {
         idPersona: clienteSeleccionado.id,
         codigoLanzamiento: lanzamiento.trim(),
-        idAsesor: asesorSeleccionado,
+        IdPersonal: asesorSeleccionado,
         fechaRecordatorio: fechaISO,
         estado: true,
       };

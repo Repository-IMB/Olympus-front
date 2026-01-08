@@ -35,12 +35,13 @@ type HistorialItem = {
   FechaCreacion?: string;
   UsuarioCreacion?: string;
   EstadoNombre?: string;
-  Asesor?: {
+  Personal?: {
     id: number;
     nombres?: string;
     apellidos?: string;
     correo?: string;
-  };};
+  };
+};
 
 type Props = {
   oportunidadId: number;
@@ -82,7 +83,7 @@ const HistorialEstados: React.FC<Props> = ({ oportunidadId }) => {
         Observaciones: h.Observaciones ?? "",
         FechaCreacion: h.FechaCreacion ?? h.fechaCreacion ?? h.fecha ?? null,
         UsuarioCreacion: h.UsuarioCreacion ?? h.usuarioCreacion ?? "",
-        Asesor: h.asesor ?? null,
+        Personal: h.personal ?? null, // ✅ AQUÍ
         EstadoNombre:
           h.EstadoReferencia?.Nombre ??
           h.estadoReferencia?.nombre ??
@@ -140,7 +141,8 @@ const HistorialEstados: React.FC<Props> = ({ oportunidadId }) => {
       activo: isLatest,
       cantidadContestadas: item.CantidadLlamadasContestadas ?? 0,
       cantidadNoContestadas: item.CantidadLlamadasNoContestadas ?? 0,
-      origenOcurrenciaId: item.IdOcurrencia != null ? Number(item.IdOcurrencia) : null,
+      origenOcurrenciaId:
+        item.IdOcurrencia != null ? Number(item.IdOcurrencia) : null,
     };
 
     switch (estadoNombre.toLowerCase()) {
@@ -209,8 +211,8 @@ const HistorialEstados: React.FC<Props> = ({ oportunidadId }) => {
           const fecha = h.FechaCreacion
             ? new Date(h.FechaCreacion).toLocaleDateString()
             : "—";
-          const asesor = h.Asesor
-            ? `${h.Asesor.nombres ?? ""} ${h.Asesor.apellidos ?? ""}`.trim()
+          const asesor = h.Personal
+            ? `${h.Personal.nombres ?? ""} ${h.Personal.apellidos ?? ""}`.trim()
             : "—";
 
           return (
@@ -225,9 +227,7 @@ const HistorialEstados: React.FC<Props> = ({ oportunidadId }) => {
                 onClick={() => toggleRegistro(id)}
               >
                 <Col flex="52px">
-                  <div className={styles.idColumn}>
-                    {id}
-                  </div>
+                  <div className={styles.idColumn}>{id}</div>
                 </Col>
 
                 <Col flex="1">
