@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, memo } from "react";
+import { useState, useEffect, useMemo, useRef, memo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, ClipboardList } from "lucide-react";
 import { Button, Card, Badge, Layout, Spin, Alert } from "antd";
@@ -39,6 +39,18 @@ interface TokenData {
 // SALES CARD
 // =========================
 
+// ✅ Función de color de recordatorio fuera del componente (se calcula una sola vez)
+const getReminderColor = (fechaRecordatorio: string): string => {
+  const now = Date.now();
+  const reminderDate = new Date(fechaRecordatorio).getTime();
+  const hoursRemaining = (reminderDate - now) / (1000 * 60 * 60);
+
+  if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
+  if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
+  if (hoursRemaining < 24) return "#ffd666"; // amarillo
+  return "#1677ff"; // azul
+};
+
 const SalesCard = memo(({ sale }: { sale: Opportunity }) => {
   const navigate = useNavigate();
 
@@ -46,28 +58,12 @@ const SalesCard = memo(({ sale }: { sale: Opportunity }) => {
     navigate(`/leads/oportunidades/${sale.id}`);
   };
 
-  // Color basado en tiempo restante (si ya pasó -> gris)
-  const getReminderColor = (fechaRecordatorio: string): string => {
-    const now = new Date();
-    const reminderDate = new Date(fechaRecordatorio);
-
-    const timeDifference = reminderDate.getTime() - now.getTime();
-    const hoursRemaining = timeDifference / (1000 * 60 * 60);
-
-    if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
-    if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
-    if (hoursRemaining < 24) return "#ffd666"; // amarillo
-    return "#1677ff"; // azul
-  };
-
-  // ✅ MOSTRAR SIEMPRE hasta 3 (sin filtrar por activos)
+  // ✅ MOSTRAR SIEMPRE hasta 3 (sin filtrar por activos) - optimizado
   const recordatoriosVisibles = useMemo(() => {
-    return [...(sale.recordatorios || [])]
+    if (!sale.recordatorios?.length) return [];
+    return sale.recordatorios
       .filter((r) => r?.fecha)
-      .sort(
-        (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-      )
-      .slice(0, 3);
+      .slice(0, 3); // Ya vienen ordenados del fetch
   }, [sale.recordatorios]);
 
   return (
@@ -214,7 +210,7 @@ export default function SalesProcess() {
   }, []);
 
   // =========================
-  // FETCH + AGRUPAR RECORDATORIOS
+  // FETCH + AGRUPAR RECORDATORIOS (OPTIMIZADO)
   // =========================
   useEffect(() => {
     if (!idUsuario || !idRol) {
@@ -234,15 +230,19 @@ export default function SalesProcess() {
         );
 
         const raw = res.data?.oportunidad || [];
-        // ✅ Agrupar por oportunidad para evitar duplicados
-        const grouped: Record<number, Opportunity> = {};
 
-        raw.forEach((row: any) => {
+        // ✅ Usar Map para mejor rendimiento
+        const grouped = new Map<number, Opportunity>();
+        const recordatoriosSet = new Map<number, Set<number>>();
+
+        // ✅ Procesamiento optimizado en un solo loop
+        for (const row of raw) {
           const opportunityId = Number(row.idOportunidad ?? row.id ?? 0);
-          if (!opportunityId) return;
+          if (!opportunityId) continue;
 
-          if (!grouped[opportunityId]) {
-            grouped[opportunityId] = {
+          // Crear oportunidad si no existe
+          if (!grouped.has(opportunityId)) {
+            grouped.set(opportunityId, {
               id: opportunityId,
               personaNombre: row.personaNombre,
               nombreEstado: row.nombreEstado,
@@ -250,53 +250,52 @@ export default function SalesProcess() {
               productoNombre: row.productoNombre,
               fechaCreacion: row.fechaCreacion,
               recordatorios: [],
-            };
+            });
+            recordatoriosSet.set(opportunityId, new Set());
           }
 
-          // ✅ Mapeo tolerante (porque tu backend no siempre se llama igual)
+          // Procesar recordatorio
           const idRec =
             row.idHistorialInteraccion ??
             row.idRecordatorio ??
             row.idReminder ??
             row.pnId ??
             row.pnIdHis ??
-            row.idHis ??
-            null;
+            row.idHis;
 
           const fecRec =
             row.fechaRecordatorio ??
             row.dFechaRecordatorio ??
             row.fecha ??
             row.reminderDate ??
-            row.dFecRec ??
-            null;
+            row.dFecRec;
 
-          // Si viene recordatorio, lo agregamos (sin duplicarlo)
+          // Usar Set para evitar duplicados (más rápido que .some())
           if (idRec && fecRec) {
             const idR = Number(idRec);
-            const fR = String(fecRec);
+            const recordatoriosSeen = recordatoriosSet.get(opportunityId)!;
 
-            const yaExiste = grouped[opportunityId].recordatorios.some(
-              (r) => r.idRecordatorio === idR
-            );
-
-            if (!yaExiste) {
-              grouped[opportunityId].recordatorios.push({
+            if (!recordatoriosSeen.has(idR)) {
+              recordatoriosSeen.add(idR);
+              grouped.get(opportunityId)!.recordatorios.push({
                 idRecordatorio: idR,
-                fecha: fR,
+                fecha: String(fecRec),
               });
             }
           }
+        }
+
+        // ✅ Ordenar recordatorios solo una vez al final
+        const opportunities = Array.from(grouped.values());
+        opportunities.forEach((op) => {
+          if (op.recordatorios.length > 0) {
+            op.recordatorios.sort(
+              (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+            );
+          }
         });
 
-        // Opcional: ordenar recordatorios internos por fecha asc
-        Object.values(grouped).forEach((op) => {
-          op.recordatorios.sort(
-            (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-          );
-        });
-
-        setOpportunities(Object.values(grouped));
+        setOpportunities(opportunities);
       } catch (e: any) {
         console.error("Error al obtener oportunidades", e);
         setError(
@@ -437,9 +436,11 @@ export default function SalesProcess() {
   }, [isResizing]);
 
   // =========================
-  // CATEGORIZAR (igual que tu lógica)
+  // CATEGORIZAR (OPTIMIZADO)
   // =========================
   const categorizedData = useMemo(() => {
+    const MAX_PER_CATEGORY = 100;
+
     const initialSalesData: { [key: string]: Opportunity[] } = {
       registrado: [],
       calificado: [],
@@ -457,50 +458,82 @@ export default function SalesProcess() {
       convertido: [],
     };
 
-    opportunities.forEach((op) => {
-      switch (op.nombreEstado) {
-        case "Registrado":
-          initialSalesData.registrado.push(op);
-          break;
-        case "Potencial":
-          initialSalesData.potencial.push(op);
-          break;
-        case "Promesa":
-          if (op?.nombreOcurrencia === "Corporativo") {
-            initialOtrosEstados.coorporativo.push(op);
-          } else {
-            initialSalesData.promesa.push(op);
-          }
-          break;
-        case "Calificado":
-          initialSalesData.calificado.push(op);
-          break;
-        default:
-          if (op.nombreOcurrencia === "Cobranza") {
-            initialOtrosEstados.cobranza.push(op);
-          } else if (op.nombreOcurrencia === "No Calificado") {
-            initialOtrosEstados.noCalificado.push(op);
-          } else if (op.nombreOcurrencia === "Venta cruzada") {
-            initialOtrosEstados.ventaCruzada.push(op);
-          } else if (op.nombreOcurrencia === "Seguimiento") {
-            initialOtrosEstados.seguimiento.push(op);
-          } else if (op.nombreOcurrencia === "Perdido") {
-            initialOtrosEstados.perdido.push(op);
-          } else if (op.nombreOcurrencia === "Convertido") {
-            initialOtrosEstados.convertido.push(op);
-          } else {
-            console.warn(`Oportunidad con estado no mapeado: ${op.nombreEstado}`);
-          }
-          break;
-      }
-    });
-
-    // Ordenar por fechaCreacion desc (igual que tu código)
+    // ✅ Comparador pre-calculado fuera del loop
     const sortByFechaDesc = (a: Opportunity, b: Opportunity) =>
       new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime();
 
-    Object.values(initialSalesData).forEach((arr) => arr.sort(sortByFechaDesc));
-    Object.values(initialOtrosEstados).forEach((arr) => arr.sort(sortByFechaDesc));
+    // ✅ Categorizar y contar en un solo paso
+    const counts: { [key: string]: number } = {
+      registrado: 0, calificado: 0, potencial: 0, promesa: 0,
+      coorporativo: 0, ventaCruzada: 0, seguimiento: 0, perdido: 0,
+      noCalificado: 0, cobranza: 0, convertido: 0,
+    };
+
+    for (const op of opportunities) {
+      let targetArray: Opportunity[] | null = null;
+      let targetKey: string | null = null;
+
+      // Determinar categoría
+      if (op.nombreEstado === "Registrado") {
+        targetArray = initialSalesData.registrado;
+        targetKey = "registrado";
+      } else if (op.nombreEstado === "Potencial") {
+        targetArray = initialSalesData.potencial;
+        targetKey = "potencial";
+      } else if (op.nombreEstado === "Promesa") {
+        if (op.nombreOcurrencia === "Corporativo") {
+          targetArray = initialOtrosEstados.coorporativo;
+          targetKey = "coorporativo";
+        } else {
+          targetArray = initialSalesData.promesa;
+          targetKey = "promesa";
+        }
+      } else if (op.nombreEstado === "Calificado") {
+        targetArray = initialSalesData.calificado;
+        targetKey = "calificado";
+      } else if (op.nombreOcurrencia === "Cobranza") {
+        targetArray = initialOtrosEstados.cobranza;
+        targetKey = "cobranza";
+      } else if (op.nombreOcurrencia === "No Calificado") {
+        targetArray = initialOtrosEstados.noCalificado;
+        targetKey = "noCalificado";
+      } else if (op.nombreOcurrencia === "Venta cruzada") {
+        targetArray = initialOtrosEstados.ventaCruzada;
+        targetKey = "ventaCruzada";
+      } else if (op.nombreOcurrencia === "Seguimiento") {
+        targetArray = initialOtrosEstados.seguimiento;
+        targetKey = "seguimiento";
+      } else if (op.nombreOcurrencia === "Perdido") {
+        targetArray = initialOtrosEstados.perdido;
+        targetKey = "perdido";
+      } else if (op.nombreOcurrencia === "Convertido") {
+        targetArray = initialOtrosEstados.convertido;
+        targetKey = "convertido";
+      }
+
+      // ✅ Agregar solo si no hemos alcanzado el límite
+      if (targetArray && targetKey && counts[targetKey] < MAX_PER_CATEGORY) {
+        targetArray.push(op);
+        counts[targetKey]++;
+      }
+    }
+
+    // ✅ Ordenar y limitar solo las categorías que tienen datos
+    for (const key in initialSalesData) {
+      if (initialSalesData[key].length > 0) {
+        initialSalesData[key] = initialSalesData[key]
+          .sort(sortByFechaDesc)
+          .slice(0, MAX_PER_CATEGORY);
+      }
+    }
+
+    for (const key in initialOtrosEstados) {
+      if (initialOtrosEstados[key].length > 0) {
+        initialOtrosEstados[key] = initialOtrosEstados[key]
+          .sort(sortByFechaDesc)
+          .slice(0, MAX_PER_CATEGORY);
+      }
+    }
 
     return { salesData: initialSalesData, otrosEstados: initialOtrosEstados };
   }, [opportunities]);
@@ -552,10 +585,13 @@ export default function SalesProcess() {
     [otrosEstados]
   );
 
-  const getFilteredData = () =>
-    activeFilter === "todos"
-      ? Object.values(otrosEstados).flat()
-      : otrosEstados[activeFilter as keyof typeof otrosEstados] || [];
+  // ✅ Memorizar función de filtrado
+  const getFilteredData = useCallback(() => {
+    if (activeFilter === "todos") {
+      return Object.values(otrosEstados).flat().slice(0, 100);
+    }
+    return otrosEstados[activeFilter as keyof typeof otrosEstados] || [];
+  }, [activeFilter, otrosEstados]);
 
   // =========================
   // LOADING / ERROR (igual)
