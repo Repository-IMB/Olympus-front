@@ -5,7 +5,6 @@ import {
   Table,
   Button,
   Tag,
-  Space,
   Spin,
   Alert,
   Tooltip,
@@ -20,7 +19,7 @@ import {
   FileTextOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import dayjs, { type Dayjs } from "dayjs";
+import { type Dayjs } from "dayjs";
 import SelectClient from "../SelectClient/SelectClient";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
@@ -83,6 +82,19 @@ export default function OpportunitiesInterface() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+
+  interface OpportunityApiRow {
+  id: number;
+  personaNombre: string;
+  nombreEstado: string;
+  productoNombre: string;
+  fechaCreacion: string;
+  personaCorreo: string;
+  asesorNombre: string;
+  totalMarcaciones?: number;
+  fechaRecordatorio?: string | null;
+}
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -124,71 +136,81 @@ export default function OpportunitiesInterface() {
     return { idUsuario: idU, rolNombre: rNombre, idRol: idR };
   }, [token]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchText, filterEstado, filterAsesor, dateRange, opportunities]);
+useEffect(() => {
+  setCurrentPage(1);
+}, [searchText, filterEstado, filterAsesor, dateRange]);
 
-  useEffect(() => {
-    if (!idUsuario || !idRol) {
-      setOpportunities([]);
+
+useEffect(() => {
+  if (!idUsuario || !idRol) return;
+
+  const fetchOpportunities = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await api.get(
+        "/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio",
+        {
+          params: {
+            idUsuario,
+            idRol,
+            page: currentPage,
+            pageSize,
+            search: searchText || null,
+            estado: filterEstado !== "Todos" ? filterEstado : null,
+            asesor: filterAsesor !== "Todos" ? filterAsesor : null,
+            fechaInicio: dateRange?.[0]?.startOf("day").toISOString() ?? null,
+            fechaFin: dateRange?.[1]?.endOf("day").toISOString() ?? null,
+          },
+        }
+      );
+
+      const raw: OpportunityApiRow[] = res.data?.oportunidad ?? [];
+      setTotalRecords(res.data?.total ?? 0);
+
+      const map = new Map<number, Opportunity>();
+
+      raw.forEach((op) => {
+        if (!map.has(op.id)) {
+          map.set(op.id, {
+            id: op.id,
+            personaNombre: op.personaNombre,
+            nombreEstado: op.nombreEstado,
+            productoNombre: op.productoNombre,
+            fechaCreacion: op.fechaCreacion,
+            personaCorreo: op.personaCorreo,
+            asesorNombre: op.asesorNombre,
+            totalMarcaciones: Number(op.totalMarcaciones ?? 0),
+            recordatorios: [],
+          });
+        }
+
+        if (op.fechaRecordatorio) {
+          map.get(op.id)!.recordatorios.push(op.fechaRecordatorio);
+        }
+      });
+
+      setOpportunities(Array.from(map.values()));
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? "Error al obtener oportunidades");
+    } finally {
       setLoading(false);
-      return;
     }
+  };
 
-    const fetchOpportunities = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  fetchOpportunities();
+}, [
+  idUsuario,
+  idRol,
+  currentPage,
+  pageSize,
+  searchText,
+  filterEstado,
+  filterAsesor,
+  dateRange,
+]);
 
-        const res = await api.get(
-          "/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio",
-          { params: { idUsuario, idRol } }
-        );
-
-        const raw: any[] = res.data?.oportunidad ?? [];
-        const map = new Map<number, Opportunity>();
-
-        raw.forEach((op) => {
-          if (!map.has(op.id)) {
-            map.set(op.id, {
-              id: op.id,
-              personaNombre: op.personaNombre,
-              nombreEstado: op.nombreEstado,
-              productoNombre: op.productoNombre,
-              fechaCreacion: op.fechaCreacion,
-              personaCorreo: op.personaCorreo,
-              asesorNombre: op.asesorNombre,
-              totalMarcaciones: Number(op.totalMarcaciones ?? 0),
-              recordatorios: [],
-            });
-          }
-
-          if (op.fechaRecordatorio) {
-            map.get(op.id)!.recordatorios.push(op.fechaRecordatorio);
-          }
-        });
-
-        const agrupadas = Array.from(map.values()).sort(
-          (a, b) =>
-            new Date(b.fechaCreacion).getTime() -
-            new Date(a.fechaCreacion).getTime()
-        );
-
-        setOpportunities(agrupadas);
-      } catch (e: any) {
-        console.error("Error al obtener oportunidades", e);
-        setError(
-          e?.response?.data?.message ??
-            e.message ??
-            "Error al obtener oportunidades"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOpportunities();
-  }, [idUsuario, idRol]);
 
   const handleClick = (id: number) => {
     navigate(`/leads/oportunidades/${id}`);
@@ -218,45 +240,6 @@ export default function OpportunitiesInterface() {
     });
     return Array.from(asesores).sort();
   }, [opportunities]);
-
-  const opportunitiesFiltradas = useMemo(() => {
-    let filtradas = [...opportunities];
-
-    if (searchText.trim()) {
-      const busqueda = searchText.toLowerCase().trim();
-      filtradas = filtradas.filter((op) => {
-        return (
-          op.personaNombre.toLowerCase().includes(busqueda) ||
-          (op.personaCorreo || "").toLowerCase().includes(busqueda) ||
-          op.productoNombre.toLowerCase().includes(busqueda) ||
-          op.id.toString().includes(busqueda)
-        );
-      });
-    }
-
-    if (filterEstado !== "Todos") {
-      filtradas = filtradas.filter((op) => op.nombreEstado === filterEstado);
-    }
-
-    if (filterAsesor !== "Todos") {
-      filtradas = filtradas.filter((op) => op.asesorNombre === filterAsesor);
-    }
-
-    if (dateRange && dateRange[0] && dateRange[1]) {
-      const inicio = dateRange[0].startOf("day");
-      const fin = dateRange[1].endOf("day");
-
-      filtradas = filtradas.filter((op) => {
-        const f = dayjs(op.fechaCreacion);
-        return (
-          (f.isAfter(inicio) || f.isSame(inicio, "day")) &&
-          (f.isBefore(fin) || f.isSame(fin, "day"))
-        );
-      });
-    }
-
-    return filtradas;
-  }, [opportunities, searchText, filterEstado, filterAsesor, dateRange]);
 
   const columns: ColumnsType<Opportunity> = [
     {
@@ -549,26 +532,31 @@ export default function OpportunitiesInterface() {
         ) : error ? (
           <Alert message="Error" description={error} type="error" showIcon />
         ) : (
-        <Table
-          columns={columns}
-          dataSource={opportunitiesFiltradas}
-          rowKey="id"
-          className={styles.table}
-          scroll={{ x: isMobile ? 800 : undefined }}
-          pagination={{
-            current: currentPage,
-            pageSize: pageSize,
-            showSizeChanger: true,
-            pageSizeOptions: ["10", "20", "50", "100"], // deben ser strings
-            onChange: (page: number, newPageSize?: number) => {
-              setCurrentPage(page);
-              if (typeof newPageSize === "number") setPageSize(newPageSize);
-            },
-            // Opcionales útiles:
-            showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
-            hideOnSinglePage: true
-          }}
-        />
+<Table
+  columns={columns}
+  dataSource={opportunities}
+  rowKey="id"
+  loading={loading}
+  className={styles.table}
+  scroll={{ x: isMobile ? 800 : undefined }}
+   pagination={{
+    current: currentPage,
+    pageSize,
+    total: totalRecords,
+    showSizeChanger: true,
+    pageSizeOptions: ["10", "20", "50", "100"],
+    onChange: (page, newPageSize) => {
+      setCurrentPage(page);
+      if (newPageSize && newPageSize !== pageSize) {
+        setPageSize(newPageSize);
+        setCurrentPage(1);
+      }
+    },
+    showTotal: (total, range) =>
+      `${range[0]}-${range[1]} de ${total}`,
+  }}
+/>
+
         )}
       </div>
     </Content>

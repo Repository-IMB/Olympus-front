@@ -64,9 +64,7 @@ const SalesCard = ({ sale }: { sale: Opportunity }) => {
   const recordatoriosVisibles = useMemo(() => {
     return [...(sale.recordatorios || [])]
       .filter((r) => r?.fecha)
-      .sort(
-        (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-      )
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
       .slice(0, 3);
   }, [sale.recordatorios]);
 
@@ -158,8 +156,9 @@ export default function SalesProcess() {
         ] || "0"
       );
       rolN =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-        "";
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
 
       const rolesMap: Record<string, number> = {
         Asesor: 1,
@@ -183,8 +182,9 @@ export default function SalesProcess() {
     try {
       const decoded = jwtDecode<TokenData>(t);
       const role =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-        "";
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
       setUserRole(String(role));
     } catch (err) {
       console.error("Error decodificando token (rol):", err);
@@ -208,7 +208,14 @@ export default function SalesProcess() {
 
         const res = await api.get(
           "/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio",
-          { params: { idUsuario, idRol } }
+          {
+            params: {
+              idUsuario,
+              idRol,
+              page: 1,
+              pageSize: 100,
+            },
+          }
         );
 
         const raw = res.data?.oportunidad || [];
@@ -343,7 +350,9 @@ export default function SalesProcess() {
           } else if (op.nombreOcurrencia === "Convertido") {
             initialOtrosEstados.convertido.push(op);
           } else {
-            console.warn(`Oportunidad con estado no mapeado: ${op.nombreEstado}`);
+            console.warn(
+              `Oportunidad con estado no mapeado: ${op.nombreEstado}`
+            );
           }
           break;
       }
@@ -353,8 +362,15 @@ export default function SalesProcess() {
     const sortByFechaDesc = (a: Opportunity, b: Opportunity) =>
       new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime();
 
-    Object.values(initialSalesData).forEach((arr) => arr.sort(sortByFechaDesc));
-    Object.values(initialOtrosEstados).forEach((arr) => arr.sort(sortByFechaDesc));
+    Object.values(initialSalesData).forEach((arr) => {
+      arr.sort(sortByFechaDesc);
+      arr.splice(100); // 🔥 máximo 100 por columna
+    });
+
+    Object.values(initialOtrosEstados).forEach((arr) => {
+      arr.sort(sortByFechaDesc);
+      arr.splice(100); // 🔥 máximo 100 por columna
+    });
 
     return { salesData: initialSalesData, otrosEstados: initialOtrosEstados };
   }, [opportunities]);
