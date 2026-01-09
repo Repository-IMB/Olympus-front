@@ -39,8 +39,6 @@ import { jwtDecode } from "jwt-decode";
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
-const STORAGE_KEY = "asignacion_filters";
-
 interface OportunidadBackend {
   id: number;
   idPotencialCliente: number;
@@ -89,102 +87,22 @@ interface OportunidadConRecordatorios extends OportunidadBackend {
   recordatorios: string[]; // ISO strings
 }
 
-const loadFiltersFromStorage = (): {
-  searchText: string;
-  filterEstado: string;
-  filterOrigen: string;
-  filterPais: string;
-  filterAsesor: string;
-  filterCodigoLanzamiento: string;
-  filterCodigoLinkedin: string;
-  dateRange: [Dayjs | null, Dayjs | null] | null;
-} => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return {
-        searchText: parsed.searchText || "",
-        filterEstado: parsed.filterEstado || "Todos",
-        filterOrigen: parsed.filterOrigen || "Todos",
-        filterPais: parsed.filterPais || "Todos",
-        filterAsesor: parsed.filterAsesor || "Todos",
-        filterCodigoLanzamiento: parsed.filterCodigoLanzamiento || "Todos",
-        filterCodigoLinkedin: parsed.filterCodigoLinkedin || "Todos",
-        dateRange: parsed.dateRange
-          ? ([
-              parsed.dateRange[0] ? dayjs(parsed.dateRange[0]) : null,
-              parsed.dateRange[1] ? dayjs(parsed.dateRange[1]) : null,
-            ] as [Dayjs | null, Dayjs | null])
-          : null,
-      };
-    }
-  } catch (e) {
-    console.error("Error al cargar filtros desde localStorage", e);
-  }
-  return {
-    searchText: "",
-    filterEstado: "Todos",
-    filterOrigen: "Todos",
-    filterPais: "Todos",
-    filterAsesor: "Todos",
-    filterCodigoLanzamiento: "Todos",
-    filterCodigoLinkedin: "Todos",
-    dateRange: null,
-  };
-};
-
-const saveFiltersToStorage = (
-  searchText: string,
-  filterEstado: string,
-  filterOrigen: string,
-  filterPais: string,
-  filterAsesor: string,
-  filterCodigoLanzamiento: string,
-  filterCodigoLinkedin: string,
-  dateRange: [Dayjs | null, Dayjs | null] | null
-) => {
-  try {
-    const toSave = {
-      searchText,
-      filterEstado,
-      filterOrigen,
-      filterPais,
-      filterAsesor,
-      filterCodigoLanzamiento,
-      filterCodigoLinkedin,
-      dateRange: dateRange
-        ? [
-            dateRange[0]?.toISOString() || null,
-            dateRange[1]?.toISOString() || null,
-          ]
-        : null,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-  } catch (e) {
-    console.error("Error al guardar filtros en localStorage", e);
-  }
-};
-
 export default function Asignacion() {
   const [selectedRows, setSelectedRows] = useState<Lead[]>([]);
-  
-  // Cargar filtros desde localStorage al inicializar
-  const initialFilters = loadFiltersFromStorage();
-  const [searchText, setSearchText] = useState(initialFilters.searchText);
-  const [filterEstado, setFilterEstado] = useState(initialFilters.filterEstado);
-  const [filterOrigen, setFilterOrigen] = useState(initialFilters.filterOrigen);
-  const [filterPais, setFilterPais] = useState(initialFilters.filterPais);
+  const [searchText, setSearchText] = useState("");
+  const [filterEstado, setFilterEstado] = useState<string>("Todos");
+  const [filterOrigen, setFilterOrigen] = useState<string>("Todos");
+  const [filterPais, setFilterPais] = useState<string>("Todos");
   const [dateRange, setDateRange] = useState<
     [Dayjs | null, Dayjs | null] | null
-  >(initialFilters.dateRange);
-  const [filterAsesor, setFilterAsesor] = useState(initialFilters.filterAsesor);
+  >(null);
+  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
   const [modalOpen, setModalOpen] = useState(false);
   const [asesorDestino, setAsesorDestino] = useState<number | null>(null);
   const [forzarReasignacion, setForzarReasignacion] = useState(true);
   const [oportunidades, setOportunidades] = useState<OportunidadBackend[]>([]);
-  const [filterCodigoLanzamiento, setFilterCodigoLanzamiento] = useState<string>(initialFilters.filterCodigoLanzamiento);
-  const [filterCodigoLinkedin, setFilterCodigoLinkedin] = useState<string>(initialFilters.filterCodigoLinkedin);
+  const [filterCodigoLanzamiento, setFilterCodigoLanzamiento] = useState<string>("Todos");
+  const [filterCodigoLinkedin, setFilterCodigoLinkedin] = useState<string>("Todos");
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingAsesores, setLoadingAsesores] = useState<boolean>(true);
@@ -438,8 +356,6 @@ const getUserIdFromToken = () => {
     setFilterCodigoLanzamiento("Todos");
     setFilterCodigoLinkedin("Todos");
     setDateRange(null);
-    // Limpiar localStorage también
-    localStorage.removeItem(STORAGE_KEY);
   };
 
   const obtenerOportunidades = async () => {
@@ -555,20 +471,6 @@ const getUserIdFromToken = () => {
     if (hoursRemaining < 24) return "#ffd666"; // amarillo
     return "#1677ff"; // azul
   };
-
-  // Guardar filtros en localStorage cuando cambien
-  useEffect(() => {
-    saveFiltersToStorage(
-      searchText,
-      filterEstado,
-      filterOrigen,
-      filterPais,
-      filterAsesor,
-      filterCodigoLanzamiento,
-      filterCodigoLinkedin,
-      dateRange
-    );
-  }, [searchText, filterEstado, filterOrigen, filterPais, filterAsesor, filterCodigoLanzamiento, filterCodigoLinkedin, dateRange]);
 
   useEffect(() => {
     setCurrentPage(1);

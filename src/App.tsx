@@ -4,7 +4,6 @@ import { getCookie } from './utils/cookies';
 import LoginPage from './paginas/Login/Login'
 import ForgotPasswordPage from './paginas/ForgotPassword/ForgotPasswordPage'
 import ResetPasswordPage from './paginas/ResetPassword/ResetPasswordPage'
-import AsistenciaPage from './paginas/Asistencia/Asistencia'
 import Dashboard from './paginas/Inicio/Dashboard' 
 import { PrivateRoute } from './componentes/PrivateRoute' 
 import OpportunitiesInterface from './paginas/Opportunities/Opportunities'
@@ -64,7 +63,7 @@ function App() {
     }
 
     // Rutas públicas que no requieren token
-    const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/asistencia'];
+    const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
 
     function checkToken() {
       const token = getCookie('token');
@@ -115,7 +114,6 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/asistencia" element={<AsistenciaPage />} />
 
       <Route element={<PrivateRoute />}>
         <Route element={<MainLayout />}>
