@@ -92,7 +92,7 @@ export default function Asignacion() {
   const [searchText, setSearchText] = useState("");
   const [filterEstado, setFilterEstado] = useState<string>("Todos");
   const [filterOrigen, setFilterOrigen] = useState<string>("Todos");
-  const [filterPais, setFilterPais] = useState<string>("Todos");
+  const [filterPais, setFilterPais] = useState<string | string[]>("Todos");
   const [dateRange, setDateRange] = useState<
     [Dayjs | null, Dayjs | null] | null
   >(null);
@@ -594,7 +594,11 @@ const getUserIdFromToken = () => {
     }
 
     if (filterPais !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.pais === filterPais);
+      filtrados = filtrados.filter((lead) =>
+        Array.isArray(filterPais)
+          ? filterPais.includes(lead.pais)
+          : lead.pais === filterPais
+      );
     }
     if (filterAsesor !== "Todos") {
       filtrados = filtrados.filter((lead) => lead.asesor === filterAsesor);
@@ -1019,11 +1023,25 @@ const getUserIdFromToken = () => {
             ))}
           </Select>
           <Select
+            mode="multiple"
             showSearch
-            value={filterPais}
-            onChange={setFilterPais}
+            value={Array.isArray(filterPais) ? filterPais : []}
+            onChange={(values) => {
+              if (values.length === 0) {
+                setFilterPais("Todos");
+                return;
+              }
+
+              if (values.includes("Todos")) {
+                setFilterPais("Todos");
+              } else {
+                setFilterPais(values);
+              }
+            }}
             className={estilos.filterSelect}
             placeholder="Seleccionar país"
+            allowClear
+            maxTagCount="responsive"
             filterOption={(input, option) =>
               (option?.children as unknown as string)
                 .toLowerCase()
@@ -1031,6 +1049,7 @@ const getUserIdFromToken = () => {
             }
           >
             <Option value="Todos">Todos los países</Option>
+
             {paisesUnicos.map((pais) => (
               <Option key={pais} value={pais}>
                 {pais}
