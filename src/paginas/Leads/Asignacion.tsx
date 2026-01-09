@@ -168,7 +168,7 @@ const saveFiltersToStorage = (
 
 export default function Asignacion() {
   const [selectedRows, setSelectedRows] = useState<Lead[]>([]);
-
+  
   // Cargar filtros desde localStorage al inicializar
   const initialFilters = loadFiltersFromStorage();
   const [searchText, setSearchText] = useState(initialFilters.searchText);
@@ -183,11 +183,8 @@ export default function Asignacion() {
   const [asesorDestino, setAsesorDestino] = useState<number | null>(null);
   const [forzarReasignacion, setForzarReasignacion] = useState(true);
   const [oportunidades, setOportunidades] = useState<OportunidadBackend[]>([]);
-  const [filterCodigoLanzamiento, setFilterCodigoLanzamiento] =
-    useState<string>(initialFilters.filterCodigoLanzamiento);
-  const [filterCodigoLinkedin, setFilterCodigoLinkedin] = useState<string>(
-    initialFilters.filterCodigoLinkedin
-  );
+  const [filterCodigoLanzamiento, setFilterCodigoLanzamiento] = useState<string>(initialFilters.filterCodigoLanzamiento);
+  const [filterCodigoLinkedin, setFilterCodigoLinkedin] = useState<string>(initialFilters.filterCodigoLinkedin);
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingAsesores, setLoadingAsesores] = useState<boolean>(true);
@@ -211,28 +208,27 @@ export default function Asignacion() {
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
 
   const navigate = useNavigate();
-  const token = getCookie("token");
+const token = getCookie("token");
 
-  const getUserIdFromToken = () => {
-    if (!token) return 0;
+const getUserIdFromToken = () => {
+  if (!token) return 0;
 
-    try {
-      const decoded: any = jwtDecode(token);
+  try {
+    const decoded: any = jwtDecode(token);
 
-      const id =
-        decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-        ];
+    const id =
+      decoded[
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+      ];
 
-      return id ? Number(id) : 0;
-    } catch (e) {
-      // console.error("Error decodificando token", e);
-      return 0;
-    }
-  };
+    return id ? Number(id) : 0;
+  } catch (e) {
+    // console.error("Error decodificando token", e);
+    return 0;
+  }
+};
 
   const handleClick = (id: number) => {
     navigate(`/leads/oportunidades/${id}`);
@@ -452,29 +448,11 @@ export default function Asignacion() {
       if (!token) throw new Error("No se encontró el token de autenticación");
 
       const response = await axios.get(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
-        }/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          params: {
-            idUsuario: getUserIdFromToken(),
-            idRol: 4, // o el rol que corresponda
-            page: currentPage,
-            pageSize,
-            search: searchText || null,
-            estado: filterEstado !== "Todos" ? filterEstado : null,
-            asesor: filterAsesor !== "Todos" ? filterAsesor : null,
-            fechaInicio: dateRange?.[0]?.startOf("day").toISOString() ?? null,
-            fechaFin: dateRange?.[1]?.endOf("day").toISOString() ?? null,
-          },
-        }
+        `${import.meta.env.VITE_API_URL || "http://localhost:7020"}/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const data = response.data;
-
-      setTotalRecords(data?.total ?? 0);
-
       if (data && Array.isArray(data.oportunidad)) {
         const raw = data.oportunidad as any[];
 
@@ -504,9 +482,7 @@ export default function Asignacion() {
 
         const agrupadas = Array.from(map.values()).map((o) => {
           const filtered = (o.recordatorios ?? []).filter(Boolean);
-          filtered.sort(
-            (a, b) => new Date(a).getTime() - new Date(b).getTime()
-          ); // ascendente
+          filtered.sort((a, b) => new Date(a).getTime() - new Date(b).getTime()); // ascendente
           return { ...o, recordatorios: filtered };
         });
 
@@ -522,9 +498,7 @@ export default function Asignacion() {
       }
     } catch (err: any) {
       const errorMessage =
-        err?.response?.data?.mensaje ||
-        err?.message ||
-        "Error al cargar las oportunidades";
+        err?.response?.data?.mensaje || err?.message || "Error al cargar las oportunidades";
       setError(errorMessage);
       message.error(errorMessage);
       setOportunidades([]);
@@ -594,48 +568,16 @@ export default function Asignacion() {
       filterCodigoLinkedin,
       dateRange
     );
-  }, [
-    searchText,
-    filterEstado,
-    filterOrigen,
-    filterPais,
-    filterAsesor,
-    filterCodigoLanzamiento,
-    filterCodigoLinkedin,
-    dateRange,
-  ]);
+  }, [searchText, filterEstado, filterOrigen, filterPais, filterAsesor, filterCodigoLanzamiento, filterCodigoLinkedin, dateRange]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [
-    searchText,
-    filterEstado,
-    filterOrigen,
-    filterPais,
-    filterAsesor,
-    dateRange,
-    filterCodigoLanzamiento,
-    filterCodigoLinkedin,
-  ]);
-
-  useEffect(() => {
-    obtenerAsesores();
-  }, []);
+  }, [searchText, filterEstado, filterOrigen, filterPais, filterAsesor, dateRange, oportunidades,filterCodigoLanzamiento,filterCodigoLinkedin,]);
 
   useEffect(() => {
     obtenerOportunidades();
-  }, [
-    currentPage,
-    pageSize,
-    searchText,
-    filterEstado,
-    filterOrigen,
-    filterPais,
-    filterAsesor,
-    filterCodigoLanzamiento,
-    filterCodigoLinkedin,
-    dateRange,
-  ]);
+    obtenerAsesores();
+  }, []);
 
   const leadsMapeados = useMemo(
     () =>
@@ -687,27 +629,23 @@ export default function Asignacion() {
   }, [leadsMapeados]);
 
   const codigosLinkedinUnicos = useMemo(() => {
-    const setCodigosLinkedin = new Set<string>();
-    leadsMapeados.forEach((lead) => {
-      if (lead.codigoLinkedin && lead.codigoLinkedin !== "-") {
-        setCodigosLinkedin.add(lead.codigoLinkedin);
-      }
-    });
-    return Array.from(setCodigosLinkedin).sort();
+  const setCodigosLinkedin = new Set<string>();
+  leadsMapeados.forEach((lead) => {
+    if (lead.codigoLinkedin && lead.codigoLinkedin !== "-") {
+      setCodigosLinkedin.add(lead.codigoLinkedin);
+    }
+  });
+  return Array.from(setCodigosLinkedin).sort();
   }, [leadsMapeados]);
 
   const asesoresUnicos = useMemo(() => {
-    const setAsesores = new Set<string>();
-    leadsMapeados.forEach((lead) => {
-      if (
-        lead.asesor &&
-        lead.asesor !== "-" &&
-        lead.asesor.toUpperCase() !== "SIN ASESOR"
-      ) {
-        setAsesores.add(lead.asesor);
-      }
-    });
-    return Array.from(setAsesores).sort();
+  const setAsesores = new Set<string>();
+  leadsMapeados.forEach((lead) => {
+    if (lead.asesor && lead.asesor !== "-" && lead.asesor.toUpperCase() !== "SIN ASESOR") {
+      setAsesores.add(lead.asesor);
+    }
+  });
+  return Array.from(setAsesores).sort();
   }, [leadsMapeados]);
 
   const paisesUnicos = useMemo(() => {
@@ -719,6 +657,8 @@ export default function Asignacion() {
     });
     return Array.from(paises).sort();
   }, [leadsMapeados]);
+
+  
 
   const leadsFiltrados = useMemo(() => {
     let filtrados = [...leadsMapeados];
@@ -736,15 +676,11 @@ export default function Asignacion() {
     }
 
     if (filterCodigoLanzamiento !== "Todos") {
-      filtrados = filtrados.filter(
-        (lead) => lead.codigoLanzamiento === filterCodigoLanzamiento
-      );
+      filtrados = filtrados.filter((lead) => lead.codigoLanzamiento === filterCodigoLanzamiento);
     }
-
+    
     if (filterCodigoLinkedin !== "Todos") {
-      filtrados = filtrados.filter(
-        (lead) => lead.codigoLinkedin === filterCodigoLinkedin
-      );
+      filtrados = filtrados.filter((lead) => lead.codigoLinkedin === filterCodigoLinkedin);
     }
 
     if (filterEstado !== "Todos") {
@@ -874,9 +810,7 @@ export default function Asignacion() {
         sorter: (a: Lead, b: Lead) =>
           (a.totalMarcaciones ?? 0) - (b.totalMarcaciones ?? 0),
         render: (totalMarcaciones: number) => (
-          <span>
-            {typeof totalMarcaciones === "number" ? totalMarcaciones : "-"}
-          </span>
+          <span>{typeof totalMarcaciones === "number" ? totalMarcaciones : "-"}</span>
         ),
         align: "center",
         width: 140,
@@ -892,10 +826,7 @@ export default function Asignacion() {
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {record.recordatorios
                 .filter(Boolean)
-                .sort(
-                  (a: string, b: string) =>
-                    new Date(a).getTime() - new Date(b).getTime()
-                )
+                .sort((a: string, b: string) => new Date(a).getTime() - new Date(b).getTime())
                 .slice(0, 3)
                 .map((r: string, i: number) => (
                   <div
@@ -1097,19 +1028,19 @@ export default function Asignacion() {
 
         {/* Filtros - Abajo */}
         <div className={estilos.filtersRow}>
-          <Select
-            showSearch
-            value={filterAsesor}
-            onChange={setFilterAsesor}
-            placeholder="Seleccionar asesor"
-            listHeight={200}
-            virtual={false}
-            filterOption={(input, option) =>
-              (option?.children as unknown as string)
-                .toLowerCase()
-                .includes(input.toLowerCase())
-            }
-          >
+            <Select
+              showSearch
+              value={filterAsesor}
+              onChange={setFilterAsesor}
+              placeholder="Seleccionar asesor"
+              listHeight={200}
+              virtual={false}
+              filterOption={(input, option) =>
+                (option?.children as unknown as string)
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+            >
             <Option value="Todos">Todos los asesores</Option>
             <Option value="SIN ASESOR">SIN ASESOR</Option>
             {asesoresUnicos.map((a) => (
@@ -1138,7 +1069,7 @@ export default function Asignacion() {
               </Option>
             ))}
           </Select>
-
+          
           <Select
             showSearch
             value={filterCodigoLanzamiento}
@@ -1224,26 +1155,22 @@ export default function Asignacion() {
             <>
               <Table
                 columns={columns}
-                dataSource={leadsMapeados}
+                dataSource={leadsFiltrados}
                 rowKey="id"
+                rowSelection={rowSelection}
                 pagination={{
                   current: currentPage,
-                  pageSize,
-                  total: totalRecords,
+                  pageSize: pageSize,
                   showSizeChanger: true,
                   pageSizeOptions: ["10", "20", "50", "100"],
                   onChange: (page, newPageSize) => {
                     setCurrentPage(page);
-                    if (newPageSize && newPageSize !== pageSize) {
-                      setPageSize(newPageSize);
-                      setCurrentPage(1);
-                    }
+                    if (typeof newPageSize === "number") setPageSize(newPageSize);
                   },
-                  showTotal: (total, range) =>
-                    `${range[0]}-${range[1]} de ${total}`,
+                  showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
+                  hideOnSinglePage: true
                 }}
               />
-
               {selectedRows.length > 0 && (
                 <div className={estilos.selectionInfo}>
                   {selectedRows.length} Oportunidades seleccionadas
