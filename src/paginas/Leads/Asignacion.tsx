@@ -1039,7 +1039,8 @@ const getUserIdFromToken = () => {
               }
             }}
             className={estilos.filterSelect}
-            placeholder="Seleccionar país"
+            virtual={false}
+            placeholder="Todos los paises"
             allowClear
             maxTagCount="responsive"
             filterOption={(input, option) =>
