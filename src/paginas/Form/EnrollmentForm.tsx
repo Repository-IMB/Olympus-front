@@ -8,13 +8,26 @@ const EnrollmentForm = () => {
   const [phoneNumber, setPhoneNumber] = useState<string>("");
 
   return (
-    <div className="enrollment-container">
-      {/* FORM */}
-      <div className="form-panel">
+    <>
+      {/* HERO SECTION */}
+      <div className="hero-section">
+        <div className="hero-content">
+          <h1>Bienvenido a IMB Institute</h1>
+          <p>Nos esmeramos cada día por superar tus expectativas.</p>
+          <p>
+            Te invitamos a completar tu ficha de matrícula para poder crear tus
+            accesos e iniciar tu crecimiento profesional.
+          </p>
+        </div>
+      </div>
+
+      <div className="enrollment-container">
+        {/* FORM */}
+        <div className="form-panel">
         <h2>Ficha de Inscripción</h2>
 
         <div className="form-group">
-          <label>Programa de Capacitación *</label>
+          <label>Programa de Capacitación <span className="required">*</span></label>
           <input type="text" />
         </div>
 
@@ -29,12 +42,12 @@ const EnrollmentForm = () => {
         </div>
 
         <div className="form-group">
-          <label>Nombres y Apellidos completos *</label>
+          <label>Nombres y Apellidos completos <span className="required">*</span></label>
           <input type="text" />
         </div>
 
         <div className="form-group">
-          <label>Número de Documento / Cédula / Carnet *</label>
+          <label>Número de Documento / Cédula / Carnet <span className="required">*</span></label>
           <input type="text" maxLength={25} />
           <small>0 de 25 caracteres máximos.</small>
         </div>
@@ -46,7 +59,7 @@ const EnrollmentForm = () => {
 
         <div className="form-group">
           <label>
-            Nivel de familiaridad con el uso de tecnología (WhatsApp, Zoom, correo electrónico, plataforma Moodle) *
+            Nivel de familiaridad con el uso de tecnología (WhatsApp, Zoom, correo electrónico, plataforma Moodle) <span className="required">*</span>
           </label>
           <select>
             <option>No tengo experiencia previa</option>
@@ -59,12 +72,12 @@ const EnrollmentForm = () => {
         {/* NEW FIELDS */}
 
         <div className="form-group">
-          <label>Correo electrónico *</label>
+          <label>Correo electrónico <span className="required">*</span></label>
           <input type="email" />
         </div>
 
         <div className="form-group">
-          <label>Número de WhatsApp *</label>
+          <label>Número de WhatsApp <span className="required">*</span></label>
           <PhoneInput
             international
             defaultCountry="PE"
@@ -76,7 +89,7 @@ const EnrollmentForm = () => {
         </div>
 
         <div className="form-group">
-          <label>País *</label>
+          <label>País <span className="required">*</span></label>
           <input type="text" />
         </div>
 
@@ -86,17 +99,17 @@ const EnrollmentForm = () => {
         </div>
 
         <div className="form-group">
-          <label>Empresa *</label>
+          <label>Empresa <span className="required">*</span></label>
           <input type="text" />
         </div>
 
         <div className="form-group">
-          <label>Cargo *</label>
+          <label>Cargo <span className="required">*</span></label>
           <input type="text" />
         </div>
 
         <div className="form-group">
-          <label>Facturación *</label>
+          <label>Facturación <span className="required">*</span></label>
           <select>
             <option>Boleta</option>
             <option>Factura</option>
@@ -105,13 +118,13 @@ const EnrollmentForm = () => {
 
         {/* DATOS DE FACTURACIÓN */}
         <div className="form-group">
-          <label>Razón social o Nombre completo para facturación *</label>
+          <label>Razón social o Nombre completo para facturación <span className="required">*</span></label>
           <input type="text" maxLength={25} />
           <small>0 de 25 caracteres máximos.</small>
         </div>
 
         <div className="form-group">
-          <label>Número de facturación (RUC/RUT/RFC/NIT/otros) *</label>
+          <label>Número de facturación (RUC/RUT/RFC/NIT/otros) <span className="required">*</span></label>
           <input type="text" maxLength={25} />
           <small>0 de 25 caracteres máximos.</small>
         </div>
@@ -134,10 +147,18 @@ const EnrollmentForm = () => {
         </div>
         <div className="support-item">
           <Phone size={18} className="support-icon" />
-          <span>+51 964 391 595</span>
+          <a
+            href="https://wa.me/51964391595"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="whatsapp-link"
+          >
+            +51 964 391 595
+          </a>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

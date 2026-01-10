@@ -17,6 +17,7 @@ import CreateOpportunity from './paginas/CreateOpportunity/CreateOpportunity';
 import SelectClient from './paginas/SelectClient/SelectClient';
 import Usuarios from './paginas/Usuarios/Usuarios';
 import EnrollmentForm from './paginas/Form/EnrollmentForm';
+import OnboardingForm from './paginas/Form/OnboardingForm';
 
 function App() {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ function App() {
     }
 
     // Rutas públicas que no requieren token
-    const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/enrollment-form'];
+    const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/enrollment-form', '/onboarding-form'];
 
     function checkToken() {
       const token = getCookie('token');
@@ -116,6 +117,7 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/enrollment-form" element={<EnrollmentForm />} />
+      <Route path="/onboarding-form" element={<OnboardingForm />} />
 
       <Route element={<PrivateRoute />}>
         <Route element={<MainLayout />}>
