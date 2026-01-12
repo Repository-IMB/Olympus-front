@@ -40,7 +40,7 @@ const { Text, Title } = Typography;
 
 moment.locale("es");
 
-type TipoInteraccion = 'nota' | 'whatsapp' | 'recordatorio' | 'desuscrito';
+type TipoInteraccion = "desuscrito" | "whatsapp" | "nota" | "recordatorio";
 
 const colores: Record<string, string> = {
   nota: "#FFF7B3",
@@ -49,11 +49,11 @@ const colores: Record<string, string> = {
   desuscrito: "#FFCDCD",
 };
 
-const mapTipos: Record<string, string> = {
-  nota: "Nota",
-  whatsapp: "WhatsApp",
-  recordatorio: "Recordatorio",
-  desuscrito: "Desuscrito",
+const mapTipos: Record<number, string> = {
+  7: "desuscrito",
+  8: "whatsapp",
+  9: "nota",
+  10: "recordatorio",
 };
 
 const tiposConfig = [
