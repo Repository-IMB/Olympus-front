@@ -648,14 +648,14 @@ export default function Asignacion() {
             color = "blue";
           } else if (estado === "Registrado") {
             color = "blue";
+          } else if (estado === "Potencial") {
+            color = "blue";
           } else if (estado === "Promesa") {
-            color = "gold";
+            color = "blue";
           } else if (estado === "No calificado" || estado === "Perdido") {
             color = "red";
           } else if (estado === "Matriculado" || estado === "Cliente") {
             color = "green";
-          } else if (estado === "Pendiente") {
-            color = "orange";
           }
 
           return (

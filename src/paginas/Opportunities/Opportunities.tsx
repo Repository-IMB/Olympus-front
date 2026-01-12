@@ -355,9 +355,13 @@ useEffect(() => {
           color = "blue";
         } else if (nombreEstado === "Registrado") {
           color = "blue";
+        } else if (nombreEstado === "Potencial") {
+          color = "blue";
         } else if (nombreEstado === "Promesa") {
-          color = "gold";
+          color = "blue";
         } else if (nombreEstado === "No calificado") {
+          color = "red";
+        } else if (nombreEstado === "Perdido") {
           color = "red";
         }
 
@@ -527,6 +531,10 @@ useEffect(() => {
             onChange={setFilterEstado}
             placeholder="Seleccionar estado"
             style={{ width: "200px", borderRadius: "6px" }}
+            showSearch
+            virtual={false}
+            listHeight={220}
+            optionFilterProp="children"
           >
             <Option value="Todos">Todos los estados</Option>
             {estadosUnicos.map((estado) => (
