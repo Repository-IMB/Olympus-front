@@ -52,7 +52,7 @@ interface OportunidadDetalle {
 
 interface Asesor {
   idUsuario: number;
-  idPersona: number;
+  idPersonal: number;
   nombre: string;
   idRol: number;
 }
@@ -151,7 +151,7 @@ export default function HistorialInteraccion() {
       if (data?.usuarios && Array.isArray(data.usuarios)) {
         const listaAsesores = data.usuarios.map((u: any) => ({
           idUsuario: u.id,
-          idPersona: u.idPersona,
+          idPersonal: u.idPersonal,
           nombre: u.nombre,
           idRol: u.idRol,
         }));
@@ -241,7 +241,7 @@ export default function HistorialInteraccion() {
       // Asignar asesor
       const payload = {
         IdOportunidades: [Number(id)],
-        IdAsesor: asesor.idPersona,
+        idPersonal: asesor.idPersonal,
         UsuarioModificacion: userId.toString(),
         FechaRecordatorio: fechaRecordatorioISO,
         HoraRecordatorio: horaRecordatorio,
@@ -253,7 +253,7 @@ export default function HistorialInteraccion() {
         const response = await axios.post(
           `${
             import.meta.env.VITE_API_URL || "http://localhost:7020"
-          }/api/VTAModVentaOportunidad/AsignarAsesor`,
+          }/api/VTAModVentaOportunidad/AsignarPersonal`,
           payload,
           { headers: { Authorization: `Bearer ${token}` } }
         );

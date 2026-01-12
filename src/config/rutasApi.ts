@@ -136,9 +136,13 @@ export interface ClientePotencial {
   persona: Persona;
 }
 
-export async function obtenerClientesPotenciales(): Promise<ClientePotencial[]> {
+export const obtenerClientesPotenciales = async (search?: string) => {
   try {
-    const res = await api.get('/api/VTAModVentaPotencialCliente/ObtenerTodas');
+    const res = await api.get('/api/VTAModVentaPotencialCliente/ObtenerTodas', {
+      params: {
+        search: search || null,
+      },
+    });
     return res.data?.potencialClientes ?? [];
   } catch (err: any) {
     console.error("obtenerClientesPotenciales axios error", err?.response?.status, err?.response?.data);

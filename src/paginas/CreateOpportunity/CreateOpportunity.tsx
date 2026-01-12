@@ -29,7 +29,7 @@ const { Option } = Select;
 
 interface Asesor {
   idUsuario: number;
-  idPersona: number;
+  idPersonal: number;
   nombre: string;
   idRol: number;
 }
@@ -91,7 +91,7 @@ const CreateOpportunity: React.FC = () => {
       if (data?.usuarios && Array.isArray(data.usuarios)) {
         const listaAsesores = data.usuarios.map((u: any) => ({
           idUsuario: u.id,
-          idPersona: u.idPersona,
+          idPersonal: u.idPersonal,
           nombre: u.nombre,
           idRol: u.idRol,
         }));
@@ -139,7 +139,7 @@ const CreateOpportunity: React.FC = () => {
       );
       const horaRecordatorio = dayjs(values.hora).format("HH:mm");
 
-      // ======> Aquí enviamos IdPersona (y mantenemos IdPersonal por compatibilidad)
+      // ======> Aquí enviamos idPersonal (y mantenemos idPersonall por compatibilidad)
       const payload = {
         IdPotencialCliente: idPotencialCliente,
         IdProducto: selectedLanzamientoId,
@@ -150,8 +150,8 @@ const CreateOpportunity: React.FC = () => {
         HoraRecordatorio: horaRecordatorio,
         UsuarioCreacion: "SYSTEM",
         UsuarioModificacion: "SYSTEM",
-        IdPersona: values.asesor, //
-        IdPersonal: values.asesor,  // <-- opcional: mantener por compatibilidad backend
+        idPersonal: values.asesor, //
+        idPersonall: values.asesor,  // <-- opcional: mantener por compatibilidad backend
       };
 
       await insertarOportunidadHistorialRegistrado(payload);
@@ -284,47 +284,25 @@ const CreateOpportunity: React.FC = () => {
           </Form.Item>
 
           {/* ================= SELECT ASESOR ================= */}
-          <Form.Item
-            label={
-              <span>
-                Asesor<span style={{ color: "#ff4d4f" }}>*</span>
-              </span>
-            }
-            name="asesor"
-            rules={[{ required: true, message: "Seleccione un asesor" }]}
-          >
-            <Select
-              placeholder="Seleccione un asesor"
-              loading={loadingAsesores}
-              showSearch
-              filterOption={(input, option) =>
-                String(option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-              }
-              listHeight={400}
-              virtual={false}
-              popupMatchSelectWidth
-              placement="bottomLeft"
-              dropdownAlign={{
-                points: ["tl", "bl"],
-                overflow: {
-                  adjustX: false,
-                  adjustY: false,
-                },
-              }}
-              getPopupContainer={() =>
-                document.querySelector(
-                  ".create-opportunity-modal .ant-modal-body"
-                ) as HTMLElement
-              }
-            >
-              {asesores.map((a) => (
-                // value = idPersona: enviamos el idPersona seleccionado al backend
-                <Option key={a.idPersona} value={a.idPersona} label={a.nombre}>
-                  {a.nombre}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
+<Form.Item
+  label="Asesor"
+  name="asesor"
+  rules={[{ required: true, message: "Seleccione un asesor" }]}
+>
+  <Select
+    placeholder="Seleccione un asesor"
+    loading={loadingAsesores}
+    showSearch
+    optionFilterProp="label"
+    options={asesores.map((a) => ({
+      value: a.idPersonal,
+      label: a.nombre,
+    }))}
+    listHeight={400}
+    virtual={false}
+  />
+</Form.Item>
+
 
           {/* ================= FECHA Y HORA ================= */}
           <div className="date-time-row">
