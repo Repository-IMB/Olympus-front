@@ -28,23 +28,23 @@ const SelectClient: React.FC<SelectClientProps> = ({
     useState<ClientePotencial | null>(null);
   const navigate = useNavigate();
 
-useEffect(() => {
-  const cargarClientes = async () => {
-    try {
-      setLoading(true);
-      const data = await obtenerClientesPotenciales(searchText);
-      setClientes(Array.isArray(data) ? data : []);
-    } catch {
-      setClientes([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const cargarClientes = async () => {
+      try {
+        setLoading(true);
+        const data = await obtenerClientesPotenciales(searchText);
+        setClientes(Array.isArray(data) ? data : []);
+      } catch {
+        setClientes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  if (visible) {
-    cargarClientes();
-  }
-}, [visible, searchText]);
+    if (visible) {
+      cargarClientes();
+    }
+  }, [visible, searchText]);
 
   const handleClose = () => {
     if (onClose) {
@@ -84,21 +84,21 @@ useEffect(() => {
   };
 
   const options = clientes.map((cliente) => ({
-  value: cliente.id.toString(),
-  label: (
-    <div style={{ display: "flex", flexDirection: "column", padding: "8px 0" }}>
-      <div style={{ fontWeight: 500, fontSize: "14px" }}>
-        {cliente.persona.nombres} {cliente.persona.apellidos}
+    value: cliente.id.toString(),
+    label: (
+      <div style={{ display: "flex", flexDirection: "column", padding: "8px 0" }}>
+        <div style={{ fontWeight: 500, fontSize: "14px" }}>
+          {cliente.persona.nombres} {cliente.persona.apellidos}
+        </div>
+        <div style={{ fontSize: "12px", color: "#666" }}>
+          {cliente.persona.prefijoPaisCelular} {cliente.persona.celular}
+        </div>
+        <div style={{ fontSize: "12px", color: "#666" }}>
+          {cliente.persona.correo}
+        </div>
       </div>
-      <div style={{ fontSize: "12px", color: "#666" }}>
-        {cliente.persona.prefijoPaisCelular} {cliente.persona.celular}
-      </div>
-      <div style={{ fontSize: "12px", color: "#666" }}>
-        {cliente.persona.correo}
-      </div>
-    </div>
-  ),
-}));
+    ),
+  }));
 
 
   return (
@@ -125,7 +125,6 @@ useEffect(() => {
           }
           filterOption={false}
           defaultActiveFirstOption={false}
-          popupMatchSelectWidth
           listHeight={400}
           virtual={false}
           placement="bottomLeft"
@@ -136,11 +135,7 @@ useEffect(() => {
               adjustY: false,
             },
           }}
-          classNames={{
-            popup: {
-              root: "clientes-ac-popup",
-            },
-          }}
+          dropdownClassName="clientes-ac-popup"
           getPopupContainer={() =>
             document.querySelector(
               ".select-client-modal .ant-modal-body"

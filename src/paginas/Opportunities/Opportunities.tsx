@@ -19,7 +19,7 @@ import {
   FileTextOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { type Dayjs } from "dayjs";
+import moment, { type Moment } from "moment";
 import SelectClient from "../SelectClient/SelectClient";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
@@ -84,7 +84,7 @@ export default function OpportunitiesInterface() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
   const [dateRange, setDateRange] = useState<
-    [Dayjs | null, Dayjs | null] | null
+    [Moment | null, Moment | null] | null
   >(null);
 
   const [currentPage, setCurrentPage] = useState(
@@ -104,14 +104,14 @@ export default function OpportunitiesInterface() {
   );
 
 
-useEffect(() => {
-  setSearchParams({
-    page: currentPage.toString(),
-    pageSize: pageSize.toString(),
-    search: searchText || "",
-    estado: filterEstado !== "Todos" ? filterEstado : "",
-  });
-}, [currentPage, pageSize, searchText, filterEstado]);
+  useEffect(() => {
+    setSearchParams({
+      page: currentPage.toString(),
+      pageSize: pageSize.toString(),
+      search: searchText || "",
+      estado: filterEstado !== "Todos" ? filterEstado : "",
+    });
+  }, [currentPage, pageSize, searchText, filterEstado]);
 
 
   useEffect(() => {
@@ -170,12 +170,12 @@ useEffect(() => {
       const decoded = jwtDecode<TokenData>(token);
       idU = parseInt(
         decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ] || "0"
       );
       rNombre =
         decoded[
-          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
         ] || "";
 
       const rolesMap: Record<string, number> = {
@@ -231,8 +231,8 @@ useEffect(() => {
 
             recordatorios: op.recordatoriosJson
               ? JSON.parse(op.recordatoriosJson).map(
-                  (r: any) => r.FechaRecordatorio
-                )
+                (r: any) => r.FechaRecordatorio
+              )
               : [],
           })
         );
@@ -242,8 +242,8 @@ useEffect(() => {
       } catch (e: any) {
         setError(
           e?.response?.data?.mensaje ??
-            e?.message ??
-            "Error al obtener oportunidades"
+          e?.message ??
+          "Error al obtener oportunidades"
         );
       } finally {
         setLoading(false);
@@ -334,7 +334,7 @@ useEffect(() => {
         (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
       render: (personaCorreo: string) => personaCorreo || "-",
     },
-        {
+    {
       title: "Telefono",
       dataIndex: "personaTelefono",
       key: "personaTelefono",
@@ -550,7 +550,6 @@ useEffect(() => {
             placeholder="Seleccionar asesor"
             style={{ width: "200px", borderRadius: "6px" }}
             disabled={asesoresUnicos.length === 0}
-            showSearch
             virtual={false}
             listHeight={220}
             optionFilterProp="children"
@@ -566,7 +565,7 @@ useEffect(() => {
           <RangePicker
             value={dateRange}
             onChange={(dates) =>
-              setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
+              setDateRange(dates as [Moment | null, Moment | null] | null)
             }
             format="DD/MM/YYYY"
             placeholder={["Fecha inicio", "Fecha fin"]}

@@ -17,8 +17,9 @@ import {
 } from "antd";
 import axios from "axios";
 import Cookies from "js-cookie";
-import dayjs from "dayjs";
-import "dayjs/locale/es";
+import moment from "moment";
+// @ts-ignore
+import "moment/locale/es";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 
 const { Option } = Select;
@@ -252,9 +253,9 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
       setLoading(true);
       const token = Cookies.get("token");
 
-      const fechaISO = dayjs(fecha)
-        .hour(dayjs(hora).hour())
-        .minute(dayjs(hora).minute())
+      const fechaISO = moment(fecha)
+        .hour(moment(hora).hour())
+        .minute(moment(hora).minute())
         .second(0)
         .toISOString();
 
@@ -285,18 +286,18 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
   // FORMATO PREVIEW FECHA/HORA
   // ======================================================
   const fechaFormateada = fecha
-    ? dayjs(fecha).locale("es").format("dddd, DD [de] MMMM [de] YYYY")
+    ? moment(fecha).locale("es").format("dddd, DD [de] MMMM [de] YYYY")
     : "";
 
-  const horaFormateada = hora ? dayjs(hora).format("HH:mm") : "";
+  const horaFormateada = hora ? moment(hora).format("HH:mm") : "";
 
   const iso =
     fecha && hora
-      ? dayjs(fecha)
-          .hour(dayjs(hora).hour())
-          .minute(dayjs(hora).minute())
-          .second(0)
-          .toISOString()
+      ? moment(fecha)
+        .hour(moment(hora).hour())
+        .minute(moment(hora).minute())
+        .second(0)
+        .toISOString()
       : "";
 
   // ======================================================
@@ -315,8 +316,8 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
           {fase === 1
             ? "Seleccionar cliente"
             : fase === 2
-            ? "Crear cliente"
-            : "Crear oportunidad"}
+              ? "Crear cliente"
+              : "Crear oportunidad"}
         </h3>
       }
     >

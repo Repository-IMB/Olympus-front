@@ -13,7 +13,7 @@ import {
   message
 } from "antd";
 import { useEffect, useState } from "react";
-import dayjs, { Dayjs } from "dayjs";
+import moment, { type Moment } from "moment";
 import type { IModulo, ISesion, ISesionHorario } from "../../interfaces/IModulo";
 
 interface ModalModuloProps {
@@ -61,7 +61,7 @@ export default function ModalModulo({
   // Efecto para calcular horas sincrónicas automáticamente
   useEffect(() => {
     if (horaInicio && horaFin && nroSesiones) {
-      const diffHoras = dayjs(horaFin).diff(dayjs(horaInicio), "minute") / 60;
+      const diffHoras = moment(horaFin).diff(moment(horaInicio), "minute") / 60;
       const total = diffHoras > 0 ? diffHoras * nroSesiones : 0;
 
       form.setFieldsValue({
@@ -79,14 +79,14 @@ export default function ModalModulo({
       console.log('moduloEditar completo:', JSON.stringify(moduloEditar, null, 2));
       console.log('fechaPresentacion:', moduloEditar.fechaPresentacion);
       console.log('sesionesHorarios:', moduloEditar.sesionesHorarios);
-      
+
       // Extraer días desde sesionesHorarios
       const diasArray: string[] = [];
       let primeraHoraInicio: string | null = null;
       let primeraHoraFin: string | null = null;
       let horaInicioSabado: string | null = null;
       let horaFinSabado: string | null = null;
-      
+
       if (moduloEditar.sesionesHorarios && moduloEditar.sesionesHorarios.length > 0) {
         moduloEditar.sesionesHorarios.forEach((horario: ISesionHorario) => {
           console.log('Procesando horario:', {
@@ -95,13 +95,13 @@ export default function ModalModulo({
             horaInicio: horario.horaInicio,
             horaFin: horario.horaFin
           });
-          
+
           if (!horario.esAsincronica && horario.diaSemana > 0) {
             const diaStr = String(horario.diaSemana);
             if (!diasArray.includes(diaStr)) {
               diasArray.push(diaStr);
             }
-            
+
             if (horario.diaSemana === 6) {
               horaInicioSabado = horario.horaInicio;
               horaFinSabado = horario.horaFin;
@@ -112,61 +112,61 @@ export default function ModalModulo({
           }
         });
       }
-      
+
       // Buscar horario asincrónico
       const horarioAsync = moduloEditar.sesionesHorarios?.find((h: ISesionHorario) => h.esAsincronica);
       console.log('Horario async encontrado:', horarioAsync);
-      
+
       // Contar sesiones
       const sesionesSincronicas = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 22) || [];
       const sesionesAsincronicas = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 26) || [];
-      
+
       const totalSesionesSincronicas = sesionesSincronicas.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
       const totalSesionesAsincronicas = sesionesAsincronicas.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
-      
+
       console.log('Días extraídos:', diasArray);
       console.log('Sesiones síncronas:', totalSesionesSincronicas);
       console.log('Sesiones asíncronas:', totalSesionesAsincronicas);
-      
+
       const valoresFormulario = {
         nombre: moduloEditar.nombre,
         codigo: moduloEditar.codigo || "",
         tituloCertificado: moduloEditar.tituloCertificado || "",
         descripcion: moduloEditar.descripcion || "",
-        fechaPresentacion: moduloEditar.fechaPresentacion 
-          ? dayjs(moduloEditar.fechaPresentacion) 
+        fechaPresentacion: moduloEditar.fechaPresentacion
+          ? moment(moduloEditar.fechaPresentacion)
           : null,
-        horaInicio: primeraHoraInicio 
-          ? dayjs(primeraHoraInicio, "HH:mm:ss") 
+        horaInicio: primeraHoraInicio
+          ? moment(primeraHoraInicio, "HH:mm:ss")
           : null,
-        horaFin: primeraHoraFin 
-          ? dayjs(primeraHoraFin, "HH:mm:ss") 
+        horaFin: primeraHoraFin
+          ? moment(primeraHoraFin, "HH:mm:ss")
           : null,
-        horaInicioSabado: horaInicioSabado 
-          ? dayjs(horaInicioSabado, "HH:mm:ss") 
+        horaInicioSabado: horaInicioSabado
+          ? moment(horaInicioSabado, "HH:mm:ss")
           : null,
-        horaFinSabado: horaFinSabado 
-          ? dayjs(horaFinSabado, "HH:mm:ss") 
+        horaFinSabado: horaFinSabado
+          ? moment(horaFinSabado, "HH:mm:ss")
           : null,
         nroSesiones: totalSesionesSincronicas,
         duracionHoras: moduloEditar.duracionHoras || 0,
         nroSesionesAsync: totalSesionesAsincronicas,
-        diaAsync: horarioAsync && horarioAsync.diaSemana > 0 
-          ? String(horarioAsync.diaSemana) 
+        diaAsync: horarioAsync && horarioAsync.diaSemana > 0
+          ? String(horarioAsync.diaSemana)
           : undefined,
-        horaInicioAsync: horarioAsync?.horaInicio 
-          ? dayjs(horarioAsync.horaInicio, "HH:mm:ss") 
+        horaInicioAsync: horarioAsync?.horaInicio
+          ? moment(horarioAsync.horaInicio, "HH:mm:ss")
           : null,
-        horaFinAsync: horarioAsync?.horaFin 
-          ? dayjs(horarioAsync.horaFin, "HH:mm:ss") 
+        horaFinAsync: horarioAsync?.horaFin
+          ? moment(horarioAsync.horaFin, "HH:mm:ss")
           : null,
       };
-      
+
       console.log('Valores a setear en formulario:', valoresFormulario);
       console.log('diaAsync calculado:', valoresFormulario.diaAsync);
       console.log('fechaPresentacion calculada:', valoresFormulario.fechaPresentacion);
       console.log('===========================');
-      
+
       setDiasClase(diasArray);
       form.setFieldsValue(valoresFormulario);
     } else if (visible && !modoEdicion) {
@@ -211,15 +211,15 @@ export default function ModalModulo({
 
         // Fecha de presentación - IMPORTANTE: enviar string vacío si no hay fecha
         if (values.fechaPresentacion) {
-          payload.fechaPresentacion = dayjs(values.fechaPresentacion).format("YYYY-MM-DD");
+          payload.fechaPresentacion = moment(values.fechaPresentacion).format("YYYY-MM-DD");
         } else {
           payload.fechaPresentacion = ""; // ⬅️ String vacío en lugar de omitir
         }
 
         // Horarios síncronos - REQUERIDOS
         if (values.horaInicio && values.horaFin) {
-          payload.horaInicioSync = dayjs(values.horaInicio).format("HH:mm:ss");
-          payload.horaFinSync = dayjs(values.horaFin).format("HH:mm:ss");
+          payload.horaInicioSync = moment(values.horaInicio).format("HH:mm:ss");
+          payload.horaFinSync = moment(values.horaFin).format("HH:mm:ss");
         } else {
           message.error("Debe seleccionar hora de inicio y fin");
           return;
@@ -232,15 +232,15 @@ export default function ModalModulo({
             message.error("Debe seleccionar el día de la clase asincrónica");
             return;
           }
-          
+
           // IMPORTANTE: Usar "DiasAsync" en lugar de "diaAsync"
           payload.diasAsync = String(values.diaAsync); // ⬅️ Puede ser que el backend espere "diasAsync" como string
-          payload.horaInicioAsync = values.horaInicioAsync 
-            ? dayjs(values.horaInicioAsync).format("HH:mm:ss")
+          payload.horaInicioAsync = values.horaInicioAsync
+            ? moment(values.horaInicioAsync).format("HH:mm:ss")
             : "00:00:00";
-          
-          payload.horaFinAsync = values.horaFinAsync 
-            ? dayjs(values.horaFinAsync).format("HH:mm:ss")
+
+          payload.horaFinAsync = values.horaFinAsync
+            ? moment(values.horaFinAsync).format("HH:mm:ss")
             : "00:00:00";
         } else {
           // Si no hay sesiones async, enviar valores por defecto

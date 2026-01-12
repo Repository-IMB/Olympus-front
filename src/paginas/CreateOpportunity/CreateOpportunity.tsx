@@ -12,8 +12,9 @@ import {
 } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { CloseOutlined, CalendarOutlined } from "@ant-design/icons";
-import dayjs from "dayjs";
-import "dayjs/locale/es";
+import moment, { type Moment } from "moment";
+// @ts-ignore
+import "moment/locale/es";
 import {
   insertarOportunidadHistorialRegistrado,
   obtenerLanzamientos,
@@ -24,7 +25,7 @@ import "./CreateOpportunity.css";
 import axios from "axios";
 import Cookies from "js-cookie";
 
-dayjs.locale("es");
+moment.locale("es");
 const { Option } = Select;
 
 interface Asesor {
@@ -40,8 +41,8 @@ const CreateOpportunity: React.FC = () => {
   const [lanzamientos, setLanzamientos] = useState<Lanzamiento[]>([]);
   const [searchText, setSearchText] = useState("");
   const [loadingLanzamientos, setLoadingLanzamientos] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
-  const [selectedTime, setSelectedTime] = useState<dayjs.Dayjs | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Moment | null>(null);
+  const [selectedTime, setSelectedTime] = useState<Moment | null>(null);
   const [selectedLanzamiento, setSelectedLanzamiento] = useState<string>("");
   const [selectedLanzamientoId, setSelectedLanzamientoId] = useState<
     number | null
@@ -81,8 +82,7 @@ const CreateOpportunity: React.FC = () => {
       setLoadingAsesores(true);
 
       const response = await axios.get(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -134,10 +134,10 @@ const CreateOpportunity: React.FC = () => {
         return;
       }
 
-      const fechaRecordatorio = dayjs(values.fecha).format(
+      const fechaRecordatorio = moment(values.fecha).format(
         "YYYY-MM-DDTHH:mm:ss"
       );
-      const horaRecordatorio = dayjs(values.hora).format("HH:mm");
+      const horaRecordatorio = moment(values.hora).format("HH:mm");
 
       // ======> Aquí enviamos idPersonal (y mantenemos idPersonall por compatibilidad)
       const payload = {
@@ -177,8 +177,8 @@ const CreateOpportunity: React.FC = () => {
     searchText.trim() === ""
       ? lanzamientosArray
       : lanzamientosArray.filter((l) =>
-          l?.codigoLanzamiento?.toLowerCase().includes(searchText.toLowerCase())
-        );
+        l?.codigoLanzamiento?.toLowerCase().includes(searchText.toLowerCase())
+      );
 
   const lanzamientoOptions = filteredLanzamientos.map((l) => ({
     value: l.codigoLanzamiento,
@@ -244,7 +244,7 @@ const CreateOpportunity: React.FC = () => {
               }
               filterOption={false}
               defaultActiveFirstOption={false}
-              popupMatchSelectWidth
+              dropdownMatchSelectWidth
               listHeight={400}
               virtual={false}
               placement="bottomLeft"
@@ -284,24 +284,24 @@ const CreateOpportunity: React.FC = () => {
           </Form.Item>
 
           {/* ================= SELECT ASESOR ================= */}
-<Form.Item
-  label="Asesor"
-  name="asesor"
-  rules={[{ required: true, message: "Seleccione un asesor" }]}
->
-  <Select
-    placeholder="Seleccione un asesor"
-    loading={loadingAsesores}
-    showSearch
-    optionFilterProp="label"
-    options={asesores.map((a) => ({
-      value: a.idPersonal,
-      label: a.nombre,
-    }))}
-    listHeight={400}
-    virtual={false}
-  />
-</Form.Item>
+          <Form.Item
+            label="Asesor"
+            name="asesor"
+            rules={[{ required: true, message: "Seleccione un asesor" }]}
+          >
+            <Select
+              placeholder="Seleccione un asesor"
+              loading={loadingAsesores}
+              showSearch
+              optionFilterProp="label"
+              options={asesores.map((a) => ({
+                value: a.idPersonal,
+                label: a.nombre,
+              }))}
+              listHeight={400}
+              virtual={false}
+            />
+          </Form.Item>
 
 
           {/* ================= FECHA Y HORA ================= */}
@@ -347,10 +347,9 @@ const CreateOpportunity: React.FC = () => {
           <div className="scheduled-container">
             <div className="scheduled-label">
               {selectedDate && selectedTime
-                ? `Programado para: ${
-                    selectedDate.format("dddd").charAt(0).toUpperCase() +
-                    selectedDate.format("dddd").slice(1)
-                  }, ${selectedDate.format("DD [de] MMMM [de] YYYY")} a las ${selectedTime.format("HH:mm")} horas`
+                ? `Programado para: ${selectedDate.format("dddd").charAt(0).toUpperCase() +
+                selectedDate.format("dddd").slice(1)
+                }, ${selectedDate.format("DD [de] MMMM [de] YYYY")} a las ${selectedTime.format("HH:mm")} horas`
                 : "Programado para: Seleccione fecha y hora"}
             </div>
 

@@ -31,7 +31,7 @@ import estilos from "./Asignacion.module.css";
 import estilosModal from "./ReasignacionMasiva.module.css";
 import axios from "axios";
 import type { ColumnsType } from "antd/es/table";
-import dayjs, { Dayjs } from "dayjs";
+import moment, { type Moment } from "moment";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
 
@@ -135,7 +135,7 @@ export default function Asignacion() {
   const [filterOrigen, setFilterOrigen] = useState<string>("Todos");
   const [filterPais, setFilterPais] = useState<string | string[]>("Todos");
   const [dateRange, setDateRange] = useState<
-    [Dayjs | null, Dayjs | null] | null
+    [Moment | null, Moment | null] | null
   >(null);
   const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
   const [modalOpen, setModalOpen] = useState(false);
@@ -152,7 +152,7 @@ export default function Asignacion() {
   const [error, setError] = useState<string | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importRange, setImportRange] = useState<
-    [Dayjs | null, Dayjs | null] | null
+    [Moment | null, Moment | null] | null
   >(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<{
@@ -168,8 +168,8 @@ export default function Asignacion() {
   const [codigosLinkedin, setCodigosLinkedin] = useState<string[]>([]);
   const [loadingCodigos, setLoadingCodigos] = useState(false);
   // 🔹 Fecha y hora de reasignación
-  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
-  const [selectedTime, setSelectedTime] = useState<Dayjs | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Moment | null>(null);
+  const [selectedTime, setSelectedTime] = useState<Moment | null>(null);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -185,7 +185,7 @@ export default function Asignacion() {
 
       const id =
         decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ];
 
       return id ? Number(id) : 0;
@@ -287,8 +287,7 @@ export default function Asignacion() {
         };
 
         await axios.post(
-          `${
-            import.meta.env.VITE_API_URL || "http://localhost:7020"
+          `${import.meta.env.VITE_API_URL || "http://localhost:7020"
           }/api/VTAModVentaHistorialInteraccion/Insertar`,
           payloadInteraccion,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -304,8 +303,7 @@ export default function Asignacion() {
       };
 
       const response = await axios.post(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/VTAModVentaOportunidad/AsignarPersonalMasivo`,
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -322,8 +320,8 @@ export default function Asignacion() {
     } catch (err: any) {
       message.error(
         err?.response?.data?.mensaje ||
-          err?.message ||
-          "Error al asignar asesor"
+        err?.message ||
+        "Error al asignar asesor"
       );
     } finally {
       setLoading(false);
@@ -359,9 +357,8 @@ export default function Asignacion() {
         FechaFin: fechaFinIso,
       };
 
-      const url = `${
-        import.meta.env.VITE_API_URL || "http://localhost:7020"
-      }/api/VTAModVentaOportunidad/ImportarProcesadoLinkedin`;
+      const url = `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+        }/api/VTAModVentaOportunidad/ImportarProcesadoLinkedin`;
 
       const response = await axios.post(url, payload, {
         headers: { Authorization: `Bearer ${token}` },
@@ -450,8 +447,8 @@ export default function Asignacion() {
               filterPais === "Todos"
                 ? null
                 : Array.isArray(filterPais)
-                ? filterPais.join(",")
-                : filterPais,
+                  ? filterPais.join(",")
+                  : filterPais,
             asesorFiltro: filterAsesor !== "Todos" ? filterAsesor : null,
             codigoLanzamientoFiltro:
               filterCodigoLanzamiento !== "Todos"
@@ -509,8 +506,7 @@ export default function Asignacion() {
       if (!token) throw new Error("No se encontró el token de autenticación");
 
       const response = await axios.get(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -1018,7 +1014,7 @@ export default function Asignacion() {
           <RangePicker
             value={dateRange}
             onChange={(dates) =>
-              setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
+              setDateRange(dates as [Moment | null, Moment | null] | null)
             }
             format="DD/MM/YYYY"
             placeholder={["Fecha inicio", "Fecha fin"]}
@@ -1318,7 +1314,7 @@ export default function Asignacion() {
               showTime
               value={importRange}
               onChange={(dates) =>
-                setImportRange(dates as [Dayjs | null, Dayjs | null] | null)
+                setImportRange(dates as [Moment | null, Moment | null] | null)
               }
               format="DD/MM/YYYY HH:mm"
               style={{ width: "100%" }}

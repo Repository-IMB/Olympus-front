@@ -55,7 +55,7 @@ export default function ModalDocente({
     } else if (esEdicion && docenteCompleto && paises.length > 0) {
       // Buscar el país en la lista
       const pais = paises.find((p: any) => p.id === docenteCompleto.idPais);
-      
+
       form.setFieldsValue({
         nombres: docenteCompleto.nombres,
         apellidos: docenteCompleto.apellidos,
@@ -150,7 +150,7 @@ export default function ModalDocente({
                 disabled={loadingPaises}
                 virtual={false}
                 autoClearSearchValue={false}
-                popupMatchSelectWidth={false}
+                dropdownMatchSelectWidth={false}
                 dropdownStyle={{ maxHeight: 260, overflow: "auto" }}
                 filterOption={filterPais}
                 notFoundContent={

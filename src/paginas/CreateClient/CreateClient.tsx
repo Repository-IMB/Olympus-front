@@ -170,7 +170,7 @@ const CreateClient: React.FC = () => {
         celular: values.celular || "",
         prefijoPaisCelular: indicativo.replace("+", ""),
         correo: values.correo || "",
-        areasTrabajo: values.nombreAreaTrabajo || "",
+        areaTrabajo: values.nombreAreaTrabajo || "",
         industria: values.industria || "",
       };
 
@@ -363,9 +363,9 @@ const CreateClient: React.FC = () => {
                     // Aplicar el límite de longitud del país correspondiente
                     const valorFinal = paisParaLimite?.digitoMaximo
                       ? resultado.numeroLocal.slice(
-                          0,
-                          paisParaLimite.digitoMaximo
-                        )
+                        0,
+                        paisParaLimite.digitoMaximo
+                      )
                       : resultado.numeroLocal;
 
                     form.setFieldValue("celular", valorFinal);
@@ -384,9 +384,9 @@ const CreateClient: React.FC = () => {
                     // Aplicar el límite de longitud del país correspondiente
                     const valorFinal = paisParaLimite?.digitoMaximo
                       ? resultado.numeroLocal.slice(
-                          0,
-                          paisParaLimite.digitoMaximo
-                        )
+                        0,
+                        paisParaLimite.digitoMaximo
+                      )
                       : resultado.numeroLocal;
 
                     form.setFieldValue("celular", valorFinal);

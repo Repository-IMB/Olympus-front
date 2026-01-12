@@ -54,7 +54,7 @@ export const useRecordatoriosGlobales = (
               <button
                 onClick={async () => {
                   await desactivarRecordatorio(r.id);
-                  apiNotification.destroy(key);
+                  (apiNotification as any).destroy(key);
                   navigate(`/leads/oportunidades/${r.idOportunidad}`);
                 }}
                 style={{

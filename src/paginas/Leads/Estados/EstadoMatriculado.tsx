@@ -13,7 +13,7 @@ import {
 } from "antd";
 import { InfoCircleOutlined } from "@ant-design/icons";
 import { getCookie } from "../../../utils/cookies";
-import dayjs from "dayjs";
+import moment, { type Moment } from "moment";
 import { crearHistorialConOcurrencia } from "../../../config/rutasApi";
 import api from "../../../servicios/api";
 import { jwtDecode } from "jwt-decode";
@@ -106,7 +106,7 @@ const EstadoMatriculado: React.FC<{
 
       const id =
         decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ];
 
       return id ? Number(id) : 0;
@@ -161,7 +161,7 @@ const EstadoMatriculado: React.FC<{
         IdOportunidad: oportunidadId,
         Total: totalToSend,
         NumCuotas: numCuotas,
-        FechaInicio: dayjs().format("YYYY-MM-DD"),
+        FechaInicio: moment().format("YYYY-MM-DD"),
         FrecuenciaDias: 30,
         Usuario: "SYSTEM",
       };
@@ -188,7 +188,7 @@ const EstadoMatriculado: React.FC<{
         IdOportunidad: oportunidadId,
         Total: totalToSend,
         NumCuotas: 1,
-        FechaInicio: dayjs().format("YYYY-MM-DD"),
+        FechaInicio: moment().format("YYYY-MM-DD"),
         FrecuenciaDias: 30,
         Usuario: "SYSTEM",
       };
@@ -245,11 +245,11 @@ const EstadoMatriculado: React.FC<{
   };
 
   const mapearCuotas = (listaBackend: any[]): CuotaRow[] => {
-    const hoy = dayjs().startOf("day");
+    const hoy = moment().startOf("day");
 
     const base = listaBackend.map((c: any) => {
       const fechaV = (c.fechaVencimiento ?? "").split("T")[0];
-      const fechaVenc = dayjs(fechaV);
+      const fechaVenc = moment(fechaV);
       const monto = Math.round(Number(c.montoProgramado ?? 0) * 100) / 100;
       const pagado = Math.round(Number(c.montoPagado ?? 0) * 100) / 100;
       const pendiente = Math.round((monto - pagado) * 100) / 100;
@@ -274,7 +274,7 @@ const EstadoMatriculado: React.FC<{
     let todasPreviasPagadas = true;
 
     return ordenadas.map((c) => {
-      const vencida = hoy.isAfter(dayjs(c.fechaVencimiento));
+      const vencida = hoy.isAfter(moment(c.fechaVencimiento));
       const pagada = c.pendiente <= 0;
 
       const deshabilitado = vencida || pagada || !todasPreviasPagadas;
@@ -576,7 +576,7 @@ const EstadoMatriculado: React.FC<{
         idCuota: f.id,
         monto: f.abonado as number,
         metodo: metodoPorFila[f.id] as number,
-        fechaPago: dayjs(f.fechaPago).toISOString(),
+        fechaPago: moment(f.fechaPago).toISOString(),
       });
 
       if (!resp.ok) {
@@ -713,7 +713,7 @@ const EstadoMatriculado: React.FC<{
         idCuota: f.id,
         monto: f.abonado as number,
         metodo: (metodoPorFila[f.id] as number) || 3,
-        fechaPago: dayjs(f.fechaPago).toISOString(),
+        fechaPago: moment(f.fechaPago).toISOString(),
       });
 
       if (!resp.ok) {
@@ -793,7 +793,7 @@ const EstadoMatriculado: React.FC<{
       render: (_: any, row: CuotaRow) => (
         <DatePicker
           size="small"
-          value={dayjs(row.fechaPago)}
+          value={row.fechaPago ? moment(row.fechaPago) : null}
           onChange={(d) => d && handleFechaPagoChange(row.id, d)}
           disabled={!activo || row.deshabilitado}
           format="YYYY-MM-DD"
@@ -837,7 +837,7 @@ const EstadoMatriculado: React.FC<{
       render: (_: any, row: CuotaRow) => (
         <DatePicker
           size="small"
-          value={dayjs(row.fechaPago)}
+          value={row.fechaPago ? moment(row.fechaPago) : null}
           onChange={(d) => d && handleFechaPagoChange(row.id, d)}
           disabled={!activo}
           format="YYYY-MM-DD"
@@ -848,28 +848,28 @@ const EstadoMatriculado: React.FC<{
 
   const columnsConvertido = showMetodoInConvertido
     ? [
-        ...columnsConvertidoBase.slice(0, 2),
-        {
-          title: "Método",
-          width: 120,
-          render: (_: any, row: CuotaRow) => (
-            <Select
-              value={metodoPorFila[row.id]}
-              onChange={(v) => handleMetodoChangeFila(row.id, v)}
-              disabled={!activo || row.deshabilitado}
-              style={{ width: "100%" }}
-              size="small"
-            >
-              <Select.Option value="">Seleccionar</Select.Option>
-              <Select.Option value={1}>Yape</Select.Option>
-              <Select.Option value={2}>Plin</Select.Option>
-              <Select.Option value={3}>Efectivo</Select.Option>
-              <Select.Option value={4}>Transf.</Select.Option>
-            </Select>
-          ),
-        },
-        ...columnsConvertidoBase.slice(2),
-      ]
+      ...columnsConvertidoBase.slice(0, 2),
+      {
+        title: "Método",
+        width: 120,
+        render: (_: any, row: CuotaRow) => (
+          <Select
+            value={metodoPorFila[row.id]}
+            onChange={(v) => handleMetodoChangeFila(row.id, v)}
+            disabled={!activo || row.deshabilitado}
+            style={{ width: "100%" }}
+            size="small"
+          >
+            <Select.Option value="">Seleccionar</Select.Option>
+            <Select.Option value={1}>Yape</Select.Option>
+            <Select.Option value={2}>Plin</Select.Option>
+            <Select.Option value={3}>Efectivo</Select.Option>
+            <Select.Option value={4}>Transf.</Select.Option>
+          </Select>
+        ),
+      },
+      ...columnsConvertidoBase.slice(2),
+    ]
     : columnsConvertidoBase;
 
   const TabButton: React.FC<{
@@ -936,8 +936,13 @@ const EstadoMatriculado: React.FC<{
 
           {/* CONVERTIDO */}
           <Popconfirm
-            title="Confirmación"
-            description="¿Estás seguro de pasar a estado convertido?"
+            title={
+              <div>
+                <strong>Confirmación</strong>
+                <br />
+                ¿Estás seguro de pasar a estado convertido?
+              </div>
+            }
             okText="Sí"
             cancelText="No"
             onConfirm={() => {
@@ -1085,8 +1090,13 @@ const EstadoMatriculado: React.FC<{
 
           <div style={{ textAlign: "center", marginTop: 8 }}>
             <Popconfirm
-              title="Confirmar pago"
-              description="¿Está seguro de confirmar pago de cuota?"
+              title={
+                <div>
+                  <strong>Confirmar pago</strong>
+                  <br />
+                  ¿Está seguro de confirmar pago de cuota?
+                </div>
+              }
               okText="Sí"
               cancelText="No"
               onConfirm={handleConfirmarPagos}
@@ -1134,8 +1144,13 @@ const EstadoMatriculado: React.FC<{
           </div>
 
           <Popconfirm
-            title="Confirmar cambio de estado"
-            description="¿Estás seguro de confirmar estado convertido?"
+            title={
+              <div>
+                <strong>Confirmar cambio de estado</strong>
+                <br />
+                ¿Estás seguro de confirmar estado convertido?
+              </div>
+            }
             okText="Sí"
             cancelText="No"
             onConfirm={handleConfirmarConvertido}

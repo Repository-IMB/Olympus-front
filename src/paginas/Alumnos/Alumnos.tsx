@@ -11,7 +11,7 @@ import {
 } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useMemo, useState } from "react";
-import dayjs, { Dayjs } from "dayjs";
+import moment, { type Moment } from "moment";
 import estilos from "./Alumnos.module.css";
 import type { ColumnsType } from "antd/es/table";
 import {
@@ -52,7 +52,7 @@ export default function Alumnos() {
   const [modulo, setModulo] = useState<string>();
   const [departamento, setDepartamento] = useState<string>();
   const [dateRange, setDateRange] = useState<
-    [Dayjs | null, Dayjs | null] | null
+    [Moment | null, Moment | null] | null
   >(null);
 
   const [form] = Form.useForm();
@@ -183,7 +183,7 @@ export default function Alumnos() {
         !dateRange[1] ||
         (() => {
           const [inicio, fin] = dateRange;
-          const fechaAlumno = dayjs(a.fechaCreacion, "DD/MM/YYYY");
+          const fechaAlumno = moment(a.fechaCreacion, "DD/MM/YYYY");
 
           return (
             (fechaAlumno.isAfter(inicio.startOf("day")) &&
@@ -232,17 +232,17 @@ export default function Alumnos() {
         <Space size="middle">
           <Tooltip title="Editar">
             <span className={estilos.actionIcon}
-            onClick={() => {
-            setAlumnoEditando(alumno);
-            setModalEditarVisible(true);
-          }}>
+              onClick={() => {
+                setAlumnoEditando(alumno);
+                setModalEditarVisible(true);
+              }}>
               <EditOutlined />
             </span>
           </Tooltip>
 
           <Tooltip title="Ver detalle">
             <span className={estilos.actionIcon}
-            onClick={() => navigate(`/producto/alumnos/detalle/${alumno.id}`)}>
+              onClick={() => navigate(`/producto/alumnos/detalle/${alumno.id}`)}>
               <EyeOutlined />
             </span>
           </Tooltip>
@@ -304,7 +304,7 @@ export default function Alumnos() {
           <RangePicker
             value={dateRange}
             onChange={(dates) =>
-              setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
+              setDateRange(dates as [Moment | null, Moment | null] | null)
             }
             format="DD/MM/YYYY"
             placeholder={["Fecha inicio", "Fecha fin"]}
@@ -328,7 +328,7 @@ export default function Alumnos() {
             {
               id: Date.now(),
               ...nuevoAlumno,
-              fechaCreacion: dayjs().format("DD/MM/YYYY"),
+              fechaCreacion: moment().format("DD/MM/YYYY"),
               pago: false,
               formulario: false,
             },
