@@ -207,9 +207,9 @@ export default function Asignacion() {
   };
 
   const handleClick = (id: number) => {
-  console.log("Asignacion", id);
-  navigate(`/leads/oportunidades/${id}`);
-};
+    console.log("Asignacion", id);
+    navigate(`/leads/oportunidades/${id}`);
+  };
 
   function agruparOportunidadesConRecordatorios(
     data: OportunidadBackend[]
@@ -446,7 +446,12 @@ export default function Asignacion() {
             search: searchText || null,
             estadoFiltro: filterEstado !== "Todos" ? filterEstado : null,
             origenFiltro: filterOrigen !== "Todos" ? filterOrigen : null,
-            paisFiltro: filterPais !== "Todos" ? filterPais : null,
+            paisFiltro:
+              filterPais === "Todos"
+                ? null
+                : Array.isArray(filterPais)
+                ? filterPais.join(",")
+                : filterPais,
             asesorFiltro: filterAsesor !== "Todos" ? filterAsesor : null,
             codigoLanzamientoFiltro:
               filterCodigoLanzamiento !== "Todos"
@@ -907,6 +912,8 @@ export default function Asignacion() {
             allowClear
           >
             <Option value="Todos">Todos los asesores</Option>
+            <Option value="__SIN_ASESOR__">Sin asesor</Option>
+
             {asesores.map((a) => (
               <Option key={a.idUsuario} value={a.nombre}>
                 {a.nombre}
