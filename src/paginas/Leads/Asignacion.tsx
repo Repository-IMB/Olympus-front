@@ -266,7 +266,7 @@ export default function Asignacion() {
         .hour(selectedTime.hour())
         .minute(selectedTime.minute())
         .second(0)
-        .toISOString();
+        .format("YYYY-MM-DDTHH:mm:ss");
 
       const horaRecordatorio = selectedTime.format("HH:mm");
 
