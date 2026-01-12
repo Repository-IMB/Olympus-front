@@ -64,9 +64,7 @@ const SalesCard = ({ sale }: { sale: Opportunity }) => {
   const recordatoriosVisibles = useMemo(() => {
     return [...(sale.recordatorios || [])]
       .filter((r) => r?.fecha)
-      .sort(
-        (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-      )
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
       .slice(0, 3);
   }, [sale.recordatorios]);
 
@@ -173,8 +171,9 @@ const [otrosEstados, setOtrosEstados] = useState<Record<string, Opportunity[]>>(
         ] || "0"
       );
       rolN =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-        "";
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
 
       const rolesMap: Record<string, number> = {
         Asesor: 1,
@@ -198,8 +197,9 @@ const [otrosEstados, setOtrosEstados] = useState<Record<string, Opportunity[]>>(
     try {
       const decoded = jwtDecode<TokenData>(t);
       const role =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-        "";
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
       setUserRole(String(role));
     } catch (err) {
       console.error("Error decodificando token (rol):", err);

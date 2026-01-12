@@ -5,7 +5,6 @@ import {
   Table,
   Button,
   Tag,
-  Space,
   Spin,
   Alert,
   Tooltip,
@@ -17,11 +16,10 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   EyeOutlined,
-  EditOutlined,
   FileTextOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import dayjs, { type Dayjs } from "dayjs";
+import { type Dayjs } from "dayjs";
 import SelectClient from "../SelectClient/SelectClient";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
@@ -446,26 +444,17 @@ useEffect(() => {
     {
       title: "Acciones",
       key: "actions",
+      align: "center",
       render: (_: any, record: Opportunity) => (
-        <Space size="small">
-          <Tooltip title="Ver Detalle">
-            <Button
-              type="primary"
-              icon={<EyeOutlined />}
-              size="small"
-              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
-              onClick={() => handleClick(record.id)}
-            />
-          </Tooltip>
-          <Tooltip title="Editar">
-            <Button
-              type="primary"
-              icon={<EditOutlined />}
-              size="small"
-              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
-            />
-          </Tooltip>
-        </Space>
+        <Tooltip title="Ver Detalle">
+          <Button
+            type="primary"
+            icon={<EyeOutlined />}
+            size="small"
+            style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+            onClick={() => handleClick(record.id)}
+          />
+        </Tooltip>
       ),
     },
   ];
@@ -547,6 +536,7 @@ useEffect(() => {
             ))}
           </Select>
           <Select
+            showSearch
             value={filterAsesor}
             onChange={setFilterAsesor}
             placeholder="Seleccionar asesor"
@@ -558,9 +548,10 @@ useEffect(() => {
             optionFilterProp="children"
           >
             <Option value="Todos">Todos los asesores</Option>
-            {asesoresUnicos.map((asesor) => (
-              <Option key={asesor} value={asesor}>
-                {asesor}
+            <Option value="SIN ASESOR">SIN ASESOR</Option>
+            {asesoresUnicos.map((a) => (
+              <Option key={a} value={a}>
+                {a}
               </Option>
             ))}
           </Select>

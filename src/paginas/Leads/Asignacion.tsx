@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Input,
   Select,
@@ -14,6 +15,7 @@ import {
   Space,
   Form,
   TimePicker,
+  Tooltip,
 } from "antd";
 import {
   SearchOutlined,
@@ -22,6 +24,7 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   FileTextOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import { type Lead } from "../../config/leadsTableItems";
 import estilos from "./Asignacion.module.css";
@@ -130,7 +133,7 @@ export default function Asignacion() {
   const [searchText, setSearchText] = useState("");
   const [filterEstado, setFilterEstado] = useState<string>("Todos");
   const [filterOrigen, setFilterOrigen] = useState<string>("Todos");
-  const [filterPais, setFilterPais] = useState<string>("Todos");
+  const [filterPais, setFilterPais] = useState<string | string[]>("Todos");
   const [dateRange, setDateRange] = useState<
     [Dayjs | null, Dayjs | null] | null
   >(null);
@@ -280,7 +283,7 @@ export default function Asignacion() {
         await axios.post(
           `${
             import.meta.env.VITE_API_URL || "http://localhost:7020"
-          }/api/VTAModVentaHistorialInteraccion/InsertarMasivo`,
+          }/api/VTAModVentaHistorialInteraccion/Insertar`,
           payloadInteraccion,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -807,6 +810,22 @@ export default function Asignacion() {
           );
         },
       },
+      {
+        title: "Acciones",
+        key: "actions",
+        align: "center",
+        render: (_: any, record: Lead) => (
+          <Tooltip title="Ver Detalle">
+            <Button
+              type="primary"
+              icon={<EyeOutlined />}
+              size="small"
+              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+              onClick={() => handleClick(record.id)}
+            />
+          </Tooltip>
+        ),
+      },
     ],
     []
   );
@@ -948,8 +967,33 @@ export default function Asignacion() {
               </Option>
             ))}
           </Select>
+          <Select
+            mode="multiple"
+            showSearch
+            value={Array.isArray(filterPais) ? filterPais : []}
+            onChange={(values) => {
+              if (values.length === 0) {
+                setFilterPais("Todos");
+                return;
+              }
 
-          <Select {...SELECT_PROPS} value={filterPais} onChange={setFilterPais}>
+              if (values.includes("Todos")) {
+                setFilterPais("Todos");
+              } else {
+                setFilterPais(values);
+              }
+            }}
+            className={estilos.filterSelect}
+            virtual={false}
+            placeholder="Todos los paises"
+            allowClear
+            maxTagCount="responsive"
+            filterOption={(input, option) =>
+              (option?.children as unknown as string)
+                .toLowerCase()
+                .includes(input.toLowerCase())
+            }
+          >
             <Option value="Todos">Todos los países</Option>
             {PAISES.map((p) => (
               <Option key={p} value={p}>
