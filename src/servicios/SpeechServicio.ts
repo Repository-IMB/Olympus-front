@@ -8,29 +8,39 @@ import type {
 
 const BASE_URL = "/api/VTAModSpeech";
 
-/**
- * Obtiene el IdPersonal del usuario autenticado
- * El idUsuario se obtiene automáticamente del token JWT en el backend
- */
+interface ObtenerIdPersonalResponse {
+  idAsesor: number | null;
+  codigo: string;
+  mensaje: string;
+}
+
 export const obtenerIdPersonal = async (): Promise<number | null> => {
   try {
-    const response = await api.get<{ IdPersonal: number }>(
+    const response = await api.get<ObtenerIdPersonalResponse>(
       `${BASE_URL}/ObtenerIdPersonal`
     );
-    return response.data.IdPersonal;
-  } catch (error: any) {
-    // Si es 401, el token es inválido o no contiene el ID del usuario
-    if (error?.response?.status === 401) {
-      console.error("Error de autenticación al obtener IdPersonal:", error);
-      throw new Error("No se pudo obtener el ID del usuario desde el token de autenticación");
+
+    const { codigo, idAsesor, mensaje } = response.data;
+
+    if (codigo === "SIN ERROR") {
+      return idAsesor!;
     }
-    // Si es 404, el usuario no tiene un asesor asociado
-    if (error?.response?.status === 404) {
-      console.warn("El usuario no tiene un asesor asociado o el asesor está inactivo");
+
+    if (codigo === "ERROR CONTROLADO") {
+      console.warn("No se pudo obtener IdAsesor:", mensaje);
       return null;
     }
-    // Si es 500 u otro error, lanzar el error
-    throw error;
+
+    // ERROR_CRITICO u otro
+    throw new Error(mensaje || "Error inesperado al obtener IdAsesor");
+  } catch (error: any) {
+    console.error("Error al obtener IdAsesor:", error);
+
+    throw new Error(
+      error?.response?.data?.mensaje ||
+        error?.message ||
+        "Error de comunicación con el servidor"
+    );
   }
 };
 

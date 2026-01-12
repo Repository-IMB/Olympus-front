@@ -9,7 +9,6 @@ import {
 } from "antd";
 import { LinkedinOutlined } from "@ant-design/icons";
 import { useParams } from "react-router-dom";
-import axios from "axios";
 import InformacionProducto from "./InformacionProducto";
 import { getCookie } from "../../utils/cookies";
 import api from "../../servicios/api";

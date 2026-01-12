@@ -137,7 +137,22 @@ export default function SalesProcess() {
 
   const navigate = useNavigate();
 
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+const [salesData, setSalesData] = useState<Record<string, Opportunity[]>>({
+  registrado: [],
+  calificado: [],
+  potencial: [],
+  promesa: [],
+});
+
+const [otrosEstados, setOtrosEstados] = useState<Record<string, Opportunity[]>>({
+  coorporativo: [],
+  ventaCruzada: [],
+  seguimiento: [],
+  perdido: [],
+  noCalificado: [],
+  cobranza: [],
+  convertido: [],
+});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("");
@@ -194,172 +209,38 @@ export default function SalesProcess() {
   // =========================
   // FETCH + AGRUPAR RECORDATORIOS
   // =========================
-  useEffect(() => {
-    if (!idUsuario || !idRol) {
-      setOpportunities([]);
-      setLoading(false);
-      return;
-    }
+useEffect(() => {
+  if (!idUsuario || !idRol) {
+    setLoading(false);
+    return;
+  }
 
-    const fetchOpportunities = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchSalesProcess = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const res = await api.get(
-          "/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio",
-          { params: { idUsuario, idRol } }
-        );
+      const res = await api.get(
+        "/api/VTAModVentaOportunidad/ObtenerSalesProcess",
+        { params: { idUsuario, idRol } }
+      );
 
-        const raw = res.data?.oportunidad || [];
-        // ✅ Agrupar por oportunidad para evitar duplicados
-        const grouped: Record<number, Opportunity> = {};
-
-        raw.forEach((row: any) => {
-          const opportunityId = Number(row.idOportunidad ?? row.id ?? 0);
-          if (!opportunityId) return;
-
-          if (!grouped[opportunityId]) {
-            grouped[opportunityId] = {
-              id: opportunityId,
-              personaNombre: row.personaNombre,
-              nombreEstado: row.nombreEstado,
-              nombreOcurrencia: row.nombreOcurrencia,
-              productoNombre: row.productoNombre,
-              fechaCreacion: row.fechaCreacion,
-              recordatorios: [],
-            };
-          }
-
-          // ✅ Mapeo tolerante (porque tu backend no siempre se llama igual)
-          const idRec =
-            row.idHistorialInteraccion ??
-            row.idRecordatorio ??
-            row.idReminder ??
-            row.pnId ??
-            row.pnIdHis ??
-            row.idHis ??
-            null;
-
-          const fecRec =
-            row.fechaRecordatorio ??
-            row.dFechaRecordatorio ??
-            row.fecha ??
-            row.reminderDate ??
-            row.dFecRec ??
-            null;
-
-          // Si viene recordatorio, lo agregamos (sin duplicarlo)
-          if (idRec && fecRec) {
-            const idR = Number(idRec);
-            const fR = String(fecRec);
-
-            const yaExiste = grouped[opportunityId].recordatorios.some(
-              (r) => r.idRecordatorio === idR
-            );
-
-            if (!yaExiste) {
-              grouped[opportunityId].recordatorios.push({
-                idRecordatorio: idR,
-                fecha: fR,
-              });
-            }
-          }
-        });
-
-        // Opcional: ordenar recordatorios internos por fecha asc
-        Object.values(grouped).forEach((op) => {
-          op.recordatorios.sort(
-            (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-          );
-        });
-
-        setOpportunities(Object.values(grouped));
-      } catch (e: any) {
-        console.error("Error al obtener oportunidades", e);
-        setError(
+      setSalesData(res.data.salesData || {});
+      setOtrosEstados(res.data.otrosEstados || {});
+    } catch (e: any) {
+      console.error("Error SalesProcess", e);
+      setError(
+        e?.response?.data?.mensaje ??
           e?.response?.data?.message ??
-            e.message ??
-            "Error al obtener oportunidades"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+          "Error al obtener SalesProcess"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchOpportunities();
-  }, [idUsuario, idRol]);
-
-  // =========================
-  // CATEGORIZAR (igual que tu lógica)
-  // =========================
-  const categorizedData = useMemo(() => {
-    const initialSalesData: { [key: string]: Opportunity[] } = {
-      registrado: [],
-      calificado: [],
-      potencial: [],
-      promesa: [],
-    };
-
-    const initialOtrosEstados: { [key: string]: Opportunity[] } = {
-      coorporativo: [],
-      ventaCruzada: [],
-      seguimiento: [],
-      perdido: [],
-      noCalificado: [],
-      cobranza: [],
-      convertido: [],
-    };
-
-    opportunities.forEach((op) => {
-      switch (op.nombreEstado) {
-        case "Registrado":
-          initialSalesData.registrado.push(op);
-          break;
-        case "Potencial":
-          initialSalesData.potencial.push(op);
-          break;
-        case "Promesa":
-          if (op?.nombreOcurrencia === "Corporativo") {
-            initialOtrosEstados.coorporativo.push(op);
-          } else {
-            initialSalesData.promesa.push(op);
-          }
-          break;
-        case "Calificado":
-          initialSalesData.calificado.push(op);
-          break;
-        default:
-          if (op.nombreOcurrencia === "Cobranza") {
-            initialOtrosEstados.cobranza.push(op);
-          } else if (op.nombreOcurrencia === "No Calificado") {
-            initialOtrosEstados.noCalificado.push(op);
-          } else if (op.nombreOcurrencia === "Venta cruzada") {
-            initialOtrosEstados.ventaCruzada.push(op);
-          } else if (op.nombreOcurrencia === "Seguimiento") {
-            initialOtrosEstados.seguimiento.push(op);
-          } else if (op.nombreOcurrencia === "Perdido") {
-            initialOtrosEstados.perdido.push(op);
-          } else if (op.nombreOcurrencia === "Convertido") {
-            initialOtrosEstados.convertido.push(op);
-          } else {
-            console.warn(`Oportunidad con estado no mapeado: ${op.nombreEstado}`);
-          }
-          break;
-      }
-    });
-
-    // Ordenar por fechaCreacion desc (igual que tu código)
-    const sortByFechaDesc = (a: Opportunity, b: Opportunity) =>
-      new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime();
-
-    Object.values(initialSalesData).forEach((arr) => arr.sort(sortByFechaDesc));
-    Object.values(initialOtrosEstados).forEach((arr) => arr.sort(sortByFechaDesc));
-
-    return { salesData: initialSalesData, otrosEstados: initialOtrosEstados };
-  }, [opportunities]);
-
-  const { salesData, otrosEstados } = categorizedData;
+  fetchSalesProcess();
+}, [idUsuario, idRol]);
 
   // =========================
   // FILTROS (igual)
