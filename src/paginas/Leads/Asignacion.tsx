@@ -173,6 +173,7 @@ export default function Asignacion() {
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+  const navigate = useNavigate();
 
   const token = getCookie("token");
 
@@ -204,6 +205,11 @@ export default function Asignacion() {
     setSelectedDate(null);
     setSelectedTime(null);
   };
+
+  const handleClick = (id: number) => {
+  console.log("Asignacion", id);
+  navigate(`/leads/oportunidades/${id}`);
+};
 
   function agruparOportunidadesConRecordatorios(
     data: OportunidadBackend[]

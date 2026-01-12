@@ -37,7 +37,6 @@ interface TokenData {
   "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
 }
 
-/** ⬇️ SOLO SE AGREGA recordatorios */
 interface Opportunity {
   id: number;
   personaNombre: string;
@@ -264,7 +263,8 @@ useEffect(() => {
   ]);
 
   const handleClick = (id: number) => {
-    navigate(`/leads/oportunidades/${id}?${searchParams.toString()}`);
+    console.log(id)
+    navigate(`/leads/oportunidades/${id}`);
   };
 
   const handleLimpiarFiltros = () => {
