@@ -11,6 +11,8 @@ export type PermisosMenu = {
 const normalizar = (valor?: string) =>
   valor?.trim().toLowerCase() ?? "";
 
+const ROLES_CON_USUARIOS = ["supervisor"];
+
 export function usePermisosMenu(userContext: any): PermisosMenu {
   return useMemo(() => {
     if (!userContext) {
@@ -45,7 +47,7 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         asignacion: rol !== "asesor",
         desarrollo: false,
         logistica: false,
-        usuarios: false,
+        usuarios: ROLES_CON_USUARIOS.includes(rol),
       };
     }
 
@@ -56,7 +58,7 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         asignacion: false,
         desarrollo: ["supervisor", "coordinador"].includes(rol),
         logistica: false,
-        usuarios: false,
+        usuarios: ROLES_CON_USUARIOS.includes(rol),
       };
     }
 
@@ -67,7 +69,7 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         asignacion: false,
         desarrollo: false,
         logistica: true,
-        usuarios: false,
+        usuarios: ROLES_CON_USUARIOS.includes(rol),
       };
     }
 
