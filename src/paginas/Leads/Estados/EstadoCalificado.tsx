@@ -7,6 +7,8 @@ import {
 } from "../../../config/rutasApi";
 import api from "../../../servicios/api";
 import { emitHistorialChanged } from "../../../utils/events";
+import { getCookie } from "../../../utils/cookies";
+import { jwtDecode } from "jwt-decode";
 
 const { Text } = Typography;
 
@@ -38,6 +40,27 @@ const buttonStyle = (
   display: "inline-block",
   opacity: disabled ? 0.7 : 1,
 });
+
+  const token = getCookie("token");
+
+  const getUserIdFromToken = () => {
+        if (!token) return 0;
+    
+        try {
+          const decoded: any = jwtDecode(token);
+    
+          const id =
+            decoded[
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+            ];
+    
+          return id ? Number(id) : 0;
+        } catch (e) {
+          console.error("Error decodificando token", e);
+          return 0;
+        }
+      };
+  
 
 function useMountedFlag() {
   const [mounted, setMounted] = useState(true);
@@ -81,7 +104,7 @@ export default function EstadoCalificado({
     if (creatingId || !activo) return;
     setCreatingId(ocId);
     try {
-      await crearHistorialConOcurrencia(oportunidadId, ocId, usuario);
+      await crearHistorialConOcurrencia(oportunidadId, ocId, Number(getUserIdFromToken()));
       message.success("Cambio aplicado");
       emitHistorialChanged({
         motivo: "crearHistorialConOcurrencia",

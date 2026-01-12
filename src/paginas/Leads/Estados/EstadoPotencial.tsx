@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Typography, Row, Col, Space, Spin, message, Popconfirm } from "antd";
 import type { OcurrenciaDTO } from "../../../modelos/Ocurrencia";
-import { crearHistorialConOcurrencia, getOcurrenciasPermitidas } from "../../../config/rutasApi";
+import {
+  crearHistorialConOcurrencia,
+  getOcurrenciasPermitidas,
+} from "../../../config/rutasApi";
 import api from "../../../servicios/api";
 import { emitHistorialChanged } from "../../../utils/events";
+import { getCookie } from "../../../utils/cookies";
+import { jwtDecode } from "jwt-decode";
 
 const { Text } = Typography;
 
@@ -11,10 +16,34 @@ type Props = {
   oportunidadId: number;
   usuario?: string;
   onCreado?: () => void;
-  activo?: boolean; 
+  activo?: boolean;
 };
 
-const buttonStyle = (baseColor: string, hoverColor: string, disabled = false): React.CSSProperties => ({
+const token = getCookie("token");
+
+const getUserIdFromToken = () => {
+  if (!token) return 0;
+
+  try {
+    const decoded: any = jwtDecode(token);
+
+    const id =
+      decoded[
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+      ];
+
+    return id ? Number(id) : 0;
+  } catch (e) {
+    console.error("Error decodificando token", e);
+    return 0;
+  }
+};
+
+const buttonStyle = (
+  baseColor: string,
+  hoverColor: string,
+  disabled = false
+): React.CSSProperties => ({
   background: baseColor,
   color: "#0D0C11",
   border: "none",
@@ -41,7 +70,12 @@ function useMountedFlag() {
   return mounted;
 }
 
-export default function EstadoPotencial({ oportunidadId, usuario = "SYSTEM", onCreado, activo = true }: Props) {
+export default function EstadoPotencial({
+  oportunidadId,
+  usuario = "SYSTEM",
+  onCreado,
+  activo = true,
+}: Props) {
   const [ocurrencias, setOcurrencias] = useState<OcurrenciaDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [creatingId, setCreatingId] = useState<number | null>(null);
@@ -52,12 +86,16 @@ export default function EstadoPotencial({ oportunidadId, usuario = "SYSTEM", onC
     if (!oportunidadId && oportunidadId !== 0) return;
     setLoading(true);
     getOcurrenciasPermitidas(oportunidadId)
-      .then(list => { if (mounted) setOcurrencias(Array.isArray(list) ? list : []); })
-      .catch(err => {
+      .then((list) => {
+        if (mounted) setOcurrencias(Array.isArray(list) ? list : []);
+      })
+      .catch((err) => {
         console.error("getOcurrenciasPermitidas error", err);
         message.error(err?.message ?? "No se pudieron cargar ocurrencias");
       })
-      .finally(() => { if (mounted) setLoading(false); });
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oportunidadId]);
 
@@ -67,13 +105,23 @@ export default function EstadoPotencial({ oportunidadId, usuario = "SYSTEM", onC
     try {
       // POST a: /api/VTAModVentaHistorialEstado/{IdOportunidad}/IncrementarLlamadas
       const payload = { tipo, usuario };
-      await api.post(`/api/VTAModVentaHistorialEstado/${oportunidadId}/IncrementarLlamadas`, payload);
-      message.success(tipo === "C" ? "Marcador de 'Contestadas' incrementado" : "Marcador de 'No contestadas' incrementado");
+      await api.post(
+        `/api/VTAModVentaHistorialEstado/${oportunidadId}/IncrementarLlamadas`,
+        payload
+      );
+      message.success(
+        tipo === "C"
+          ? "Marcador de 'Contestadas' incrementado"
+          : "Marcador de 'No contestadas' incrementado"
+      );
       emitHistorialChanged({ motivo: "incrementarLlamada", tipo });
       if (onCreado) onCreado();
     } catch (err: any) {
       console.error("incrementarLlamada error", err);
-      const errMsg = err?.response?.data?.mensaje ?? err?.message ?? "Error al incrementar llamada";
+      const errMsg =
+        err?.response?.data?.mensaje ??
+        err?.message ??
+        "Error al incrementar llamada";
       message.error(errMsg);
     } finally {
       if (mounted) setCallLoading(false);
@@ -84,9 +132,16 @@ export default function EstadoPotencial({ oportunidadId, usuario = "SYSTEM", onC
     if (creatingId || !activo) return;
     setCreatingId(ocId);
     try {
-      await crearHistorialConOcurrencia(oportunidadId, ocId, usuario);
+      await crearHistorialConOcurrencia(
+        oportunidadId,
+        ocId,
+        Number(getUserIdFromToken())
+      );
       message.success("Cambio aplicado");
-      emitHistorialChanged({ motivo: "crearHistorialConOcurrencia", ocurrenciaId: ocId });
+      emitHistorialChanged({
+        motivo: "crearHistorialConOcurrencia",
+        ocurrenciaId: ocId,
+      });
       if (onCreado) onCreado();
       const list = await getOcurrenciasPermitidas(oportunidadId);
       if (mounted) setOcurrencias(Array.isArray(list) ? list : []);
@@ -99,45 +154,52 @@ export default function EstadoPotencial({ oportunidadId, usuario = "SYSTEM", onC
   };
 
   const findByName = (name: string) => {
-    return ocurrencias.find(o => (o.nombre ?? "").toLowerCase() === name.toLowerCase());
+    return ocurrencias.find(
+      (o) => (o.nombre ?? "").toLowerCase() === name.toLowerCase()
+    );
   };
 
-const renderActionBtn = (label: string, base: string, hover: string) => {
-  const oc = findByName(label);
-  const allowedBackend = !!oc?.allowed;
-  const disabled = !activo || !allowedBackend || !!creatingId || callLoading;
-  const id = oc?.id;
+  const renderActionBtn = (label: string, base: string, hover: string) => {
+    const oc = findByName(label);
+    const allowedBackend = !!oc?.allowed;
+    const disabled = !activo || !allowedBackend || !!creatingId || callLoading;
+    const id = oc?.id;
 
-  if (!id) return null;
+    if (!id) return null;
 
-  const button = (
-    <div
-      role="button"
-      aria-disabled={disabled}
-      style={{
-        ...buttonStyle(disabled ? "#F0F0F0" : base, hover, disabled),
-      }}
-      title={!oc ? "Ocurrencia no encontrada" : disabled ? "No permitido" : "Seleccionar"}
-    >
-      {creatingId === id ? "..." : label}
-    </div>
-  );
+    const button = (
+      <div
+        role="button"
+        aria-disabled={disabled}
+        style={{
+          ...buttonStyle(disabled ? "#F0F0F0" : base, hover, disabled),
+        }}
+        title={
+          !oc
+            ? "Ocurrencia no encontrada"
+            : disabled
+            ? "No permitido"
+            : "Seleccionar"
+        }
+      >
+        {creatingId === id ? "..." : label}
+      </div>
+    );
 
-  return (
-    <Popconfirm
-      title="¿Está seguro de guardar este nuevo estado?"
-      okText="Sí"
-      cancelText="No"
-      disabled={disabled}
-      onConfirm={() => handleSelect(id)}
-    >
-      <span style={{ cursor: disabled ? "not-allowed" : "pointer" }}>
-        {button}
-      </span>
-    </Popconfirm>
-  );
-};
-
+    return (
+      <Popconfirm
+        title="¿Está seguro de guardar este nuevo estado?"
+        okText="Sí"
+        cancelText="No"
+        disabled={disabled}
+        onConfirm={() => handleSelect(id)}
+      >
+        <span style={{ cursor: disabled ? "not-allowed" : "pointer" }}>
+          {button}
+        </span>
+      </Popconfirm>
+    );
+  };
 
   if (loading) return <Spin />;
 
@@ -160,13 +222,33 @@ const renderActionBtn = (label: string, base: string, hover: string) => {
             const disabledYes = callLoading || !!creatingId || !activo;
             return (
               <div
-                style={buttonStyle(disabledYes ? "#F0F0F0" : "#BAD4FF", "#9EC9FF", disabledYes)}
-                onMouseEnter={(e) => { if (!disabledYes) (e.currentTarget as HTMLElement).style.background = "#9EC9FF"; }}
-                onMouseLeave={(e) => { if (!disabledYes) (e.currentTarget as HTMLElement).style.background = "#BAD4FF"; }}
-                onClick={() => { if (!disabledYes) incrementarLlamada("C"); }}
+                style={buttonStyle(
+                  disabledYes ? "#F0F0F0" : "#BAD4FF",
+                  "#9EC9FF",
+                  disabledYes
+                )}
+                onMouseEnter={(e) => {
+                  if (!disabledYes)
+                    (e.currentTarget as HTMLElement).style.background =
+                      "#9EC9FF";
+                }}
+                onMouseLeave={(e) => {
+                  if (!disabledYes)
+                    (e.currentTarget as HTMLElement).style.background =
+                      "#BAD4FF";
+                }}
+                onClick={() => {
+                  if (!disabledYes) incrementarLlamada("C");
+                }}
                 role="button"
                 aria-disabled={disabledYes}
-                title={disabledYes ? (!activo ? "No activo" : "Procesando...") : "Marcar llamada contestada"}
+                title={
+                  disabledYes
+                    ? !activo
+                      ? "No activo"
+                      : "Procesando..."
+                    : "Marcar llamada contestada"
+                }
               >
                 {callLoading ? <Spin size="small" /> : "Sí"}
               </div>
@@ -177,13 +259,33 @@ const renderActionBtn = (label: string, base: string, hover: string) => {
             const disabledNo = callLoading || !!creatingId || !activo;
             return (
               <div
-                style={buttonStyle(disabledNo ? "#F0F0F0" : "#FFCDCD", "#FFB2B2", disabledNo)}
-                onMouseEnter={(e) => { if (!disabledNo) (e.currentTarget as HTMLElement).style.background = "#FFB2B2"; }}
-                onMouseLeave={(e) => { if (!disabledNo) (e.currentTarget as HTMLElement).style.background = "#FFCDCD"; }}
-                onClick={() => { if (!disabledNo) incrementarLlamada("N"); }}
+                style={buttonStyle(
+                  disabledNo ? "#F0F0F0" : "#FFCDCD",
+                  "#FFB2B2",
+                  disabledNo
+                )}
+                onMouseEnter={(e) => {
+                  if (!disabledNo)
+                    (e.currentTarget as HTMLElement).style.background =
+                      "#FFB2B2";
+                }}
+                onMouseLeave={(e) => {
+                  if (!disabledNo)
+                    (e.currentTarget as HTMLElement).style.background =
+                      "#FFCDCD";
+                }}
+                onClick={() => {
+                  if (!disabledNo) incrementarLlamada("N");
+                }}
                 role="button"
                 aria-disabled={disabledNo}
-                title={disabledNo ? (!activo ? "No activo" : "Procesando...") : "Marcar llamada no contestada"}
+                title={
+                  disabledNo
+                    ? !activo
+                      ? "No activo"
+                      : "Procesando..."
+                    : "Marcar llamada no contestada"
+                }
               >
                 {callLoading ? <Spin size="small" /> : "No"}
               </div>
@@ -196,8 +298,17 @@ const renderActionBtn = (label: string, base: string, hover: string) => {
       <Row justify="space-between" align="middle" style={{ marginTop: 6 }}>
         <Text style={{ fontSize: 14, color: "#0D0C11" }}>Ocurrencia:</Text>
         <Space>
-          <div style={{ width: 12, height: 12, background: "#5D5D5D", borderRadius: 2 }} />
-          <Text style={{ fontSize: 11, color: "#5D5D5D" }}>Más información</Text>
+          <div
+            style={{
+              width: 12,
+              height: 12,
+              background: "#5D5D5D",
+              borderRadius: 2,
+            }}
+          />
+          <Text style={{ fontSize: 11, color: "#5D5D5D" }}>
+            Más información
+          </Text>
         </Space>
       </Row>
 

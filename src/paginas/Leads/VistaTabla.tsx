@@ -22,6 +22,21 @@ type Lead = {
 const headerBg = "#0f1724";
 const colMinWidth = 200;
 
+const getReminderColor = (fechaRecordatorio?: string | null): string => {
+  if (!fechaRecordatorio) return "#9ca3af";
+
+  const now = new Date();
+  const reminderDate = new Date(fechaRecordatorio);
+
+  const diffMs = reminderDate.getTime() - now.getTime();
+  const hoursRemaining = diffMs / (1000 * 60 * 60);
+
+  if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
+  if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
+  if (hoursRemaining < 24) return "#ffd666"; // amarillo
+  return "#1677ff"; // azul
+};
+
 export default function VistaTablaComponent() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
@@ -39,7 +54,9 @@ export default function VistaTablaComponent() {
         }
 
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/VTAModVentaOportunidad/ObtenerTodasConDetalle`,
+          `${
+            import.meta.env.VITE_API_URL
+          }/api/VTAModVentaOportunidad/ObtenerTodasConDetalle`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -48,42 +65,50 @@ export default function VistaTablaComponent() {
         const oportunidadesRaw = response.data?.oportunidad ?? [];
 
         // Transformar al formato del componente VistaTablaComponent
-        const oportunidadesFormateadas: Lead[] = oportunidadesRaw.map((o: any) => {
-          const fecha = new Date(o.fechaCreacion);
-          const hora = fecha.toLocaleTimeString("es-PE", {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
+        const oportunidadesFormateadas: Lead[] = oportunidadesRaw.map(
+          (o: any) => {
+            const fecha = new Date(o.fechaCreacion);
+            const hora = fecha.toLocaleTimeString("es-PE", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
 
-          // etapa según idEstado (según lo que comentaste: 1=Pendiente, 2=Registrado)
-          let etapa = "Sin estado";
-          const idEstado = o.historialEstado?.idEstado;
-          if (idEstado === 1) etapa = "Pendiente";
-          else if (idEstado === 2) etapa = "Registrado";
+            // etapa según idEstado (según lo que comentaste: 1=Pendiente, 2=Registrado)
+            let etapa = "Sin estado";
+            const idEstado = o.historialEstado?.idEstado;
+            if (idEstado === 1) etapa = "Pendiente";
+            else if (idEstado === 2) etapa = "Registrado";
 
-          // Recordatorios: tomar el más próximo de tipo "Recordatorio"
-          const recordatoriosDates = (o.historialInteraccion || [])
-            .filter((h: any) => h.tipo === "Recordatorio" && h.fechaRecordatorio)
-            .map((h: any) => new Date(h.fechaRecordatorio))
-            .sort((a: Date, b: Date) => a.getTime() - b.getTime());
+            // Recordatorios: tomar el más próximo de tipo "Recordatorio"
+            const recordatoriosDates = (o.historialInteraccion || [])
+              .filter(
+                (h: any) => h.tipo === "Recordatorio" && h.fechaRecordatorio
+              )
+              .map((h: any) => new Date(h.fechaRecordatorio))
+              .sort((a: Date, b: Date) => a.getTime() - b.getTime());
 
-          const hoy = new Date();
-          const proximoRecordatorio =
-            recordatoriosDates.find((r: Date) => r >= hoy) ||
-            recordatoriosDates[recordatoriosDates.length - 1] ||
-            null;
+            const hoy = new Date();
+            const proximoRecordatorio =
+              recordatoriosDates.find((r: Date) => r >= hoy) ||
+              recordatoriosDates[recordatoriosDates.length - 1] ||
+              null;
 
-          return {
-            id: o.id,
-            fechaISO: o.fechaCreacion,
-            hora,
-            nombre: `${o.personaNombres ?? ""} ${o.personaApellidos ?? ""}`.trim(),
-            pais: "Perú",
-            etapa,
-            programa: o.codigoLanzamiento ?? "-",
-            recordatorio: proximoRecordatorio ? proximoRecordatorio.toISOString() : null,
-          };
-        });
+            return {
+              id: o.id,
+              fechaISO: o.fechaCreacion,
+              hora,
+              nombre: `${o.personaNombres ?? ""} ${
+                o.personaApellidos ?? ""
+              }`.trim(),
+              pais: "Perú",
+              etapa,
+              programa: o.codigoLanzamiento ?? "-",
+              recordatorio: proximoRecordatorio
+                ? proximoRecordatorio.toISOString()
+                : null,
+            };
+          }
+        );
 
         setData(oportunidadesFormateadas);
         console.log("✅ Oportunidades mapeadas:", oportunidadesFormateadas);
@@ -192,7 +217,9 @@ export default function VistaTablaComponent() {
       }}
     >
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40 }}>Cargando oportunidades...</div>
+        <div style={{ textAlign: "center", padding: 40 }}>
+          Cargando oportunidades...
+        </div>
       ) : (
         <>
           <h3 style={{ margin: "6px 8px", color: "#0f1724", fontWeight: 700 }}>
@@ -254,13 +281,17 @@ export default function VistaTablaComponent() {
                     transition: "all 0.2s ease",
                   }}
                   onMouseEnter={(e) =>
-                    (e.currentTarget.style.boxShadow = "0 4px 10px rgba(0,0,0,0.1)")
+                    (e.currentTarget.style.boxShadow =
+                      "0 4px 10px rgba(0,0,0,0.1)")
                   }
                   onMouseLeave={(e) =>
-                    (e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)")
+                    (e.currentTarget.style.boxShadow =
+                      "0 1px 3px rgba(0,0,0,0.05)")
                   }
                 >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div
+                    style={{ display: "flex", flexDirection: "column", gap: 6 }}
+                  >
                     <div
                       style={{
                         display: "flex",
@@ -272,7 +303,9 @@ export default function VistaTablaComponent() {
                     >
                       <span>
                         {formattedLongDate(item.fechaISO)}
-                        <CalendarOutlined style={{ color: "#6b7280", marginLeft: 4 }} />
+                        <CalendarOutlined
+                          style={{ color: "#6b7280", marginLeft: 4 }}
+                        />
                       </span>
                     </div>
                     <div
@@ -289,11 +322,23 @@ export default function VistaTablaComponent() {
                     </div>
                   </div>
 
-                  <div style={{ color: "#111827", fontSize: 14, textAlign: "center" }}>
+                  <div
+                    style={{
+                      color: "#111827",
+                      fontSize: 14,
+                      textAlign: "center",
+                    }}
+                  >
                     {item.nombre}
                   </div>
 
-                  <div style={{ color: "#374151", fontSize: 13, textAlign: "center" }}>
+                  <div
+                    style={{
+                      color: "#374151",
+                      fontSize: 13,
+                      textAlign: "center",
+                    }}
+                  >
                     {item.pais}
                   </div>
 
@@ -314,11 +359,30 @@ export default function VistaTablaComponent() {
                     </div>
                   </div>
 
-                  <div style={{ color: "#374151", fontSize: 13, textAlign: "center" }}>
+                  <div
+                    style={{
+                      color: "#374151",
+                      fontSize: 13,
+                      textAlign: "center",
+                    }}
+                  >
                     {item.programa}
                   </div>
-
-                  <div style={{ color: "#374151", fontSize: 13, textAlign: "center" }}>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      backgroundColor: getReminderColor(item.recordatorio),
+                      color: "#ffffff",
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <CalendarOutlined style={{ fontSize: 12 }} />
                     {formattedShortDate(item.recordatorio)}
                   </div>
                 </div>
