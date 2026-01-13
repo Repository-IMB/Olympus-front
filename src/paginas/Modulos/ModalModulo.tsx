@@ -10,7 +10,9 @@ import {
   Select,
   Space,
   Button,
-  message
+  message,
+  Radio,
+  Alert,
 } from "antd";
 import { useEffect, useState } from "react";
 import dayjs, { Dayjs } from "dayjs";
@@ -32,16 +34,6 @@ const DIAS = [
   { key: "5", label: "V" },  // Viernes
   { key: "6", label: "S" },  // Sábado
   { key: "7", label: "D" },  // Domingo
-];
-
-const DIAS_COMPLETOS = [
-  { key: "1", label: "Lunes" },
-  { key: "2", label: "Martes" },
-  { key: "3", label: "Miércoles" },
-  { key: "4", label: "Jueves" },
-  { key: "5", label: "Viernes" },
-  { key: "6", label: "Sábado" },
-  { key: "7", label: "Domingo" },
 ];
 
 export default function ModalModulo({
@@ -75,97 +67,72 @@ export default function ModalModulo({
   // Efecto para cargar datos cuando se edita
   useEffect(() => {
     if (visible && modoEdicion && moduloEditar) {
-      console.log('=== DEBUG CARGA DE DATOS ===');
-      console.log('moduloEditar completo:', JSON.stringify(moduloEditar, null, 2));
-      console.log('fechaPresentacion:', moduloEditar.fechaPresentacion);
-      console.log('sesionesHorarios:', moduloEditar.sesionesHorarios);
       
-      // Extraer días desde sesionesHorarios
+      // 1. Extraer días síncronos
       const diasArray: string[] = [];
-      let primeraHoraInicio: string | null = null;
-      let primeraHoraFin: string | null = null;
-      let horaInicioSabado: string | null = null;
-      let horaFinSabado: string | null = null;
-      
-      if (moduloEditar.sesionesHorarios && moduloEditar.sesionesHorarios.length > 0) {
+      let primeraHoraInicio: Dayjs | null = null;
+      let primeraHoraFin: Dayjs | null = null;
+      let horaInicioSabado: Dayjs | null = null;
+      let horaFinSabado: Dayjs | null = null;
+
+      if (moduloEditar.sesionesHorarios) {
         moduloEditar.sesionesHorarios.forEach((horario: ISesionHorario) => {
-          console.log('Procesando horario:', {
-            diaSemana: horario.diaSemana,
-            esAsincronica: horario.esAsincronica,
-            horaInicio: horario.horaInicio,
-            horaFin: horario.horaFin
-          });
-          
+          // Si es SÍNCRONA
           if (!horario.esAsincronica && horario.diaSemana > 0) {
             const diaStr = String(horario.diaSemana);
             if (!diasArray.includes(diaStr)) {
               diasArray.push(diaStr);
             }
             
-            if (horario.diaSemana === 6) {
-              horaInicioSabado = horario.horaInicio;
-              horaFinSabado = horario.horaFin;
-            } else if (!primeraHoraInicio) {
-              primeraHoraInicio = horario.horaInicio;
-              primeraHoraFin = horario.horaFin;
+            // Capturar horas (convirtiendo a Dayjs si es string "HH:mm:ss")
+            if (horario.diaSemana === 6) { // Sábado
+               if(horario.horaInicio) horaInicioSabado = dayjs(horario.horaInicio, "HH:mm:ss");
+               if(horario.horaFin) horaFinSabado = dayjs(horario.horaFin, "HH:mm:ss");
+            } else if (!primeraHoraInicio) { // Lunes a Viernes (toma el primero que encuentre)
+               if(horario.horaInicio) primeraHoraInicio = dayjs(horario.horaInicio, "HH:mm:ss");
+               if(horario.horaFin) primeraHoraFin = dayjs(horario.horaFin, "HH:mm:ss");
             }
           }
         });
       }
-      
-      // Buscar horario asincrónico
-      const horarioAsync = moduloEditar.sesionesHorarios?.find((h: ISesionHorario) => h.esAsincronica);
-      console.log('Horario async encontrado:', horarioAsync);
-      
-      // Contar sesiones
+
+      // Si no encontró horas en horarios, intentar usar las de la cabecera del módulo
+      if (!primeraHoraInicio && moduloEditar.horaInicioSync) {
+         primeraHoraInicio = dayjs(moduloEditar.horaInicioSync, "HH:mm:ss");
+      }
+      if (!primeraHoraFin && moduloEditar.horaFinSync) {
+         primeraHoraFin = dayjs(moduloEditar.horaFinSync, "HH:mm:ss");
+      }
+
+      // Calcular cantidad de sesiones si no vienen directas
       const sesionesSincronicas = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 22) || [];
       const sesionesAsincronicas = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 26) || [];
       
-      const totalSesionesSincronicas = sesionesSincronicas.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
-      const totalSesionesAsincronicas = sesionesAsincronicas.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
-      
-      console.log('Días extraídos:', diasArray);
-      console.log('Sesiones síncronas:', totalSesionesSincronicas);
-      console.log('Sesiones asíncronas:', totalSesionesAsincronicas);
-      
+      // Preferir el dato de la cabecera si existe, sino sumar sesiones
+      const nroSesiones = moduloEditar.numeroSesiones || sesionesSincronicas.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
+      const nroSesionesAsync = moduloEditar.numeroSesionesAsincronicas || sesionesAsincronicas.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
+
       const valoresFormulario = {
         nombre: moduloEditar.nombre,
         codigo: moduloEditar.codigo || "",
         tituloCertificado: moduloEditar.tituloCertificado || "",
         descripcion: moduloEditar.descripcion || "",
+        gestionSesiones: "mantener", // Por defecto al editar
+        
         fechaPresentacion: moduloEditar.fechaPresentacion 
           ? dayjs(moduloEditar.fechaPresentacion) 
           : null,
-        horaInicio: primeraHoraInicio 
-          ? dayjs(primeraHoraInicio, "HH:mm:ss") 
-          : null,
-        horaFin: primeraHoraFin 
-          ? dayjs(primeraHoraFin, "HH:mm:ss") 
-          : null,
-        horaInicioSabado: horaInicioSabado 
-          ? dayjs(horaInicioSabado, "HH:mm:ss") 
-          : null,
-        horaFinSabado: horaFinSabado 
-          ? dayjs(horaFinSabado, "HH:mm:ss") 
-          : null,
-        nroSesiones: totalSesionesSincronicas,
+
+        horaInicio: primeraHoraInicio,
+        horaFin: primeraHoraFin,
+        horaInicioSabado: horaInicioSabado,
+        horaFinSabado: horaFinSabado,
+        
+        nroSesiones: nroSesiones,
         duracionHoras: moduloEditar.duracionHoras || 0,
-        nroSesionesAsync: totalSesionesAsincronicas,
-        diaAsync: horarioAsync && horarioAsync.diaSemana > 0 
-          ? String(horarioAsync.diaSemana) 
-          : undefined,
-        horaInicioAsync: horarioAsync?.horaInicio 
-          ? dayjs(horarioAsync.horaInicio, "HH:mm:ss") 
-          : null,
-        horaFinAsync: horarioAsync?.horaFin 
-          ? dayjs(horarioAsync.horaFin, "HH:mm:ss") 
-          : null,
+        
+        nroSesionesAsync: nroSesionesAsync,
       };
-      
-      console.log('Valores a setear en formulario:', valoresFormulario);
-      console.log('diaAsync calculado:', valoresFormulario.diaAsync);
-      console.log('fechaPresentacion calculada:', valoresFormulario.fechaPresentacion);
-      console.log('===========================');
       
       setDiasClase(diasArray);
       form.setFieldsValue(valoresFormulario);
@@ -188,79 +155,103 @@ export default function ModalModulo({
   };
 
   const handleSubmit = () => {
-    if (diasClase.length === 0) {
-      message.error("Seleccione al menos un día de clase");
-      return;
-    }
-
     form
       .validateFields()
       .then((values) => {
+        const mantenerSesiones =
+          values.gestionSesiones === "mantener";
+
         const payload: any = {
+          id: modoEdicion ? moduloEditar?.id : undefined,
+
+          // ===== DATOS DEL MÓDULO =====
           nombre: values.nombre,
-          codigo: values.codigo || "",
-          descripcion: values.descripcion || "",
-          duracionHoras: Number(values.duracionHoras) || 0,
+          codigo: values.codigo,
+          descripcion: values.descripcion,
           tituloCertificado: values.tituloCertificado || "",
-          numeroSesiones: Number(values.nroSesiones) || 0,
-          numeroSesionesAsincronicas: Number(values.nroSesionesAsync) || 0,
-          diasClase: diasClase.join(","),
+          duracionHoras: Number(values.duracionHoras || 0),
           estado: true,
-          preserveSessions: false,
+
+          // ===== CONTROL SESIONES =====
+          preserveSessions: mantenerSesiones,
+
+          // ===== SESIÓN DE PRESENTACIÓN (SINCRÓNICA) =====
+          fechaPresentacion: values.fechaPresentacion
+            ? dayjs(values.fechaPresentacion).format("YYYY-MM-DD")
+            : null,
+
+          // ===== SESIONES SINCRÓNICAS =====
+          numeroSesiones: Number(values.nroSesiones || 0),
+          diasClase: diasClase.join(","),
+
+          horaInicioSync: values.horaInicio
+            ? dayjs(values.horaInicio).format("HH:mm:ss")
+            : null,
+
+          horaFinSync: values.horaFin
+            ? dayjs(values.horaFin).format("HH:mm:ss")
+            : null,
+
+          // ===== SESIONES ASINCRÓNICAS =====
+          numeroSesionesAsincronicas: Number(
+            values.nroSesionesAsync || 0
+          ),
         };
 
-        // Fecha de presentación - IMPORTANTE: enviar string vacío si no hay fecha
-        if (values.fechaPresentacion) {
-          payload.fechaPresentacion = dayjs(values.fechaPresentacion).format("YYYY-MM-DD");
-        } else {
-          payload.fechaPresentacion = ""; // ⬅️ String vacío en lugar de omitir
-        }
-
-        // Horarios síncronos - REQUERIDOS
-        if (values.horaInicio && values.horaFin) {
-          payload.horaInicioSync = dayjs(values.horaInicio).format("HH:mm:ss");
-          payload.horaFinSync = dayjs(values.horaFin).format("HH:mm:ss");
-        } else {
-          message.error("Debe seleccionar hora de inicio y fin");
-          return;
-        }
-
-        // Horarios asincrónicos
-        if (Number(values.nroSesionesAsync) > 0) {
-          // Validar campos requeridos
-          if (!values.diaAsync) {
-            message.error("Debe seleccionar el día de la clase asincrónica");
-            return;
-          }
-          
-          // IMPORTANTE: Usar "DiasAsync" en lugar de "diaAsync"
-          payload.diasAsync = String(values.diaAsync); // ⬅️ Puede ser que el backend espere "diasAsync" como string
-          payload.horaInicioAsync = values.horaInicioAsync 
-            ? dayjs(values.horaInicioAsync).format("HH:mm:ss")
-            : "00:00:00";
-          
-          payload.horaFinAsync = values.horaFinAsync 
-            ? dayjs(values.horaFinAsync).format("HH:mm:ss")
-            : "00:00:00";
-        } else {
-          // Si no hay sesiones async, enviar valores por defecto
-          payload.horaInicioAsync = "00:00:00";
-          payload.horaFinAsync = "00:00:00";
-        }
-
-        if (modoEdicion && moduloEditar?.id) {
-          payload.id = moduloEditar.id;
-        }
-
-        console.log('=== PAYLOAD DESDE MODAL ===');
-        console.log(JSON.stringify(payload, null, 2));
-        console.log('===========================');
+        console.log("VALUES DEL FORM:", values);
+        console.log("PAYLOAD FINAL:", payload);
 
         onSubmit(payload);
       })
-      .catch((error) => {
-        console.error("Error de validación:", error);
+      .catch((err) => {
+        console.error("Error validando formulario", err);
       });
+  };
+
+  // Validador personalizado para hora inicio < hora fin
+  const validarHoraInicio = (_: any, value: Dayjs) => {
+    if (!value) {
+      return Promise.resolve();
+    }
+    const horaFinValue = form.getFieldValue("horaFin");
+    if (horaFinValue && value.isAfter(horaFinValue)) {
+      return Promise.reject(new Error("La hora de inicio debe ser menor que la hora de fin"));
+    }
+    return Promise.resolve();
+  };
+
+  const validarHoraFin = (_: any, value: Dayjs) => {
+    if (!value) {
+      return Promise.resolve();
+    }
+    const horaInicioValue = form.getFieldValue("horaInicio");
+    if (horaInicioValue && value.isBefore(horaInicioValue)) {
+      return Promise.reject(new Error("La hora de fin debe ser mayor que la hora de inicio"));
+    }
+    return Promise.resolve();
+  };
+
+  // Validador para hora inicio sábado < hora fin sábado
+  const validarHoraInicioSabado = (_: any, value: Dayjs) => {
+    if (!value) {
+      return Promise.resolve();
+    }
+    const horaFinSabadoValue = form.getFieldValue("horaFinSabado");
+    if (horaFinSabadoValue && value.isAfter(horaFinSabadoValue)) {
+      return Promise.reject(new Error("La hora de inicio debe ser menor que la hora de fin"));
+    }
+    return Promise.resolve();
+  };
+
+  const validarHoraFinSabado = (_: any, value: Dayjs) => {
+    if (!value) {
+      return Promise.resolve();
+    }
+    const horaInicioSabadoValue = form.getFieldValue("horaInicioSabado");
+    if (horaInicioSabadoValue && value.isBefore(horaInicioSabadoValue)) {
+      return Promise.reject(new Error("La hora de fin debe ser mayor que la hora de inicio"));
+    }
+    return Promise.resolve();
   };
 
   return (
@@ -321,6 +312,61 @@ export default function ModalModulo({
           </Col>
         </Row>
 
+        {/* ✅ RADIO BUTTONS PARA GESTIÓN DE SESIONES - Solo en modo edición */}
+        {modoEdicion && (
+          <>
+            <Row gutter={16} style={{ marginTop: 16 }}>
+              <Col span={24}>
+                <Form.Item 
+                  label="Gestión de sesiones" 
+                  name="gestionSesiones"
+                  initialValue="mantener"
+                >
+                  <Radio.Group>
+                    <Space direction="vertical">
+                      <Radio value="mantener">
+                        <Space direction="vertical" size={0}>
+                          <span><strong>Mantener sesiones existentes</strong></span>
+                          <span style={{ fontSize: 12, color: '#666' }}>
+                            Solo se actualizarán los datos básicos del módulo
+                          </span>
+                        </Space>
+                      </Radio>
+                      <Radio value="regenerar">
+                        <Space direction="vertical" size={0}>
+                          <span><strong>Regenerar sesiones y horarios</strong></span>
+                          <span style={{ fontSize: 12, color: '#666' }}>
+                            Se eliminarán las sesiones actuales y se crearán nuevas
+                          </span>
+                        </Space>
+                      </Radio>
+                    </Space>
+                  </Radio.Group>
+                </Form.Item>
+              </Col>
+            </Row>
+
+            {/* Alerta de advertencia cuando se va a regenerar */}
+            <Form.Item shouldUpdate>
+              {() => {
+                const value = form.getFieldValue("gestionSesiones");
+                if (value === "regenerar") {
+                  return (
+                    <Alert
+                      message="Atención"
+                      description="Al regenerar las sesiones, se perderán todos los horarios y configuraciones actuales de las sesiones existentes."
+                      type="warning"
+                      showIcon
+                      style={{ marginBottom: 16 }}
+                    />
+                  );
+                }
+                return null;
+              }}
+            </Form.Item>
+          </>
+        )}
+
         {/* 4to renglón */}
         <Row gutter={16}>
           <Col span={8}>
@@ -337,7 +383,11 @@ export default function ModalModulo({
             <Form.Item
               label="Hora inicio"
               name="horaInicio"
-              rules={[{ required: true, message: "Seleccione hora" }]}
+              rules={[
+                { required: true, message: "Seleccione hora" },
+                { validator: validarHoraInicio }
+              ]}
+              dependencies={['horaFin']}
             >
               <TimePicker style={{ width: "100%" }} format="HH:mm" />
             </Form.Item>
@@ -347,7 +397,11 @@ export default function ModalModulo({
             <Form.Item
               label="Hora fin"
               name="horaFin"
-              rules={[{ required: true, message: "Seleccione hora" }]}
+              rules={[
+                { required: true, message: "Seleccione hora" },
+                { validator: validarHoraFin }
+              ]}
+              dependencies={['horaInicio']}
             >
               <TimePicker style={{ width: "100%" }} format="HH:mm" />
             </Form.Item>
@@ -410,7 +464,11 @@ export default function ModalModulo({
               <Form.Item
                 label="Hora inicio (Sábado)"
                 name="horaInicioSabado"
-                rules={[{ required: true, message: "Requerido" }]}
+                rules={[
+                  { required: true, message: "Requerido" },
+                  { validator: validarHoraInicioSabado }
+                ]}
+                dependencies={['horaFinSabado']}
               >
                 <TimePicker style={{ width: "100%" }} format="HH:mm" />
               </Form.Item>
@@ -420,64 +478,17 @@ export default function ModalModulo({
               <Form.Item
                 label="Hora fin (Sábado)"
                 name="horaFinSabado"
-                rules={[{ required: true, message: "Requerido" }]}
+                rules={[
+                  { required: true, message: "Requerido" },
+                  { validator: validarHoraFinSabado }
+                ]}
+                dependencies={['horaInicioSabado']}
               >
                 <TimePicker style={{ width: "100%" }} format="HH:mm" />
               </Form.Item>
             </Col>
           </Row>
         )}
-
-        {/* Clases asincrónicas */}
-        <Form.Item shouldUpdate>
-          {() =>
-            (form.getFieldValue("nroSesionesAsync") || 0) > 0 && (
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item
-                    label="Día clase asincrónica"
-                    name="diaAsync"
-                    rules={[{ required: true, message: "Seleccione día" }]}
-                  >
-                    <Select placeholder="Seleccione día">
-                      {DIAS_COMPLETOS.map((d) => (
-                        <Select.Option key={d.key} value={d.key}>
-                          {d.label}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </Col>
-
-                <Col span={12}>
-                  <Form.Item
-                    label="Hora inicio asincrónica"
-                    name="horaInicioAsync"
-                  >
-                    <TimePicker style={{ width: "100%" }} format="HH:mm" />
-                  </Form.Item>
-                </Col>
-              </Row>
-            )
-          }
-        </Form.Item>
-
-        <Form.Item shouldUpdate>
-          {() =>
-            (form.getFieldValue("nroSesionesAsync") || 0) > 0 && (
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item
-                    label="Hora fin asincrónica"
-                    name="horaFinAsync"
-                  >
-                    <TimePicker style={{ width: "100%" }} format="HH:mm" />
-                  </Form.Item>
-                </Col>
-              </Row>
-            )
-          }
-        </Form.Item>
       </Form>
     </Modal>
   );

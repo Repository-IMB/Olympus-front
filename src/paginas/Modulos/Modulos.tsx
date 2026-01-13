@@ -147,11 +147,27 @@ export default function Modulos() {
     }
   };
 
+  
+
   const handleSubmitModal = async (values: any) => {
     try {
       if (modoEdicion && moduloEditando) {
-        // preserveSessions = false para que actualice las sesiones
-        await actualizarModulo(moduloEditando.id!, values, false);
+        const preserveSessions = values.preserveSessions === true;
+        const payloadFinal = preserveSessions 
+          ? {
+              ...moduloEditando, 
+              ...values,          
+              id: moduloEditando.id,
+              preserveSessions: true
+            }
+          : values;
+
+        await actualizarModulo(
+          moduloEditando.id!,
+          payloadFinal,
+          preserveSessions
+        );
+
         message.success("Módulo actualizado correctamente");
       } else {
         await crearModulo(values);
@@ -160,11 +176,6 @@ export default function Modulos() {
       setModalVisible(false);
       await cargarModulos();
     } catch (error: any) {
-      console.log('=== ERROR COMPLETO ===');
-      console.log('Response:', error?.response);
-      console.log('Data:', error?.response?.data);
-      console.log('====================');
-      
       const errorMsg = error?.response?.data?.message || "Error al guardar el módulo";
       message.error(errorMsg);
       console.error("Error:", error);

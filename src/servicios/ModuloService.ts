@@ -40,19 +40,14 @@ export const crearModulo = async (modulo: Partial<IModulo>): Promise<IModulo> =>
 export const actualizarModulo = async (
   id: number,
   modulo: Partial<IModulo>,
-  preserveSessions: boolean = false // ⬅️ Nuevo parámetro
+  preserveSessions: boolean = false
 ): Promise<IModulo> => {
+  // ⚠️ NO duplicar campos que ya vienen en 'modulo'
   const payload = {
-    id,
-    ...modulo,
-    preserveSessions, // ⬅️ IMPORTANTE: Controla si se reemplazan las sesiones
-    fechaModificacion: new Date().toISOString(),
-    usuarioModificacion: "SYSTEM",
+    ...modulo,  // ⬅️ Esto ya incluye todo lo necesario
+    id,         // ⬅️ Asegurar que el ID esté presente
+    preserveSessions,
   };
-
-  console.log('=== PAYLOAD COMPLETO ENVIADO AL PUT ===');
-  console.log(JSON.stringify(payload, null, 2));
-  console.log('=======================================');
   
   const response = await api.put("/api/VTAModVentaModulo/Actualizar", payload);
   return response.data;
