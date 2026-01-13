@@ -263,7 +263,7 @@ export default function Asignacion() {
         .hour(selectedTime.hour())
         .minute(selectedTime.minute())
         .second(0)
-        .toISOString();
+        .format("YYYY-MM-DDTHH:mm:ss");
 
       const horaRecordatorio = selectedTime.format("HH:mm");
 
@@ -659,14 +659,14 @@ export default function Asignacion() {
             color = "blue";
           } else if (estado === "Registrado") {
             color = "blue";
+          } else if (estado === "Potencial") {
+            color = "blue";
           } else if (estado === "Promesa") {
-            color = "gold";
+            color = "blue";
           } else if (estado === "No calificado" || estado === "Perdido") {
             color = "red";
           } else if (estado === "Matriculado" || estado === "Cliente") {
             color = "green";
-          } else if (estado === "Pendiente") {
-            color = "orange";
           }
 
           return (
