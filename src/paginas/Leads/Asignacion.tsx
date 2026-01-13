@@ -208,6 +208,17 @@ export default function Asignacion() {
     navigate(`/leads/oportunidades/${id}`);
   };
 
+  function optionToString(option: any) {
+  const children = option?.children ?? option?.label ?? "";
+  if (Array.isArray(children)) {
+    return children
+      .map((c) => (typeof c === "string" ? c : String(c ?? "")))
+      .join("");
+  }
+  return String(children);
+}
+
+
   function agruparOportunidadesConRecordatorios(
     data: OportunidadBackend[]
   ): OportunidadBackend[] {
@@ -1027,10 +1038,8 @@ export default function Asignacion() {
             loading={loadingPaises}
             virtual={false}
             maxTagCount="responsive"
-            filterOption={(input, option) =>
-              (option?.children as string)
-                .toLowerCase()
-                .includes(input.toLowerCase())
+            filterOption={(input: string, option: any) =>
+              optionToString(option).toLowerCase().includes(input.toLowerCase())
             }
           >
             {paises.map((p) => (
