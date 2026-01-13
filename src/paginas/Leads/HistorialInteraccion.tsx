@@ -33,8 +33,8 @@ interface OportunidadDetalle {
     origen: string | null;
     idPersonaAsignada?: number | null;
     personalAsignadaNombre?: string | null;
-    personaAsignadaApellidos?: string | null;
-    personaAsignadaCorreo?: string | null;
+    personalAsignadaApellidos?: string | null;
+    personalAsignadaCorreo?: string | null;
     fechaFormulario: string;
   }>;
   historialActual: Array<{
@@ -358,12 +358,12 @@ export default function HistorialInteraccion() {
   const personalAsignadaNombre = (
     oportunidadData.personalAsignadaNombre ?? ""
   ).trim();
-  const personaAsignadaApellidos = (
-    oportunidadData.personaAsignadaApellidos ?? ""
+  const personalAsignadaApellidos = (
+    oportunidadData.personalAsignadaApellidos ?? ""
   ).trim();
   const nombreCompletoPersonaAsignada =
-    personalAsignadaNombre || personaAsignadaApellidos
-      ? `${personalAsignadaNombre} ${personaAsignadaApellidos}`.trim()
+    personalAsignadaNombre || personalAsignadaApellidos
+      ? `${personalAsignadaNombre} ${personalAsignadaApellidos}`.trim()
       : null;
 
   const asignadoDisplay =
