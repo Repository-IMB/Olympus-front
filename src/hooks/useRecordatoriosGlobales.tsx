@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { notification } from "antd";
+import { Button, notification } from "antd";
 import api from "../servicios/api";
 import type { NavigateFunction } from "react-router-dom";
 
@@ -50,25 +50,20 @@ export const useRecordatoriosGlobales = (
               desactivarRecordatorio(r.id);
             },
 
-            btn: (
-              <button
-                onClick={async () => {
-                  await desactivarRecordatorio(r.id);
-                  apiNotification.destroy(key);
-                  navigate(`/leads/oportunidades/${r.idOportunidad}`);
-                }}
-                style={{
-                  background: "#1677ff",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 4,
-                  padding: "4px 10px",
-                  cursor: "pointer",
-                }}
-              >
-                Ir a oportunidad
-              </button>
-            ),
+btn: (
+  <Button
+    type="primary"
+    size="small"
+    onClick={async () => {
+      await desactivarRecordatorio(r.id);
+
+      window.location.href = `/leads/oportunidades/${r.idOportunidad}`;
+    }}
+  >
+    Ir a oportunidad
+  </Button>
+),
+
           });
         });
       } catch (err) {

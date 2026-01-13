@@ -42,7 +42,7 @@ const CallProgressBar = ({
           success={{ percent: answeredPercentage, strokeColor: "#1677ff" }}
           strokeColor="#ff4d4f"
           strokeWidth={8}
-          size={200}
+          width={200}
           format={() => (
             <div className="progress-content">
               <div className="progress-label">Total de</div>

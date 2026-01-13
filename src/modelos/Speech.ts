@@ -2,7 +2,7 @@
 
 export interface SpeechDTO {
   id: number;
-  idAsesor: number;
+  idPersonal: number;
   idProducto: number;
   texto: string;
   estado: boolean;
@@ -10,7 +10,7 @@ export interface SpeechDTO {
   usuarioCreacion?: string;
   fechaModificacion?: string;
   usuarioModificacion?: string;
-  asesorNombre?: string;
+  PersonalNombre?: string;
   productoNombre?: string;
 }
 
@@ -21,10 +21,10 @@ export interface SpeechRespuestaGenerica {
 
 /**
  * Request para crear un nuevo speech
- * Requiere idAsesor explícitamente en el body
+ * Requiere idPersonal explícitamente en el body
  */
 export interface CrearSpeechRequest {
-  idAsesor: number;
+  idPersonal: number;
   idProducto: number;
   texto: string;
   usuarioCreacion?: string;
@@ -32,7 +32,7 @@ export interface CrearSpeechRequest {
 
 /**
  * Request para actualizar un speech existente
- * Nota: idAsesor se obtiene automáticamente del token JWT en el backend
+ * Nota: idPersonal se obtiene automáticamente del token JWT en el backend
  */
 export interface ActualizarSpeechRequest {
   id: number;

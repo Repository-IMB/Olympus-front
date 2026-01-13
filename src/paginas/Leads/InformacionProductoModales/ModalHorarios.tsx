@@ -261,11 +261,9 @@ const ModalHorarios: React.FC<Props> = ({ open, onClose, fechaInicio, fechaFin, 
       width={700}
       centered
       closeIcon={<CloseOutlined />}
-      styles={{
-        body: {
-          padding: 20,
-          fontSize: 14,
-        }
+      bodyStyle={{
+        padding: 20,
+        fontSize: 14,
       }}
     >
       <Title

@@ -63,7 +63,8 @@ const SalesCard = memo(({ sale }: { sale: Opportunity }) => {
     if (!sale.recordatorios?.length) return [];
     return sale.recordatorios
       .filter((r) => r?.fecha)
-      .slice(0, 3); // Ya vienen ordenados del fetch
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+      .slice(0, 3);
   }, [sale.recordatorios]);
 
   return (
@@ -155,7 +156,22 @@ export default function SalesProcess() {
 
   const navigate = useNavigate();
 
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+const [salesData, setSalesData] = useState<Record<string, Opportunity[]>>({
+  registrado: [],
+  calificado: [],
+  potencial: [],
+  promesa: [],
+});
+
+const [otrosEstados, setOtrosEstados] = useState<Record<string, Opportunity[]>>({
+  coorporativo: [],
+  ventaCruzada: [],
+  seguimiento: [],
+  perdido: [],
+  noCalificado: [],
+  cobranza: [],
+  convertido: [],
+});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("");
@@ -176,8 +192,9 @@ export default function SalesProcess() {
         ] || "0"
       );
       rolN =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-        "";
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
 
       const rolesMap: Record<string, number> = {
         Asesor: 1,
@@ -201,8 +218,9 @@ export default function SalesProcess() {
     try {
       const decoded = jwtDecode<TokenData>(t);
       const role =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-        "";
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
       setUserRole(String(role));
     } catch (err) {
       console.error("Error decodificando token (rol):", err);
@@ -212,22 +230,21 @@ export default function SalesProcess() {
   // =========================
   // FETCH + AGRUPAR RECORDATORIOS (OPTIMIZADO)
   // =========================
-  useEffect(() => {
-    if (!idUsuario || !idRol) {
-      setOpportunities([]);
-      setLoading(false);
-      return;
-    }
+useEffect(() => {
+  if (!idUsuario || !idRol) {
+    setLoading(false);
+    return;
+  }
 
-    const fetchOpportunities = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchSalesProcess = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const res = await api.get(
-          "/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio",
-          { params: { idUsuario, idRol } }
-        );
+      const res = await api.get(
+        "/api/VTAModVentaOportunidad/ObtenerSalesProcess",
+        { params: { idUsuario, idRol } }
+      );
 
         const raw = res.data?.oportunidad || [];
 
@@ -300,13 +317,12 @@ export default function SalesProcess() {
         console.error("Error al obtener oportunidades", e);
         setError(
           e?.response?.data?.message ??
-            e.message ??
-            "Error al obtener oportunidades"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+          "Error al obtener SalesProcess"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
     fetchOpportunities();
   }, [idUsuario, idRol]);

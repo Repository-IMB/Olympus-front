@@ -8,43 +8,53 @@ import type {
 
 const BASE_URL = "/api/VTAModSpeech";
 
-/**
- * Obtiene el idAsesor del usuario autenticado
- * El idUsuario se obtiene automáticamente del token JWT en el backend
- */
-export const obtenerIdAsesor = async (): Promise<number | null> => {
+interface ObtenerIdPersonalResponse {
+  idAsesor: number | null;
+  codigo: string;
+  mensaje: string;
+}
+
+export const obtenerIdPersonal = async (): Promise<number | null> => {
   try {
-    const response = await api.get<{ idAsesor: number }>(
-      `${BASE_URL}/ObtenerIdAsesor`
+    const response = await api.get<ObtenerIdPersonalResponse>(
+      `${BASE_URL}/ObtenerIdPersonal`
     );
-    return response.data.idAsesor;
-  } catch (error: any) {
-    // Si es 401, el token es inválido o no contiene el ID del usuario
-    if (error?.response?.status === 401) {
-      console.error("Error de autenticación al obtener idAsesor:", error);
-      throw new Error("No se pudo obtener el ID del usuario desde el token de autenticación");
+
+    const { codigo, idAsesor, mensaje } = response.data;
+
+    if (codigo === "SIN ERROR") {
+      return idAsesor!;
     }
-    // Si es 404, el usuario no tiene un asesor asociado
-    if (error?.response?.status === 404) {
-      console.warn("El usuario no tiene un asesor asociado o el asesor está inactivo");
+
+    if (codigo === "ERROR CONTROLADO") {
+      console.warn("No se pudo obtener IdAsesor:", mensaje);
       return null;
     }
-    // Si es 500 u otro error, lanzar el error
-    throw error;
+
+    // ERROR_CRITICO u otro
+    throw new Error(mensaje || "Error inesperado al obtener IdAsesor");
+  } catch (error: any) {
+    console.error("Error al obtener IdAsesor:", error);
+
+    throw new Error(
+      error?.response?.data?.mensaje ||
+        error?.message ||
+        "Error de comunicación con el servidor"
+    );
   }
 };
 
 /**
  * Obtiene el speech de un asesor para un producto específico
- * Requiere idAsesor e idProducto como parámetros explícitos
+ * Requiere IdPersonal e idProducto como parámetros explícitos
  */
 export const obtenerSpeechPorAsesorYProducto = async (
-  idAsesor: number,
+  IdPersonal: number,
   idProducto: number
 ): Promise<SpeechDTO | null> => {
   try {
     const response = await api.get<SpeechDTO>(
-      `${BASE_URL}/ObtenerPorAsesorYProducto/${idAsesor}/${idProducto}`
+      `${BASE_URL}/ObtenerPorAsesorYProducto/${IdPersonal}/${idProducto}`
     );
     return response.data;
   } catch (error: any) {
@@ -58,7 +68,7 @@ export const obtenerSpeechPorAsesorYProducto = async (
 
 /**
  * Obtiene el speech del asesor autenticado para un producto específico
- * El idAsesor se obtiene automáticamente del token JWT en el backend
+ * El IdPersonal se obtiene automáticamente del token JWT en el backend
  * Este es el endpoint principal para el flujo de negocio
  */
 export const obtenerSpeechPorProducto = async (
@@ -85,8 +95,8 @@ export const obtenerSpeechPorProducto = async (
 
 /**
  * Crea un nuevo speech
- * El idAsesor se obtiene automáticamente del token JWT en el backend
- * Nota: Si se envía idAsesor en el body, será ignorado por el backend
+ * El IdPersonal se obtiene automáticamente del token JWT en el backend
+ * Nota: Si se envía IdPersonal en el body, será ignorado por el backend
  */
 export const crearSpeech = async (
   data: CrearSpeechRequest
@@ -109,8 +119,8 @@ export const crearSpeech = async (
 
 /**
  * Actualiza un speech existente
- * El idAsesor se obtiene automáticamente del token JWT en el backend
- * Nota: Si se envía idAsesor en el body, será ignorado por el backend
+ * El IdPersonal se obtiene automáticamente del token JWT en el backend
+ * Nota: Si se envía IdPersonal en el body, será ignorado por el backend
  */
 export const actualizarSpeech = async (
   data: ActualizarSpeechRequest

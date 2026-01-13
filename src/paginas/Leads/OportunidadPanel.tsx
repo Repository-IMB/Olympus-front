@@ -3,7 +3,7 @@ import { Card, Typography, Spin, Input, Button, message } from "antd";
 import { EditOutlined, SaveOutlined, CloseOutlined } from "@ant-design/icons";
 import HistorialEstados from "./HistorialEstados";
 import {
-  obtenerIdAsesor,
+  obtenerIdPersonal,
   obtenerSpeechPorAsesorYProducto,
   crearSpeech,
   actualizarSpeech,
@@ -21,46 +21,46 @@ interface ValidacionFaseProps {
 const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
   const [mostrarBrochure, setMostrarBrochure] = useState(false);
   const [brochureUrl, setBrochureUrl] = useState<string | null>(null);
-  
+
   // Estados para Speech
   const [mostrarSpeech, setMostrarSpeech] = useState(false);
   const [productoId, setProductoId] = useState<number | null>(null);
-  const [idAsesor, setIdAsesor] = useState<number | null>(null);
+  const [IdPersonal, setIdPersonal] = useState<number | null>(null);
   const [speechData, setSpeechData] = useState<SpeechDTO | null>(null);
   const [speechTexto, setSpeechTexto] = useState<string>("");
   const [speechEditando, setSpeechEditando] = useState<boolean>(false);
   const [speechCargando, setSpeechCargando] = useState<boolean>(false);
   const [speechGuardando, setSpeechGuardando] = useState<boolean>(false);
 
-  // Obtener idAsesor al cargar el componente
+  // Obtener IdPersonal al cargar el componente
   useEffect(() => {
-    const cargarIdAsesor = async () => {
+    const cargarIdPersonal = async () => {
       try {
-        const id = await obtenerIdAsesor();
-        setIdAsesor(id);
+        const id = await obtenerIdPersonal();
+        setIdPersonal(id);
       } catch (error: any) {
-        console.error("Error al obtener idAsesor:", error);
+        console.error("Error al obtener IdPersonal:", error);
         const mensajeError = error?.response?.data?.mensaje || error?.message || "Error al obtener el asesor";
         message.error(mensajeError);
-        setIdAsesor(null);
+        setIdPersonal(null);
       }
     };
-    cargarIdAsesor();
+    cargarIdPersonal();
   }, []);
 
-  // Cargar speech cuando cambia el productoId o el idAsesor
+  // Cargar speech cuando cambia el productoId o el IdPersonal
   const cargarSpeech = async () => {
-    if (!productoId || !idAsesor) {
-      if (!idAsesor) {
+    if (!productoId || !IdPersonal) {
+      if (!IdPersonal) {
         setSpeechData(null);
         setSpeechTexto("");
       }
       return;
     }
-    
+
     setSpeechCargando(true);
     try {
-      const speech = await obtenerSpeechPorAsesorYProducto(idAsesor, productoId);
+      const speech = await obtenerSpeechPorAsesorYProducto(IdPersonal, productoId);
       setSpeechData(speech);
       setSpeechTexto(speech?.texto || "");
     } catch (error) {
@@ -72,12 +72,12 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
     }
   };
 
-  // Efecto para cargar speech cuando se tiene el productoId y el idAsesor
+  // Efecto para cargar speech cuando se tiene el productoId y el IdPersonal
   useEffect(() => {
-    if (productoId && idAsesor) {
+    if (productoId && IdPersonal) {
       cargarSpeech();
     }
-  }, [productoId, idAsesor]);
+  }, [productoId, IdPersonal]);
 
   // Guardar o crear speech
   const handleGuardarSpeech = async () => {
@@ -86,7 +86,7 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
       return;
     }
 
-    if (!idAsesor) {
+    if (!IdPersonal) {
       message.error("No se puede guardar: no se pudo obtener el asesor asociado");
       return;
     }
@@ -109,13 +109,13 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
       } else {
         // Crear nuevo speech
         await crearSpeech({
-          idAsesor: idAsesor,
+          idPersonal: IdPersonal,
           idProducto: productoId,
           texto: speechTexto,
         });
         message.success("Speech creado correctamente");
       }
-      
+
       // Recargar el speech
       await cargarSpeech();
       setSpeechEditando(false);
@@ -185,58 +185,6 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
         gap: 12,
       }}
     >
-      {/* <Title level={5} style={{ margin: 0, color: "#252C35" }}>
-        Validación de fase
-      </Title> */}
-
-      {/* === Contenedor gris con sombra que abarca todo === */}
-      {/* <Card
-        style={{
-          width: "100%",
-          background: "#F0F0F0",
-          borderRadius: 8,
-          border: "1px solid #DCDCDC",
-          boxShadow: "inset 1px 1px 4px rgba(0,0,0,0.25)",
-        }}
-        bodyStyle={{
-          padding: 12,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
-        {["Debes Validar", "Preguntas de fase", "Personalidad del cliente"].map(
-          (texto) => (
-            <div
-              key={texto}
-              style={{
-                background: "#FFFFFF",
-                border: "1px solid #DCDCDC",
-                borderRadius: 8,
-                padding: "10px 12px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              }}
-            >
-              <Text
-                style={{
-                  color: "rgba(0, 0, 0, 0.85)",
-                  fontSize: 14,
-                  fontWeight: 400,
-                }}
-              >
-                {texto}
-              </Text>
-              <RightOutlined
-                style={{ color: "rgba(194,194,194,0.85)", fontSize: 12 }}
-              />
-            </div>
-          )
-        )}
-      </Card> */}
-
       {/* === Título: Historial de estados === */}
       <Title level={5} style={{ margin: 0, color: "#252C35" }}>
         Historial de estados
@@ -272,7 +220,7 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
             }}
             bodyStyle={{ padding: 12 }}
           >
-            {idAsesor === null ? (
+            {IdPersonal === null ? (
               <div
                 style={{
                   background: "#FFFFFF",
@@ -282,7 +230,7 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
                 }}
               >
                 <Text type="secondary" style={{ fontSize: 14 }}>
-                  No eres un asesor asociado o tu asesor está inactivo. 
+                  No eres un asesor asociado o tu asesor está inactivo.
                   No puedes crear o editar un speech para este producto.
                 </Text>
               </div>
@@ -305,7 +253,7 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
                     </Button>
                   )}
                 </div>
-                
+
                 {speechEditando ? (
                   <div>
                     <TextArea
@@ -346,7 +294,7 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
                       <Text style={{ whiteSpace: "pre-wrap" }}>{speechData.texto}</Text>
                     ) : (
                       <Text type="secondary" italic>
-                        No tienes un speech configurado para este producto. 
+                        No tienes un speech configurado para este producto.
                         Haz clic en "Editar" para crear uno.
                       </Text>
                     )}

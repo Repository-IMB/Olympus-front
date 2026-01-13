@@ -136,3 +136,25 @@
   }
 }
 
+/* --- ICONOS DE ACCIÓN EN TABLA --- */
+.actionIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background-color: #1f1f1f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.actionIcon :global(svg) {
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.actionIcon:hover {
+  background-color: #000000;
+}
+

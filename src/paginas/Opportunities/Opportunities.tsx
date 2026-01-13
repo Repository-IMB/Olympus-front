@@ -260,8 +260,6 @@ export default function OpportunitiesInterface() {
     dateRange,
   ]);
 
-  // ✅ OPTIMIZACIÓN: Memoizar para evitar re-crear en cada render
-  const handleClick = useCallback((id: number) => {
   const handleClick = (id: number) => {
     console.log(id)
     navigate(`/leads/oportunidades/${id}`);
@@ -325,6 +323,22 @@ export default function OpportunitiesInterface() {
       title: "Correo",
       dataIndex: "personaCorreo",
       key: "personaCorreo",
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
       render: (personaCorreo: string) => personaCorreo || "-",
     },
     {
@@ -582,29 +596,25 @@ export default function OpportunitiesInterface() {
         ) : error ? (
           <Alert message="Error" description={error} type="error" showIcon />
         ) : (
-        <Table
-          columns={columns}
-          dataSource={opportunities}
-          rowKey="id"
-          className={styles.table}
-          scroll={{ x: isMobile ? 800 : undefined }}
-          pagination={{
-            current: currentPage,
-            pageSize: pageSize,
-            total: totalRecords, // Total de registros desde el backend
-            showSizeChanger: true,
-            pageSizeOptions: ["10", "20", "50", "100"],
-            onChange: (page: number, newPageSize?: number) => {
-              setCurrentPage(page);
-              if (typeof newPageSize === "number" && newPageSize !== pageSize) {
-                setPageSize(newPageSize);
-                setCurrentPage(1); // Resetear a página 1 cuando cambia el tamaño
-              }
-            },
-            showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
-            hideOnSinglePage: false
-          }}
-        />
+          <Table
+            columns={columns}
+            dataSource={data}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              current: currentPage,
+              pageSize,
+              total,
+              showSizeChanger: true,
+              pageSizeOptions: ["10", "20", "50", "100"],
+              onChange: (page, size) => {
+                setCurrentPage(page);
+                if (size) setPageSize(size);
+              },
+              showTotal: (total, range) =>
+                `${range[0]}-${range[1]} de ${total}`,
+            }}
+          />
         )}
       </div>
     </Content>
