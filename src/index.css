@@ -131,3 +131,75 @@ button:focus-visible { outline: 4px auto -webkit-focus-ring-color; }
   clip: rect(1px,1px,1px,1px);
   white-space: nowrap;
 }
+
+
+/* =========================================================
+   ANT DESIGN v4 – FORZAR TODO BLANCO (Header + Sider + Menu)
+   ========================================================= */
+
+/* Fondo general del layout */
+.ant-layout {
+  background: #ffffff !important;
+}
+
+/* Header */
+.ant-layout-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding: 0 24px;
+}
+
+/* Sider */
+.ant-layout-sider {
+  background: #ffffff !important;
+  border-right: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Contenido */
+.ant-layout-content {
+  background: #ffffff !important;
+}
+
+/* ===== MENU ===== */
+
+/* Fondo del menú */
+.ant-menu {
+  background: transparent !important;
+  border-right: none !important;
+}
+
+/* Texto del menú */
+.ant-menu-item,
+.ant-menu-submenu-title {
+  color: #1f2937 !important; /* gris oscuro */
+}
+
+/* Hover */
+.ant-menu-item:hover,
+.ant-menu-submenu-title:hover {
+  background-color: #f5f7fa !important;
+}
+
+/* Item seleccionado */
+.ant-menu-item-selected {
+  background-color: #e6f4ff !important;
+  color: #1677ff !important;
+  font-weight: 500;
+}
+
+/* Submenú activo */
+.ant-menu-submenu-selected > .ant-menu-submenu-title {
+  color: #1677ff !important;
+}
+
+/* Iconos del menú */
+.ant-menu-item .anticon,
+.ant-menu-submenu-title .anticon {
+  color: inherit !important;
+}
+
+/* Quitar azul oscuro residual */
+.ant-menu-dark,
+.ant-menu-dark .ant-menu-sub {
+  background: transparent !important;
+}

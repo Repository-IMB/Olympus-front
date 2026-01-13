@@ -136,12 +136,26 @@ export interface ClientePotencial {
   persona: Persona;
 }
 
-export async function obtenerClientesPotenciales(): Promise<ClientePotencial[]> {
+export const obtenerClientesPotenciales = async (search?: string) => {
   try {
-    const res = await api.get('/api/VTAModVentaPotencialCliente/ObtenerTodas');
+    const res = await api.get('/api/VTAModVentaPotencialCliente/ObtenerTodas', {
+      params: {
+        search: search || null,
+      },
+    });
     return res.data?.potencialClientes ?? [];
   } catch (err: any) {
     console.error("obtenerClientesPotenciales axios error", err?.response?.status, err?.response?.data);
+    throw err;
+  }
+}
+
+export async function obtenerPersonaPorId(id: number): Promise<Persona> {
+  try {
+    const res = await api.get(`/api/VTAModVentaPersona/ObtenerPorId/${id}`);
+    return res.data;
+  } catch (err: any) {
+    console.error("obtenerPersonaPorId axios error", err?.response?.status, err?.response?.data);
     throw err;
   }
 }
@@ -178,11 +192,9 @@ export async function obtenerLanzamientos(): Promise<Lanzamiento[]> {
     });
 
     const lanzamientos = Array.from(lanzamientosUnicos.values());
-    console.log('Lanzamientos únicos extraídos:', lanzamientos);
-
     return lanzamientos;
   } catch (err: any) {
-    console.error("obtenerLanzamientos axios error", err?.response?.status, err?.response?.data);
+    // console.error("obtenerLanzamientos axios error", err?.response?.status, err?.response?.data);
     throw err;
   }
 }

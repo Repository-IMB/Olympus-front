@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Input,
@@ -25,26 +25,31 @@ import {
   WhatsAppOutlined,
   CalendarOutlined,
   StopOutlined,
+  PhoneOutlined,
 } from "@ant-design/icons";
 import { useParams } from "react-router-dom";
 import api from "../../servicios/api";
-import dayjs from "dayjs";
+import moment, { type Moment } from "moment";
+// @ts-ignore
+import "moment/locale/es";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
 import styles from "./HistorialInterraciones.module.css";
 
 const { Text, Title } = Typography;
 
+moment.locale("es");
+
 type TipoInteraccion = "desuscrito" | "whatsapp" | "nota" | "recordatorio";
 
-const colores: Record<TipoInteraccion, string> = {
+const colores: Record<string, string> = {
   nota: "#FFF7B3",
   whatsapp: "#DBFFD2",
   recordatorio: "#DCDCDC",
   desuscrito: "#FFCDCD",
 };
 
-const mapTipos: Record<number, TipoInteraccion> = {
+const mapTipos: Record<number, string> = {
   7: "desuscrito",
   8: "whatsapp",
   9: "nota",
@@ -84,32 +89,14 @@ const HistorialInteracciones: React.FC = () => {
   const [nota, setNota] = useState<string>("");
 
   const [fechaRecordatorio, setFechaRecordatorio] = useState<any>(null);
-  const [horaRecordatorio, setHoraRecordatorio] = useState<dayjs.Dayjs | null>(
+  const [horaRecordatorio, setHoraRecordatorio] = useState<Moment | null>(
     null
   );
 
   const [interacciones, setInteracciones] = useState<any[]>([]);
   const [filtrosActivos, setFiltrosActivos] = useState<string[]>([]);
   const [busqueda, setBusqueda] = useState<string>("");
-
-  useEffect(() => {
-    cargarHistorial(null);
-  }, [id]);
-
-  const cargarHistorial = async (idTipo: number | null) => {
-    try {
-      const oportunidadId = id || "1";
-      const params = idTipo !== null ? `?idTipo=${idTipo}` : "?idTipo=";
-
-      const res = await api.get(
-        `/api/VTAModVentaOportunidad/ObtenerHistorialInteraccionesOportunidad/${oportunidadId}${params}`
-      );
-
-      setInteracciones(res.data.historialInteraciones || []);
-    } catch (error) {
-      console.error("Error cargando historial:", error);
-    }
-  };
+  const [telefonoCliente, setTelefonoCliente] = useState<string | null>(null);
 
   const token = getCookie("token");
 
@@ -121,7 +108,7 @@ const HistorialInteracciones: React.FC = () => {
 
       const id =
         decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ];
 
       return id ? Number(id) : 0;
@@ -131,11 +118,11 @@ const HistorialInteracciones: React.FC = () => {
     }
   };
 
-  
+
   // ======================================================
   // 📌 OBTENER TELÉFONO DEL CLIENTE
   // ======================================================
-  const obtenerTelefonoCliente = async (): Promise<string | null> => {
+  const obtenerTelefonoCliente = useCallback(async (): Promise<string | null> => {
     if (!id) return null;
 
     try {
@@ -162,7 +149,32 @@ const HistorialInteracciones: React.FC = () => {
       console.error("Error al obtener teléfono del cliente:", error);
       return null;
     }
-  };
+  }, [id]);
+
+  const cargarHistorial = useCallback(async (idTipo: number | null) => {
+    try {
+      const oportunidadId = id || "1";
+      const params = idTipo !== null ? `?idTipo=${idTipo}` : "?idTipo=";
+
+      const res = await api.get(
+        `/api/VTAModVentaOportunidad/ObtenerHistorialInteraccionesOportunidad/${oportunidadId}${params}`
+      );
+
+      setInteracciones(res.data.historialInteraciones || []);
+    } catch (error) {
+      console.error("Error cargando historial:", error);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    cargarHistorial(null);
+    // Cargar el teléfono del cliente al montar el componente
+    obtenerTelefonoCliente().then((telefono) => {
+      if (telefono) {
+        setTelefonoCliente(telefono);
+      }
+    });
+  }, [id, cargarHistorial, obtenerTelefonoCliente]);
 
   // ======================================================
   // DESACTIVAR RECORDATORIO
@@ -220,7 +232,7 @@ const HistorialInteracciones: React.FC = () => {
         return;
       }
 
-      const fechaISO = dayjs(fechaRecordatorio)
+      const fechaISO = moment(fechaRecordatorio)
         .hour(horaRecordatorio.hour())
         .minute(horaRecordatorio.minute())
         .second(0)
@@ -237,19 +249,19 @@ const HistorialInteracciones: React.FC = () => {
         tipoSeleccionado === "desuscrito"
           ? 7
           : tipoSeleccionado === "whatsapp"
-          ? 8
-          : tipoSeleccionado === "nota"
-          ? 9
-          : tipoSeleccionado === "recordatorio"
-          ? 10
-          : 9,
+            ? 8
+            : tipoSeleccionado === "nota"
+              ? 9
+              : tipoSeleccionado === "recordatorio"
+                ? 10
+                : 9,
       detalle: nota,
       celular: "",
       fechaRecordatorio: fechaFinal,
       estado: true,
-      fechaCreacion: dayjs().subtract(5, "hour").toISOString(),
+      fechaCreacion: moment().subtract(5, "hour").toISOString(),
       usuarioCreacion: Number(getUserIdFromToken()).toString(),
-      fechaModificacion: dayjs().subtract(5, "hour").toISOString(),
+      fechaModificacion: moment().subtract(5, "hour").toISOString(),
       usuarioModificacion: Number(getUserIdFromToken()).toString(),
     };
 
@@ -266,8 +278,16 @@ const HistorialInteracciones: React.FC = () => {
 
     // Solo abrir WhatsApp si el tipo seleccionado es "whatsapp"
     if (tipoSeleccionado === "whatsapp") {
-      const numeroWhatsApp = await obtenerTelefonoCliente();
-      
+      // Usar el teléfono en caché si está disponible, sino obtenerlo
+      let numeroWhatsApp = telefonoCliente;
+
+      if (!numeroWhatsApp) {
+        numeroWhatsApp = await obtenerTelefonoCliente();
+        if (numeroWhatsApp) {
+          setTelefonoCliente(numeroWhatsApp);
+        }
+      }
+
       if (!numeroWhatsApp) {
         message.warning("No se pudo obtener el número de teléfono del cliente");
         return;
@@ -275,10 +295,34 @@ const HistorialInteracciones: React.FC = () => {
 
       const mensajeCodificado = encodeURIComponent(mensajeParaWhatsApp);
       const urlWhatsApp = `https://web.whatsapp.com/send?phone=${numeroWhatsApp}&text=${mensajeCodificado}`;
-      
+
       // Abrir en una nueva ventana/pestaña
       window.open(urlWhatsApp, "_blank");
     }
+  };
+
+  // ======================================================
+  // 📌 LLAMAR POR WHATSAPP
+  // ======================================================
+  const handleLlamarWhatsApp = async () => {
+    // Usar el teléfono en caché si está disponible, sino obtenerlo
+    let numeroWhatsApp = telefonoCliente;
+
+    if (!numeroWhatsApp) {
+      numeroWhatsApp = await obtenerTelefonoCliente();
+      if (numeroWhatsApp) {
+        setTelefonoCliente(numeroWhatsApp);
+      }
+    }
+
+    if (!numeroWhatsApp) {
+      message.warning("No se pudo obtener el número de teléfono del cliente");
+      return;
+    }
+
+    const urlWhatsApp = `https://web.whatsapp.com/send?phone=${numeroWhatsApp}`;
+    window.open(urlWhatsApp, "_blank");
+    message.info("Se abrió WhatsApp Web. Haz clic en el botón de llamada para iniciar la llamada.");
   };
 
   // ======================================================
@@ -337,7 +381,7 @@ const HistorialInteracciones: React.FC = () => {
               }}
               style={{ margin: 0 }}
             />
-            <span style={{ fontSize: 12, fontWeight: 500 }}>{t.nombre}</span>
+            <span style={{ fontSize: 13, fontWeight: 500 }}>{t.nombre}</span>
           </div>
         ))}
       </Space>
@@ -354,14 +398,6 @@ const HistorialInteracciones: React.FC = () => {
       </Space>
     </Card>
   );
-
-  // ======================================================
-  // 📌 HORAS DISPONIBLES
-  // ======================================================
-  const horas = Array.from({ length: 24 }, (_, i) => ({
-    label: `${i.toString().padStart(2, "0")}:00`,
-    value: `${i}`,
-  }));
 
   // ======================================================
   // 📌 RENDER
@@ -447,7 +483,7 @@ const HistorialInteracciones: React.FC = () => {
                   background: "transparent",
                   border: "none",
                   boxShadow: "none",
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
                   resize: "none",
                 }}
@@ -501,153 +537,152 @@ const HistorialInteracciones: React.FC = () => {
                 return fechaB - fechaA;
               })
               .map((item) => {
-              const tipo = mapTipos[item.idTipo] ?? "nota";
-              const fechaCreacion = new Date(
-                item.fechaCreacion
-              ).toLocaleString();
+                const tipo = mapTipos[item.idTipo] ?? "nota";
+                const fechaCreacion = new Date(
+                  item.fechaCreacion
+                ).toLocaleString();
 
-              // Formateo fecha del recordatorio
-              let fechaRecordatorioBonita: string | null = null;
+                // Formateo fecha del recordatorio
+                let fechaRecordatorioBonita: string | null = null;
 
-              if (tipo === "recordatorio" && item.fechaRecordatorio) {
-                const d = dayjs(item.fechaRecordatorio);
+                if (tipo === "recordatorio" && item.fechaRecordatorio) {
+                  const d = moment(item.fechaRecordatorio);
 
-                const dias = [
-                  "domingo",
-                  "lunes",
-                  "martes",
-                  "miércoles",
-                  "jueves",
-                  "viernes",
-                  "sábado",
-                ];
+                  const dias = [
+                    "domingo",
+                    "lunes",
+                    "martes",
+                    "miércoles",
+                    "jueves",
+                    "viernes",
+                    "sábado",
+                  ];
 
-                const meses = [
-                  "enero",
-                  "febrero",
-                  "marzo",
-                  "abril",
-                  "mayo",
-                  "junio",
-                  "julio",
-                  "agosto",
-                  "septiembre",
-                  "octubre",
-                  "noviembre",
-                  "diciembre",
-                ];
+                  const meses = [
+                    "enero",
+                    "febrero",
+                    "marzo",
+                    "abril",
+                    "mayo",
+                    "junio",
+                    "julio",
+                    "agosto",
+                    "septiembre",
+                    "octubre",
+                    "noviembre",
+                    "diciembre",
+                  ];
 
-                const nombreDia = dias[d.day()];
-                const dia = d.date();
-                const mes = meses[d.month()];
-                const año = d.year();
-                const hora = d.format("HH:mm");
+                  const nombreDia = dias[d.day()];
+                  const dia = d.date();
+                  const mes = meses[d.month()];
+                  const año = d.year();
+                  const hora = d.format("HH:mm");
 
-                fechaRecordatorioBonita = `Recordatorio : ${nombreDia} ${dia} de ${mes} de ${año} – ${hora}`;
-              }
+                  fechaRecordatorioBonita = `Recordatorio : ${nombreDia} ${dia} de ${mes} de ${año} – ${hora}`;
+                }
 
-              const recordatorioDesactivado =
-                tipo === "recordatorio" && item?.estado === false;
+                const recordatorioDesactivado =
+                  tipo === "recordatorio" && item?.estado === false;
 
-              return (
-                <Card
-                  key={item.id}
-                  size="small"
-                  style={{
-                    background: colores[tipo],
-                    border: `1px solid ${colores[tipo]}`,
-                    borderRadius: 6,
-                    padding: 4,
-                    opacity: recordatorioDesactivado ? 0.65 : 1,
-                  }}
-                  bodyStyle={{ padding: 4 }}
-                >
-                  {/* ✅ BOTÓN ARRIBA IZQUIERDA SOLO PARA RECORDATORIO */}
-                  {/* ✅ BOTÓN ARRIBA IZQUIERDA SOLO PARA RECORDATORIO */}
-                  {tipo === "recordatorio" && (
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 2,
-                      }}
-                    >
-                      {item.estado === true ? (
-                        <>
-                          {/* INDICADOR ACTIVO */}
+                return (
+                  <Card
+                    key={item.id}
+                    size="small"
+                    style={{
+                      background: colores[tipo],
+                      border: `1px solid ${colores[tipo]}`,
+                      borderRadius: 6,
+                      padding: 4,
+                      opacity: recordatorioDesactivado ? 0.65 : 1,
+                    }}
+                    bodyStyle={{ padding: 4 }}
+                  >
+                    {/* BOTÓN ARRIBA IZQUIERDA SOLO PARA RECORDATORIO */}
+                    {tipo === "recordatorio" && (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {item.estado === true ? (
+                          <>
+                            {/* INDICADOR ACTIVO */}
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color: "#389e0d",
+                              }}
+                            >
+                              ACTIVO
+                            </div>
+
+                            {/* BOTÓN DESACTIVAR (SIN CONFIRMACIÓN) */}
+                            <Button
+                              size="small"
+                              icon={<StopOutlined />}
+                              onClick={() => handleDesactivarRecordatorio(item)}
+                              style={{
+                                borderRadius: 6,
+                                fontSize: 11,
+                                height: 22,
+                                paddingInline: 8,
+                              }}
+                            >
+                              Desactivar
+                            </Button>
+                          </>
+                        ) : (
+                          /* INDICADOR DESACTIVADO */
                           <div
                             style={{
                               fontSize: 10,
                               fontWeight: 700,
-                              color: "#389e0d",
+                              color: "#a61d24",
                             }}
                           >
-                            ACTIVO
+                            DESACTIVADO
                           </div>
-
-                          {/* BOTÓN DESACTIVAR (SIN CONFIRMACIÓN) */}
-                          <Button
-                            size="small"
-                            icon={<StopOutlined />}
-                            onClick={() => handleDesactivarRecordatorio(item)}
-                            style={{
-                              borderRadius: 6,
-                              fontSize: 11,
-                              height: 22,
-                              paddingInline: 8,
-                            }}
-                          >
-                            Desactivar
-                          </Button>
-                        </>
-                      ) : (
-                        /* INDICADOR DESACTIVADO */
-                        <div
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 700,
-                            color: "#a61d24",
-                          }}
-                        >
-                          DESACTIVADO
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div style={{ textAlign: "right" }}>
-                    {tipo === "recordatorio" && fechaRecordatorioBonita && (
-                      <div
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: "#000",
-                          marginBottom: 2,
-                        }}
-                      >
-                        {fechaRecordatorioBonita}
+                        )}
                       </div>
                     )}
 
-                    <Text
-                      style={{
-                        color: "#0D0C11",
-                        fontSize: 11,
-                        display: "block",
-                        whiteSpace: "pre-line",
-                      }}
-                    >
-                      {item.detalle}
-                    </Text>
+                    <div style={{ textAlign: "right" }}>
+                      {tipo === "recordatorio" && fechaRecordatorioBonita && (
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "#000",
+                            marginBottom: 2,
+                          }}
+                        >
+                          {fechaRecordatorioBonita}
+                        </div>
+                      )}
 
-                    <Text style={{ fontSize: 8, color: "#5D5D5D" }}>
-                      {fechaCreacion} – {item.nombreAsesor ?? "—"}
-                    </Text>
-                  </div>
-                </Card>
-              );
-            })
+                      <Text
+                        style={{
+                          color: "#0D0C11",
+                          fontSize: 11,
+                          display: "block",
+                          whiteSpace: "pre-line",
+                        }}
+                      >
+                        {item.detalle}
+                      </Text>
+
+                      <Text style={{ fontSize: 10, color: "#5D5D5D" }}>
+                        {fechaCreacion} – {item.nombrePersonal ?? "—"}
+                      </Text>
+                    </div>
+                  </Card>
+                );
+              })
           ) : (
             <Text
               style={{ fontSize: 12, color: "#5D5D5D", textAlign: "center" }}
@@ -659,7 +694,7 @@ const HistorialInteracciones: React.FC = () => {
 
         <Divider style={{ margin: "6px 0" }} />
 
-       
+
       </Card>
     </div>
   );

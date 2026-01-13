@@ -536,3 +536,46 @@
 .modalButton:active {
   transform: translateY(0);
 }
+
+/* Estilos para modal de éxito */
+.modalSuccessContent {
+  padding: 2.5rem 2rem;
+  text-align: center;
+}
+
+.successIconContainer {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.successIcon {
+  color: #10b981;
+  stroke-width: 2;
+}
+
+.modalSuccessTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f1f1f;
+  margin: 0 0 1rem 0;
+}
+
+.modalSuccessMessage {
+  font-size: 0.95rem;
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0;
+}

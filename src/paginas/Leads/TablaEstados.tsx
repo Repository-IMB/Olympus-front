@@ -25,7 +25,7 @@ const ESTADOS_MAP: Record<number, string> = {
 type HistorialEstado = {
   id: number;
   idOportunidad: number;
-  idAsesor: number;
+  IdPersonal: number;
   idMotivo: number;
   idEstado: number;
   observaciones: string;
@@ -65,7 +65,6 @@ export default function TablaEstadosReducida({
       );
       setHistorial(res.data.historialEstado || []);
     } catch (err) {
-      console.error("❌ Error al obtener historial:", err);
       message.error("Error al obtener historial de estados");
     }
   };
@@ -114,7 +113,7 @@ export default function TablaEstadosReducida({
     try {
       const body = {
         idOportunidad: Number(idOportunidad),
-        idAsesor: Number(getUserIdFromToken()),
+        IdPersonal: Number(getUserIdFromToken()),
         idMotivo: formData.idMotivo,
         idEstado: formData.idEstado,
         observaciones: formData.observaciones,
@@ -139,7 +138,6 @@ export default function TablaEstadosReducida({
       setFormData({ idMotivo: 1, idEstado: 1, observaciones: "" });
       fetchHistorial();
     } catch (err) {
-      console.error("❌ Error al agregar estado:", err);
       message.error("Error al agregar estado");
     }
   };
@@ -168,7 +166,6 @@ export default function TablaEstadosReducida({
       message.success("Historial actualizado");
       fetchHistorial();
     } catch (err) {
-      console.error("❌ Error al actualizar historial:", err);
       message.error("Error al actualizar llamadas");
     }
   };
@@ -324,7 +321,7 @@ export default function TablaEstadosReducida({
                         </div>
                       </div>
                       <div style={{ textAlign: "center" }}>
-                        {item.idAsesor || "-"}
+                        {item.IdPersonal || "-"}
                       </div>
                     </div>
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, X } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Eye, EyeOff, X, CheckCircle } from 'lucide-react';
 import { useLogin } from '../../hooks/useLogin';
 import estilos from './Login.module.css';
 
@@ -8,6 +9,7 @@ interface ErroresValidacion {
 }
 
 function LoginPage() {
+  const location = useLocation();
   const {
     correo,
     password,
@@ -23,6 +25,7 @@ function LoginPage() {
   const [erroresValidacion, setErroresValidacion] = useState<ErroresValidacion>({});
   const [touched, setTouched] = useState({ email: false });
   const [mostrarModalError, setMostrarModalError] = useState(false);
+  const [mostrarModalExito, setMostrarModalExito] = useState(false);
 
   // Función para validar email
   const validarEmail = (email: string): boolean => {
@@ -147,9 +150,22 @@ function LoginPage() {
     }
   }, [error]);
 
+  // Mostrar modal de éxito si viene de reset password
+  useEffect(() => {
+    if (location.state?.message) {
+      setMostrarModalExito(true);
+      // Limpiar el estado de location después de mostrarlo
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   // Cerrar modal (sin limpiar campos nuevamente, ya se limpiaron cuando apareció el error)
   const cerrarModal = () => {
     setMostrarModalError(false);
+  };
+
+  const cerrarModalExito = () => {
+    setMostrarModalExito(false);
   };
 
   return (
@@ -219,9 +235,11 @@ function LoginPage() {
               {cargando ? 'Ingresando...' : 'Sign in'}
             </button>
 
-            {/* <p className={estilos.registerText}>
-              Don't have an account yet? <a href="#" className={estilos.registerLink}>Join Olympus</a>
-            </p> */}
+            <p className={estilos.registerText}>
+              <Link to="/forgot-password" className={estilos.forgotLink}>
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </p>
           </form>
         </div>
 
@@ -269,6 +287,28 @@ function LoginPage() {
             <div className={estilos.modalFooter}>
               <button className={estilos.modalButton} onClick={cerrarModal}>
                 Volver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de éxito al restablecer contraseña */}
+      {mostrarModalExito && (
+        <div className={estilos.modalOverlay} onClick={cerrarModalExito}>
+          <div className={estilos.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={estilos.modalSuccessContent}>
+              <div className={estilos.successIconContainer}>
+                <CheckCircle className={estilos.successIcon} size={64} />
+              </div>
+              <h3 className={estilos.modalSuccessTitle}>¡Contraseña actualizada!</h3>
+              <p className={estilos.modalSuccessMessage}>
+                Tu contraseña ha sido restablecida exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña.
+              </p>
+            </div>
+            <div className={estilos.modalFooter}>
+              <button className={estilos.modalButton} onClick={cerrarModalExito}>
+                Iniciar sesión
               </button>
             </div>
           </div>

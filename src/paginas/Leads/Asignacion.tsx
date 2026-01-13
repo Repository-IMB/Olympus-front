@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Input,
   Select,
@@ -14,6 +15,7 @@ import {
   Space,
   Form,
   TimePicker,
+  Tooltip,
 } from "antd";
 import {
   SearchOutlined,
@@ -21,16 +23,18 @@ import {
   CloseOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
+  FileTextOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import { type Lead } from "../../config/leadsTableItems";
 import estilos from "./Asignacion.module.css";
 import estilosModal from "./ReasignacionMasiva.module.css";
 import axios from "axios";
-import Cookies from "js-cookie";
 import type { ColumnsType } from "antd/es/table";
-import dayjs, { type Dayjs } from "dayjs";
+import moment, { type Moment } from "moment";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
+import { obtenerPaises } from "../../config/rutasApi";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -41,8 +45,8 @@ interface OportunidadBackend {
   personaNombre: string;
   idProducto: number;
   productoNombre: string;
-  idAsesor: number;
-  asesorNombre: string;
+  IdPersonal: number;
+  personalNombre: string;
   personaCorreo: string;
   codigoLanzamiento: string;
   codigoLinkedin: string;
@@ -61,11 +65,13 @@ interface OportunidadBackend {
   fechaModificacion: string;
   fechaFormulario: string;
   usuarioModificacion: string;
+  totalMarcaciones?: number;
+  recordatorios?: string[];
 }
 
 interface Asesor {
   idUsuario: number;
-  idPersona: number;
+  idPersonal: number;
   nombre: string;
   idRol: number;
 }
@@ -76,29 +82,67 @@ interface SkippedSource {
   createdDate?: string | null;
 }
 
+type LeadTabla = {
+  id: number;
+  codigoLanzamiento: string;
+  codigoLinkedin: string;
+  nombre: string;
+  asesor: string;
+  estado: string;
+  origen: string;
+  pais: string;
+  fechaCreacion: string;
+  fechaFormulario: string;
+  totalMarcaciones: number;
+  recordatorios: string[];
+};
+
+const ESTADOS = [
+  "Registrado",
+  "Calificado",
+  "Promesa",
+  "Pendiente",
+  "Matriculado",
+  "Cliente",
+  "No calificado",
+  "Perdido",
+];
+
+const ORIGENES = ["LinkedIn", "Manual"];
+
+const SELECT_PROPS = {
+  virtual: false,
+  listHeight: 240,
+  showSearch: true,
+  optionFilterProp: "children",
+  getPopupContainer: (trigger: HTMLElement) => trigger.parentElement!,
+};
+
 export default function Asignacion() {
   const [selectedRows, setSelectedRows] = useState<Lead[]>([]);
   const [searchText, setSearchText] = useState("");
-  const [filterEstado, setFilterEstado] = useState<string>("Todos");
+  const [filterEstado, setFilterEstado] = useState<string | string[]>("Todos");
   const [filterOrigen, setFilterOrigen] = useState<string>("Todos");
-  const [filterPais, setFilterPais] = useState<string>("Todos");
+  const [filterPais, setFilterPais] = useState<string | string[]>("Todos");
   const [dateRange, setDateRange] = useState<
-    [Dayjs | null, Dayjs | null] | null
+    [Moment | null, Moment | null] | null
   >(null);
   const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
   const [modalOpen, setModalOpen] = useState(false);
   const [asesorDestino, setAsesorDestino] = useState<number | null>(null);
   const [forzarReasignacion, setForzarReasignacion] = useState(true);
   const [oportunidades, setOportunidades] = useState<OportunidadBackend[]>([]);
-  const [filterCodigoLanzamiento, setFilterCodigoLanzamiento] = useState<string>("Todos");
-  const [filterCodigoLinkedin, setFilterCodigoLinkedin] = useState<string>("Todos");
+  const [filterCodigoLanzamiento, setFilterCodigoLanzamiento] =
+    useState<string>("Todos");
+  const [filterCodigoLinkedin, setFilterCodigoLinkedin] =
+    useState<string>("Todos");
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingAsesores, setLoadingAsesores] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importRange, setImportRange] = useState<
-    [Dayjs | null, Dayjs | null] | null
+    [Moment | null, Moment | null] | null
   >(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<{
@@ -108,33 +152,45 @@ export default function Asignacion() {
     skippedSources: SkippedSource[];
     mensaje: string;
   } | null>(null);
-
+  const [total, setTotal] = useState<number>(0);
+  const [historialActual, setHistorialActual] = useState<any[]>([]);
+  const [codigosLanzamiento, setCodigosLanzamiento] = useState<string[]>([]);
+  const [codigosLinkedin, setCodigosLinkedin] = useState<string[]>([]);
+  const [loadingCodigos, setLoadingCodigos] = useState(false);
   // 🔹 Fecha y hora de reasignación
-  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
-  const [selectedTime, setSelectedTime] = useState<Dayjs | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Moment | null>(null);
+  const [selectedTime, setSelectedTime] = useState<Moment | null>(null);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
-
-const token = getCookie("token");
-
-const getUserIdFromToken = () => {
-  if (!token) return 0;
-
-  try {
-    const decoded: any = jwtDecode(token);
-
-    const id =
-      decoded[
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-      ];
-
-    return id ? Number(id) : 0;
-  } catch (e) {
-    console.error("Error decodificando token", e);
-    return 0;
+  const navigate = useNavigate();
+  interface Pais {
+    id: number;
+    nombre: string;
   }
-};
+
+  const [paises, setPaises] = useState<Pais[]>([]);
+  const [loadingPaises, setLoadingPaises] = useState(false);
+
+  const token = getCookie("token");
+
+  const getUserIdFromToken = () => {
+    if (!token) return 0;
+
+    try {
+      const decoded: any = jwtDecode(token);
+
+      const id =
+        decoded[
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ];
+
+      return id ? Number(id) : 0;
+    } catch (e) {
+      // console.error("Error decodificando token", e);
+      return 0;
+    }
+  };
   const handleReasignarMasivo = () => {
     if (selectedRows.length > 0) setModalOpen(true);
   };
@@ -146,6 +202,48 @@ const getUserIdFromToken = () => {
     setSelectedDate(null);
     setSelectedTime(null);
   };
+
+  const handleClick = (id: number) => {
+    console.log("Asignacion", id);
+    navigate(`/leads/oportunidades/${id}`);
+  };
+
+  function optionToString(option: any) {
+  const children = option?.children ?? option?.label ?? "";
+  if (Array.isArray(children)) {
+    return children
+      .map((c) => (typeof c === "string" ? c : String(c ?? "")))
+      .join("");
+  }
+  return String(children);
+}
+
+
+  function agruparOportunidadesConRecordatorios(
+    data: OportunidadBackend[]
+  ): OportunidadBackend[] {
+    const map = new Map<
+      number,
+      OportunidadBackend & { recordatorios: string[] }
+    >();
+
+    data.forEach((o) => {
+      const recordatorio = o.fechaRecordatorio;
+
+      if (!map.has(o.id)) {
+        map.set(o.id, {
+          ...o,
+          recordatorios: recordatorio ? [recordatorio] : [],
+        });
+      } else {
+        if (recordatorio) {
+          map.get(o.id)!.recordatorios.push(recordatorio);
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  }
 
   const handleConfirmarAsignacion = async () => {
     if (
@@ -176,7 +274,7 @@ const getUserIdFromToken = () => {
         .hour(selectedTime.hour())
         .minute(selectedTime.minute())
         .second(0)
-        .toISOString();
+        .format("YYYY-MM-DDTHH:mm:ss");
 
       const horaRecordatorio = selectedTime.format("HH:mm");
 
@@ -197,9 +295,8 @@ const getUserIdFromToken = () => {
         };
 
         await axios.post(
-          `${
-            import.meta.env.VITE_API_URL || "http://localhost:7020"
-          }/api/VTAModVentaHistorialInteraccion/InsertarMasivo`,
+          `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+          }/api/VTAModVentaHistorialInteraccion/Insertar`,
           payloadInteraccion,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -207,16 +304,15 @@ const getUserIdFromToken = () => {
 
       const payload = {
         IdOportunidades: selectedRows.map((r) => r.id),
-        IdAsesor: asesor.idPersona,
+        IdPersonal: asesor.idPersonal,
         UsuarioModificacion: Number(getUserIdFromToken()).toString(),
         FechaRecordatorio: fechaRecordatorioISO,
         HoraRecordatorio: horaRecordatorio,
       };
 
       const response = await axios.post(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
-        }/api/VTAModVentaOportunidad/AsignarAsesor`,
+        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+        }/api/VTAModVentaOportunidad/AsignarPersonalMasivo`,
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -232,8 +328,8 @@ const getUserIdFromToken = () => {
     } catch (err: any) {
       message.error(
         err?.response?.data?.mensaje ||
-          err?.message ||
-          "Error al asignar asesor"
+        err?.message ||
+        "Error al asignar asesor"
       );
     } finally {
       setLoading(false);
@@ -269,9 +365,8 @@ const getUserIdFromToken = () => {
         FechaFin: fechaFinIso,
       };
 
-      const url = `${
-        import.meta.env.VITE_API_URL || "http://localhost:7020"
-      }/api/VTAModVentaOportunidad/ImportarProcesadoLinkedin`;
+      const url = `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+        }/api/VTAModVentaOportunidad/ImportarProcesadoLinkedin`;
 
       const response = await axios.post(url, payload, {
         headers: { Authorization: `Bearer ${token}` },
@@ -308,24 +403,24 @@ const getUserIdFromToken = () => {
           "",
       });
 
-      if ((data?.respuesta?.codigo ?? data?.Respuesta?.Codigo ?? "1") === "0") {
-        message.success("Importación finalizada correctamente.");
-        obtenerOportunidades(); // refresca la tabla principal
-      } else {
-        console.log(
-          data?.respuesta?.mensaje ??
-            data?.Respuesta?.Mensaje ??
-            data?.mensaje ??
-            "Importación finalizada con advertencias."
-        );
-      }
+      // if ((data?.respuesta?.codigo ?? data?.Respuesta?.Codigo ?? "1") === "0") {
+      //   message.success("Importación finalizada correctamente.");
+      //   obtenerOportunidades();
+      // } else {
+      //   console.log(
+      //     data?.respuesta?.mensaje ??
+      //       data?.Respuesta?.Mensaje ??
+      //       data?.mensaje ??
+      //       "Importación finalizada con advertencias."
+      //   );
+      // }
     } catch (err: any) {
       console.error("Error al importar:", err);
-      message.error(
-        err?.response?.data?.mensaje ||
-          err?.message ||
-          "Error al ejecutar importación"
-      );
+      // message.error(
+      //   err?.response?.data?.mensaje ||
+      //     err?.message ||
+      //     "Error al ejecutar importación"
+      // );
     } finally {
       setImportLoading(false);
     }
@@ -344,68 +439,77 @@ const getUserIdFromToken = () => {
   const obtenerOportunidades = async () => {
     try {
       setLoading(true);
-      if (!token) throw new Error("No se encontró el token de autenticación");
+      const API = import.meta.env.VITE_API_URL || "http://localhost:7020";
 
       const response = await axios.get(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
-        }/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${API}/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorioAsignacion`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            page: currentPage,
+            pageSize,
+            search: searchText || null,
+            estadoFiltro:
+              filterEstado === "Todos"
+              ? null
+              : Array.isArray(filterEstado)
+              ? filterEstado.join(",")
+              : filterEstado,
+            origenFiltro: filterOrigen !== "Todos" ? filterOrigen : null,
+            paisFiltro:
+              filterPais === "Todos"
+                ? null
+                : Array.isArray(filterPais)
+                  ? filterPais.join(",")
+                  : filterPais,
+            asesorFiltro: filterAsesor !== "Todos" ? filterAsesor : null,
+            codigoLanzamientoFiltro:
+              filterCodigoLanzamiento !== "Todos"
+                ? filterCodigoLanzamiento
+                : null,
+            codigoLinkedinFiltro:
+              filterCodigoLinkedin !== "Todos" ? filterCodigoLinkedin : null,
+            fechaInicio: dateRange?.[0]?.format("YYYY-MM-DD") ?? null,
+            fechaFin: dateRange?.[1]?.format("YYYY-MM-DD") ?? null,
+          },
+        }
       );
 
-      const data = response.data;
-      if (data && data.oportunidad && Array.isArray(data.oportunidad)) {
-        // 1️⃣ Eliminar duplicados por id (nos quedamos con el más reciente)
-        const oportunidadesUnicasMap = new Map<number, OportunidadBackend>();
+      const agrupadas = agruparOportunidadesConRecordatorios(
+        response.data.oportunidad ?? []
+      );
 
-        for (const op of data.oportunidad as OportunidadBackend[]) {
-          const existente = oportunidadesUnicasMap.get(op.id);
-
-          if (!existente) {
-            oportunidadesUnicasMap.set(op.id, op);
-          } else {
-            const fechaExistente = new Date(existente.fechaCreacion).getTime();
-            const fechaNueva = new Date(op.fechaCreacion).getTime();
-
-            // Nos quedamos con el más reciente
-            if (fechaNueva > fechaExistente) {
-              oportunidadesUnicasMap.set(op.id, op);
-            }
-          }
-        }
-
-        // 2️⃣ Convertir a array
-        const oportunidadesUnicas = Array.from(oportunidadesUnicasMap.values());
-
-        // 3️⃣ Ordenar (como ya lo hacías)
-        const oportunidadesOrdenadas = oportunidadesUnicas.sort((a, b) => {
-          const fechaA = new Date(a.fechaCreacion).getTime();
-          const fechaB = new Date(b.fechaCreacion).getTime();
-          return fechaB - fechaA;
-        });
-
-        setOportunidades(oportunidadesOrdenadas);
-
-        console.log("✅ Oportunidades únicas:", oportunidadesOrdenadas.length);
-
-        console.log(
-          "✅ Oportunidades obtenidas:",
-          oportunidadesOrdenadas.length
-        );
-      } else {
-        setOportunidades([]);
-        console.warn("⚠️ No se encontraron oportunidades en la respuesta");
-      }
-    } catch (err: any) {
-      const errorMessage =
-        err?.response?.data?.mensaje ||
-        err?.message ||
-        "Error al cargar las oportunidades";
-      setError(errorMessage);
-      message.error(errorMessage);
-      setOportunidades([]);
+      setOportunidades(agrupadas);
+      setHistorialActual(response.data.historialActual ?? []);
+      setTotal(response.data.total ?? 0);
+    } catch (error) {
+      message.error("Error cargando oportunidades");
+      console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cargarCodigosProducto = async () => {
+    try {
+      setLoadingCodigos(true);
+
+      const API = import.meta.env.VITE_API_URL || "http://localhost:7020";
+
+      const res = await axios.get(
+        `${API}/api/VTAModVentaProducto/ObtenerCodigosUnicos`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setCodigosLanzamiento(res.data.codigosLanzamiento ?? []);
+      setCodigosLinkedin(res.data.codigosLinkedin ?? []);
+    } catch (error) {
+      console.error(error);
+      message.error("Error al cargar códigos de producto");
+    } finally {
+      setLoadingCodigos(false);
     }
   };
 
@@ -415,8 +519,7 @@ const getUserIdFromToken = () => {
       if (!token) throw new Error("No se encontró el token de autenticación");
 
       const response = await axios.get(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -425,7 +528,7 @@ const getUserIdFromToken = () => {
       if (data?.usuarios && Array.isArray(data.usuarios)) {
         const listaAsesores = data.usuarios.map((u: any) => ({
           idUsuario: u.id,
-          idPersona: u.idPersona,
+          idPersonal: u.idPersonal,
           nombre: u.nombre,
           idRol: u.idRol,
         }));
@@ -446,158 +549,83 @@ const getUserIdFromToken = () => {
     }
   };
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchText, filterEstado, filterOrigen, filterPais, filterAsesor, dateRange, oportunidades,filterCodigoLanzamiento,filterCodigoLinkedin,]);
+  const getReminderColor = (fechaRecordatorio: string): string => {
+    const now = new Date();
+    const reminderDate = new Date(fechaRecordatorio);
+    const diffMs = reminderDate.getTime() - now.getTime();
+    const hoursRemaining = diffMs / (1000 * 60 * 60);
+
+    if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
+    if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
+    if (hoursRemaining < 24) return "#ffd666"; // amarillo
+    return "#1677ff"; // azul
+  };
+
+  const cargarPaises = async () => {
+    try {
+      setLoadingPaises(true);
+      const data = await obtenerPaises();
+      setPaises(data);
+    } catch (err) {
+      console.error("Error cargando países", err);
+      message.error("Error al cargar países");
+    } finally {
+      setLoadingPaises(false);
+    }
+  };
 
   useEffect(() => {
     obtenerOportunidades();
     obtenerAsesores();
-  }, []);
+    cargarCodigosProducto();
+    cargarPaises();
+  }, [
+    currentPage,
+    pageSize,
+    searchText,
+    filterEstado,
+    filterOrigen,
+    filterPais,
+    filterAsesor,
+    filterCodigoLanzamiento,
+    filterCodigoLinkedin,
+    dateRange,
+  ]);
 
-  const leadsMapeados = useMemo(
+  const marcacionesPorOportunidad = useMemo(() => {
+    const map = new Map<number, number>();
+
+    historialActual.forEach((h) => {
+      const total =
+        (h.cantidadLlamadasContestadas ?? 0) +
+        (h.cantidadLlamadasNoContestadas ?? 0);
+
+      map.set(h.idOportunidad, (map.get(h.idOportunidad) ?? 0) + total);
+    });
+
+    return map;
+  }, [historialActual]);
+
+  const leadsMapeados = useMemo<LeadTabla[]>(
     () =>
       oportunidades.map((o) => ({
         id: o.id,
         codigoLanzamiento: o.codigoLanzamiento || "-",
         codigoLinkedin: o.codigoLinkedin || "-",
         nombre: o.personaNombre || "-",
-        asesor: o.asesorNombre || "-",
+        asesor: o.personalNombre || "-",
         estado: o.nombreEstado || "-",
         origen: o.origen || "-",
         pais: o.personaPaisNombre || "-",
         fechaCreacion: o.fechaCreacion,
         fechaFormulario: o.fechaFormulario,
+        totalMarcaciones: marcacionesPorOportunidad.get(o.id) ?? 0,
+        recordatorios: o.recordatorios ?? [],
       })),
-    [oportunidades]
+    [oportunidades, marcacionesPorOportunidad] // ✅
   );
 
-  const estadosUnicos = useMemo(() => {
-    const estados = new Set<string>();
-    oportunidades.forEach((op) => {
-      if (op.nombreEstado) {
-        estados.add(op.nombreEstado);
-      }
-    });
-    return Array.from(estados).sort();
-  }, [oportunidades]);
-
-  const origenesUnicos = useMemo(() => {
-    const origenes = new Set<string>();
-    leadsMapeados.forEach((lead) => {
-      if (lead.origen && lead.origen !== "-") {
-        origenes.add(lead.origen);
-      }
-    });
-    return Array.from(origenes).sort();
-  }, [leadsMapeados]);
-
-  const codigoLanzamientoUnicos = useMemo(() => {
-    const setcodigoLanzamiento = new Set<string>();
-    leadsMapeados.forEach((lead) => {
-      if (lead.codigoLanzamiento && lead.codigoLanzamiento !== "-") {
-        setcodigoLanzamiento.add(lead.codigoLanzamiento);
-      }
-    });
-    return Array.from(setcodigoLanzamiento).sort();
-  }, [leadsMapeados]);
-
-  const codigosLinkedinUnicos = useMemo(() => {
-  const setCodigosLinkedin = new Set<string>();
-  leadsMapeados.forEach((lead) => {
-    if (lead.codigoLinkedin && lead.codigoLinkedin !== "-") {
-      setCodigosLinkedin.add(lead.codigoLinkedin);
-    }
-  });
-  return Array.from(setCodigosLinkedin).sort();
-  }, [leadsMapeados]);
-
-  const asesoresUnicos = useMemo(() => {
-  const setAsesores = new Set<string>();
-  leadsMapeados.forEach((lead) => {
-    if (lead.asesor && lead.asesor !== "-") {
-      setAsesores.add(lead.asesor);
-    }
-  });
-  return Array.from(setAsesores).sort();
-  }, [leadsMapeados]);
-
-  const paisesUnicos = useMemo(() => {
-    const paises = new Set<string>();
-    leadsMapeados.forEach((lead) => {
-      if (lead.pais && lead.pais !== "-") {
-        paises.add(lead.pais);
-      }
-    });
-    return Array.from(paises).sort();
-  }, [leadsMapeados]);
-
-  const leadsFiltrados = useMemo(() => {
-    let filtrados = [...leadsMapeados];
-
-    if (searchText.trim()) {
-      const busqueda = searchText.toLowerCase();
-      filtrados = filtrados.filter(
-        (l) =>
-          l.nombre.toLowerCase().includes(busqueda) ||
-          l.origen.toLowerCase().includes(busqueda) ||
-          l.codigoLanzamiento.toLowerCase().includes(busqueda) ||
-          l.codigoLinkedin.toLowerCase().includes(busqueda) ||
-          l.id.toString().includes(busqueda)
-      );
-    }
-
-    if (filterCodigoLanzamiento !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.codigoLanzamiento === filterCodigoLanzamiento);
-    }
-    
-    if (filterCodigoLinkedin !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.codigoLinkedin === filterCodigoLinkedin);
-    }
-
-    if (filterEstado !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.estado === filterEstado);
-    }
-
-    if (filterOrigen !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.origen === filterOrigen);
-    }
-
-    if (filterPais !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.pais === filterPais);
-    }
-    if (filterAsesor !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.asesor === filterAsesor);
-    }
-
-    if (dateRange && dateRange[0] && dateRange[1]) {
-      const fechaInicio = dateRange[0].startOf("day");
-      const fechaFin = dateRange[1].endOf("day");
-      filtrados = filtrados.filter((lead) => {
-        const fechaCreacion = dayjs(lead.fechaFormulario);
-        return (
-          (fechaCreacion.isAfter(fechaInicio) ||
-            fechaCreacion.isSame(fechaInicio, "day")) &&
-          (fechaCreacion.isBefore(fechaFin) ||
-            fechaCreacion.isSame(fechaFin, "day"))
-        );
-      });
-    }
-
-    return filtrados;
-  }, [
-    leadsMapeados,
-    searchText,
-    filterEstado,
-    filterCodigoLanzamiento,
-    filterCodigoLinkedin,
-    filterOrigen,
-    filterPais,
-    filterAsesor,
-    dateRange,
-  ]);
-
-  const columns: ColumnsType<Lead> = useMemo(
+  const columns: ColumnsType<LeadTabla> = useMemo(
     () => [
       {
         title: "IdLead",
@@ -643,14 +671,14 @@ const getUserIdFromToken = () => {
             color = "blue";
           } else if (estado === "Registrado") {
             color = "blue";
+          } else if (estado === "Potencial") {
+            color = "blue";
           } else if (estado === "Promesa") {
-            color = "gold";
+            color = "blue";
           } else if (estado === "No calificado" || estado === "Perdido") {
             color = "red";
           } else if (estado === "Matriculado" || estado === "Cliente") {
             color = "green";
-          } else if (estado === "Pendiente") {
-            color = "orange";
           }
 
           return (
@@ -675,6 +703,64 @@ const getUserIdFromToken = () => {
         key: "pais",
         sorter: (a, b) => (a.pais || "").localeCompare(b.pais || ""),
       },
+      {
+        title: "Total Marcaciones",
+        dataIndex: "totalMarcaciones",
+        key: "totalMarcaciones",
+        sorter: (a: LeadTabla, b: LeadTabla) =>
+          (a.totalMarcaciones ?? 0) - (b.totalMarcaciones ?? 0),
+        render: (totalMarcaciones: number) => (
+          <span>
+            {typeof totalMarcaciones === "number" ? totalMarcaciones : "-"}
+          </span>
+        ),
+        align: "center",
+        width: 140,
+      },
+      {
+        title: "Recordatorio",
+        key: "recordatorios",
+        width: 240,
+        render: (_: any, record: LeadTabla) =>
+          !record.recordatorios || record.recordatorios.length === 0 ? (
+            "-"
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {record.recordatorios
+                .filter(Boolean)
+                .sort(
+                  (a: string, b: string) =>
+                    new Date(a).getTime() - new Date(b).getTime()
+                )
+                .slice(0, 3)
+                .map((r: string, i: number) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      backgroundColor: getReminderColor(r),
+                      color: "#ffffff",
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <FileTextOutlined style={{ fontSize: "12px" }} />
+                    {new Date(r).toLocaleDateString("es-ES")}{" "}
+                    {new Date(r).toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
+                  </div>
+                ))}
+            </div>
+          ),
+      },
+
       {
         title: "Fecha Creación",
         dataIndex: "fechaCreacion",
@@ -758,22 +844,32 @@ const getUserIdFromToken = () => {
           );
         },
       },
+      {
+        title: "Acciones",
+        key: "actions",
+        align: "center",
+        render: (_: any, record: Lead) => (
+          <Tooltip title="Ver Detalle">
+            <Button
+              type="primary"
+              icon={<EyeOutlined />}
+              size="small"
+              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+              onClick={() => handleClick(record.id)}
+            />
+          </Tooltip>
+        ),
+      },
     ],
     []
   );
 
-  const rowSelection = useMemo(
-    () => ({
-      selectedRowKeys: selectedRows.map((row) => row.id),
-      onChange: (_selectedRowKeys: React.Key[], selectedRowsData: Lead[]) => {
-        setSelectedRows(selectedRowsData);
-      },
-      getCheckboxProps: (record: Lead) => ({
-        name: record.id.toString(),
-      }),
-    }),
-    [selectedRows]
-  );
+  const rowSelection = {
+    selectedRowKeys: selectedRows.map((r) => r.id),
+    onChange: (_: React.Key[], rows: LeadTabla[]) => {
+      setSelectedRows(rows);
+    },
+  };
 
   const hayOportunidadesConAsesor = selectedRows.some(
     (l) => (l.asesor ?? "").trim() !== ""
@@ -832,88 +928,131 @@ const getUserIdFromToken = () => {
         {/* Filtros - Abajo */}
         <div className={estilos.filtersRow}>
           <Select
+            {...SELECT_PROPS}
             value={filterAsesor}
             onChange={setFilterAsesor}
-            className={estilos.filterSelect}
             placeholder="Seleccionar asesor"
+            allowClear
           >
             <Option value="Todos">Todos los asesores</Option>
-            {asesoresUnicos.map((a) => (
-              <Option key={a} value={a}>
-                {a}
+            <Option value="__SIN_ASESOR__">Sin asesor</Option>
+
+            {asesores.map((a) => (
+              <Option key={a.idUsuario} value={a.nombre}>
+                {a.nombre}
               </Option>
             ))}
           </Select>
+
           <Select
+            {...SELECT_PROPS}
             value={filterCodigoLinkedin}
             onChange={setFilterCodigoLinkedin}
             className={estilos.filterSelect}
-            placeholder="Seleccionar codigo Linkedin"
+            placeholder="Seleccionar código Linkedin"
+            loading={loadingCodigos}
+            allowClear
           >
-            <Option value="Todos">Todos codigos Linkedin</Option>
-            {codigosLinkedinUnicos.map((codigoLinkedin) => (
-              <Option key={codigoLinkedin} value={codigoLinkedin}>
-                {codigoLinkedin}
+            <Option value="Todos">Todos códigos Linkedin</Option>
+            {codigosLinkedin.map((codigo) => (
+              <Option key={codigo} value={codigo}>
+                {codigo}
               </Option>
             ))}
           </Select>
-          
+
           <Select
+            {...SELECT_PROPS}
             value={filterCodigoLanzamiento}
             onChange={setFilterCodigoLanzamiento}
             className={estilos.filterSelect}
-            placeholder="Seleccionar codigo lanzamiento"
+            placeholder="Seleccionar código lanzamiento"
+            loading={loadingCodigos}
+            allowClear
           >
-            <Option value="Todos">Todos codigos lanzamiento</Option>
-            {codigoLanzamientoUnicos.map((codigoLanzamiento) => (
-              <Option key={codigoLanzamiento} value={codigoLanzamiento}>
-                {codigoLanzamiento}
+            <Option value="Todos">Todos códigos lanzamiento</Option>
+            {codigosLanzamiento.map((codigo) => (
+              <Option key={codigo} value={codigo}>
+                {codigo}
               </Option>
             ))}
           </Select>
+
           <Select
-            value={filterEstado}
-            onChange={setFilterEstado}
+            {...SELECT_PROPS}
+            mode="multiple"
+            value={Array.isArray(filterEstado) ? filterEstado : []}
+            onChange={(values: string[]) => {
+              if (!values || values.length === 0) {
+                setFilterEstado("Todos");
+                return;
+              }
+              if (values.includes("Todos")) {
+                setFilterEstado("Todos");
+              } else {
+                setFilterEstado(values);
+              }
+            }}
             className={estilos.filterSelect}
-            placeholder="Seleccionar estado"
+            placeholder="Todos los estados"
+            allowClear
+            maxTagCount="responsive"
+            filterOption={(input, option) =>
+              (option?.children as unknown as string).toLowerCase().includes(input.toLowerCase())
+            }
           >
             <Option value="Todos">Todos los estados</Option>
-            {estadosUnicos.map((estado) => (
-              <Option key={estado} value={estado}>
-                {estado}
+            {ESTADOS.map((e) => (
+              <Option key={e} value={e}>
+                {e}
               </Option>
             ))}
           </Select>
+
           <Select
+            {...SELECT_PROPS}
             value={filterOrigen}
             onChange={setFilterOrigen}
-            className={estilos.filterSelect}
-            placeholder="Seleccionar origen"
           >
             <Option value="Todos">Todos los orígenes</Option>
-            {origenesUnicos.map((origen) => (
-              <Option key={origen} value={origen}>
-                {origen}
+            {ORIGENES.map((o) => (
+              <Option key={o} value={o}>
+                {o}
               </Option>
             ))}
           </Select>
           <Select
-            value={filterPais}
-            onChange={setFilterPais}
+            mode="multiple"
+            showSearch
+            value={filterPais === "Todos" ? [] : filterPais}
+            onChange={(values) => {
+              if (!values || values.length === 0) {
+                setFilterPais("Todos");
+                return;
+              }
+              setFilterPais(values);
+            }}
             className={estilos.filterSelect}
-            placeholder="Seleccionar país"
+            placeholder="Todos los países"
+            allowClear
+            loading={loadingPaises}
+            virtual={false}
+            maxTagCount="responsive"
+            filterOption={(input: string, option: any) =>
+              optionToString(option).toLowerCase().includes(input.toLowerCase())
+            }
           >
-            <Option value="Todos">Todos los países</Option>
-            {paisesUnicos.map((pais) => (
-              <Option key={pais} value={pais}>
-                {pais}
+            {paises.map((p) => (
+              <Option key={p.id} value={p.nombre}>
+                {p.nombre}
               </Option>
             ))}
           </Select>
+
           <RangePicker
             value={dateRange}
             onChange={(dates) =>
-              setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
+              setDateRange(dates as [Moment | null, Moment | null] | null)
             }
             format="DD/MM/YYYY"
             placeholder={["Fecha inicio", "Fecha fin"]}
@@ -930,22 +1069,24 @@ const getUserIdFromToken = () => {
             <>
               <Table
                 columns={columns}
-                dataSource={leadsFiltrados}
-                rowKey="id"
                 rowSelection={rowSelection}
+                dataSource={leadsMapeados}
+                rowKey="id"
                 pagination={{
                   current: currentPage,
-                  pageSize: pageSize,
+                  pageSize,
+                  total, // 🔥 ESTE ES CLAVE
                   showSizeChanger: true,
                   pageSizeOptions: ["10", "20", "50", "100"],
-                  onChange: (page, newPageSize) => {
+                  onChange: (page, size) => {
                     setCurrentPage(page);
-                    if (typeof newPageSize === "number") setPageSize(newPageSize);
+                    setPageSize(size ?? 10);
                   },
-                  showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
-                  hideOnSinglePage: true
+                  showTotal: (total, range) =>
+                    `${range[0]}-${range[1]} de ${total}`,
                 }}
               />
+
               {selectedRows.length > 0 && (
                 <div className={estilos.selectionInfo}>
                   {selectedRows.length} Oportunidades seleccionadas
@@ -987,11 +1128,19 @@ const getUserIdFromToken = () => {
               <Spin />
             ) : (
               <Select
-                value={asesorDestino}
+                showSearch
+                value={asesorDestino ?? undefined}
                 onChange={setAsesorDestino}
                 placeholder="Selecciona un asesor"
                 className={estilosModal.select}
                 size="large"
+                virtual={false}
+                filterOption={(input, option) =>
+                  (option?.children as unknown as string)
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+                listHeight={200}
               >
                 {asesores.map((a) => (
                   <Option key={a.idUsuario} value={a.idUsuario}>
@@ -1011,7 +1160,6 @@ const getUserIdFromToken = () => {
                     Fecha<span style={{ color: "#ff4d4f" }}>*</span>
                   </span>
                 }
-                required
                 style={{ flex: 1 }}
               >
                 <DatePicker
@@ -1029,7 +1177,6 @@ const getUserIdFromToken = () => {
                     Hora<span style={{ color: "#ff4d4f" }}>*</span>
                   </span>
                 }
-                required
                 style={{ flex: 1 }}
               >
                 <TimePicker
@@ -1205,7 +1352,7 @@ const getUserIdFromToken = () => {
               showTime
               value={importRange}
               onChange={(dates) =>
-                setImportRange(dates as [Dayjs | null, Dayjs | null] | null)
+                setImportRange(dates as [Moment | null, Moment | null] | null)
               }
               format="DD/MM/YYYY HH:mm"
               style={{ width: "100%" }}

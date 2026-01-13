@@ -59,7 +59,6 @@ html, body, #root {
 }
 
 /* ===== DEBUG POPUPS ANT DESIGN (SOLO PARA PRUEBA) ===== */
-.ant-select-dropdown,
 .ant-tooltip,
 .ant-notification {
   display: block !important;

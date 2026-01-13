@@ -89,7 +89,7 @@ const ModalInversion: React.FC<Props> = ({
       const decoded: JwtPayload = JSON.parse(jsonPayload);
       return (
         decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
         ] || "SYSTEM"
       );
     } catch {
@@ -143,7 +143,7 @@ const ModalInversion: React.FC<Props> = ({
     } catch (error: any) {
       setErrorModal(
         error?.response?.data?.message ||
-          "Error al guardar la inversión"
+        "Error al guardar la inversión"
       );
     } finally {
       setLoading(false);
@@ -158,14 +158,12 @@ const ModalInversion: React.FC<Props> = ({
       width={520}
       centered
       closeIcon={<CloseOutlined />}
-      styles={{
-        body: {
-          padding: 16,
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          fontSize: 13,
-        },
+      bodyStyle={{
+        padding: 16,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        fontSize: 13,
       }}
     >
       <Title level={5} style={{ textAlign: "center", marginBottom: 8 }}>
