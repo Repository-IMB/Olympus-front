@@ -118,10 +118,10 @@ const obtenerNombreCompletoDia = (numero: string): string => {
 export default function DetalleModulo() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  
+
   const [modulo, setModulo] = useState<IModulo | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [modalAsociarProductoVisible, setModalAsociarProductoVisible] = useState(false);
   const [formAsociarProducto] = Form.useForm();
@@ -158,7 +158,7 @@ export default function DetalleModulo() {
   const handleSubmitModalEditar = async (values: any) => {
     try {
       if (modulo) {
-        await actualizarModulo(modulo.id!, values, modulo);
+        await actualizarModulo(modulo.id!, values, true);
         message.success("Módulo actualizado correctamente");
         await cargarModulo(); // Recargar datos
       }
@@ -432,7 +432,7 @@ export default function DetalleModulo() {
   const moduloParaEditar = {
     ...modulo,
     modulo: modulo.nombre,
-    diasClase: modulo.diasSemana ? modulo.diasSemana.split(',').map(d => d.trim()) : []
+    // diasClase: modulo.diasSemana ? modulo.diasSemana.split(',').map(d => d.trim()) : []
   };
 
   return (
@@ -452,28 +452,28 @@ export default function DetalleModulo() {
 
         <div className={styles.infoList}>
           <Item label="ID" value={modulo.id} />
-          <Item label="Código del módulo" value={modulo.codigoModulo || '-'} />
+          <Item label="Código del módulo" value={modulo.codigo || '-'} />
           <Item label="Título del certificado" value={modulo.tituloCertificado || '-'} />
           <Item label="Descripción" value={modulo.descripcion || '-'} />
           <Item label="Fecha de presentación" value={modulo.fechaPresentacion || '-'} />
-          <Item label="Fecha final" value={modulo.fechaFinal || '-'} />
-          <Item label="Horas sincrónicas" value={modulo.horasVivo || 0} />
+          <Item label="Fecha final" value={modulo.fechaFinPorSesiones || '-'} />
+          <Item label="Horas sincrónicas" value={modulo.horasSincronicas || 0} />
           <Item label="Horas asincrónicas" value={modulo.horasAsincronicas || 0} />
           <Item label="Días de clase" value={diasClaseNombres} />
           <Item label="Código de producto relacionado" value={modulo.productosCodigoLanzamiento || '-'} />
-          <Item 
-            label="Estado" 
+          <Item
+            label="Estado"
             value={<Tag color={modulo.estado ? 'green' : 'red'}>
               {modulo.estado ? 'Activo' : 'Inactivo'}
-            </Tag>} 
+            </Tag>}
           />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
-          <Button 
+          <Button
             icon={<EditOutlined />}
             size="large"
-            style={{ 
+            style={{
               backgroundColor: '#1f1f1f',
               borderColor: '#1f1f1f',
               color: 'white',
@@ -485,10 +485,10 @@ export default function DetalleModulo() {
           >
             Editar
           </Button>
-          <Button 
+          <Button
             icon={<PrinterOutlined />}
             size="large"
-            style={{ 
+            style={{
               backgroundColor: '#1f1f1f',
               borderColor: '#1f1f1f',
               color: 'white',
@@ -504,18 +504,18 @@ export default function DetalleModulo() {
 
       {/* PRODUCTOS ASOCIADOS AL MÓDULO */}
       <Card style={{ marginBottom: 16 }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 16 
+          marginBottom: 16
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
             Productos asociados al módulo ({productosAsociados.length})
           </h4>
-          <Button 
+          <Button
             type="primary"
-            style={{ 
+            style={{
               backgroundColor: '#1f1f1f',
               borderColor: '#1f1f1f',
               color: 'white'
@@ -537,18 +537,18 @@ export default function DetalleModulo() {
 
       {/* DOCENTES ASOCIADOS AL MÓDULO */}
       <Card style={{ marginBottom: 16 }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 16 
+          marginBottom: 16
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
             Docentes asociados al módulo
           </h4>
-          <Button 
+          <Button
             type="primary"
-            style={{ 
+            style={{
               backgroundColor: '#1f1f1f',
               borderColor: '#1f1f1f',
               color: 'white'
@@ -570,19 +570,19 @@ export default function DetalleModulo() {
 
       {/* CRONOGRAMA DE SESIONES EN VIVO */}
       <Card>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 16 
+          marginBottom: 16
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
             Cronograma de sesiones ({sesionesVivo.length})
           </h4>
           <Space>
-            <Button 
+            <Button
               type="primary"
-              style={{ 
+              style={{
                 backgroundColor: '#1f1f1f',
                 borderColor: '#1f1f1f',
                 color: 'white'
@@ -590,8 +590,8 @@ export default function DetalleModulo() {
             >
               Imprimir cronograma de clases
             </Button>
-            <Button 
-              style={{ 
+            <Button
+              style={{
                 backgroundColor: '#1f1f1f',
                 borderColor: '#1f1f1f',
                 color: 'white'
@@ -723,8 +723,8 @@ export default function DetalleModulo() {
         visible={modalEditarProductoVisible}
         producto={productoEditando}
         departamentos={departamentos}
-        modalidades={modalidad}
-        estados={estados}
+        tiposEstadoProducto={[]}
+        modo="editar"
         onCancel={() => {
           setModalEditarProductoVisible(false);
           setProductoEditando(null);

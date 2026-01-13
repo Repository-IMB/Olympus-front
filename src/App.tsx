@@ -1,153 +1,196 @@
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { useEffect, useRef } from 'react';
-import { getCookie } from './utils/cookies';
-import LoginPage from './paginas/Login/Login'
-import Dashboard from './paginas/Inicio/Dashboard' // crea este componente o usa uno temporal
-import { PrivateRoute } from './componentes/PrivateRoute' // como te di antes
-import OpportunitiesInterface from './paginas/Opportunities/Opportunities'
-import CRMSalesProcess from './paginas/SalesProcess/SalesProcess'
-import MainLayout from './layouts/MainLayout';
-import Leads from './paginas/Leads/Leads';
-import Oportunidad from './paginas/Leads/Oportunidad';
-import Asignacion from './paginas/Leads/Asignacion';
-import CreateClient from './paginas/CreateClient/CreateClient';
-import CreateOpportunity from './paginas/CreateOpportunity/CreateOpportunity';
-import SelectClient from './paginas/SelectClient/SelectClient';
-import Usuarios from './paginas/Usuarios/Usuarios';
-import Departamentos from './paginas/Departamentos/Departamentos';
-import Docentes from './paginas/Docentes/Docentes';
-import Modulos from './paginas/Modulos/Modulos';
-import Alumnos from './paginas/Alumnos/Alumnos';
-import Productos from './paginas/Productos/Productos';
-import DetalleProducto from './paginas/Productos/DetalleProducto';
-import DetalleModulo from './paginas/Modulos/DetalleModulo';
+import {
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+  Outlet,
+} from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { getCookie } from "./utils/cookies";
+
+// Públicas
+import LoginPage from "./paginas/Login/Login";
+import ForgotPasswordPage from "./paginas/ForgotPassword/ForgotPasswordPage";
+import ResetPasswordPage from "./paginas/ResetPassword/ResetPasswordPage";
+import Forbidden from "./paginas/Forbidden";
+
+// Layout / guards
+import MainLayout from "./layouts/MainLayout";
+import { PrivateRoute } from "./componentes/PrivateRoute";
+import ProtectedContent from "./routes/ProtectedContent";
+
+// Leads (todo lo que cuelga de oportunidades)
+import OpportunitiesInterface from "./paginas/Opportunities/Opportunities";
+import CRMSalesProcess from "./paginas/SalesProcess/SalesProcess";
+import Leads from "./paginas/Leads/Leads";
+import Oportunidad from "./paginas/Leads/Oportunidad";
+import Asignacion from "./paginas/Leads/Asignacion";
+import CreateClient from "./paginas/CreateClient/CreateClient";
+import CreateOpportunity from "./paginas/CreateOpportunity/CreateOpportunity";
+import SelectClient from "./paginas/SelectClient/SelectClient";
+
+// Usuarios
+import Usuarios from "./paginas/Usuarios/Usuarios";
+
+// Producto
+import Departamentos from "./paginas/Departamentos/Departamentos";
+import Docentes from "./paginas/Docentes/Docentes";
+import Modulos from "./paginas/Modulos/Modulos";
+import Alumnos from "./paginas/Alumnos/Alumnos";
+import Productos from "./paginas/Productos/Productos";
+import DetalleProducto from "./paginas/Productos/DetalleProducto";
+import DetalleModulo from "./paginas/Modulos/DetalleModulo";
 import DetalleAlumno from "./paginas/Alumnos/DetalleAlumno";
-
-
 
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /* ================= TOKEN ================= */
   useEffect(() => {
     interface JwtPayload {
       exp?: number;
-      [key: string]: any;
     }
 
-    function parseJwt(token: string): JwtPayload | null {
+    const parseJwt = (token: string): JwtPayload | null => {
       try {
-        const base64Url: string = token.split('.')[1];
-        const base64: string = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload: string = decodeURIComponent(
-          atob(base64)
-            .split('')
-            .map(function (c: string) {
-              return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            })
-            .join('')
-        );
-        return JSON.parse(jsonPayload) as JwtPayload;
-      } catch (e) {
+        return JSON.parse(atob(token.split(".")[1]));
+      } catch {
         return null;
       }
-    }
+    };
 
-    interface RemoveCookieOptions {
-      path?: string;
-      domain?: string;
-    }
+    const publicRoutes = ["/login", "/forgot-password", "/reset-password"];
 
-    function removeCookie(name: string, options?: RemoveCookieOptions): void {
-      let cookieString = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-      if (options?.domain) {
-        cookieString += ` domain=${options.domain};`;
-      }
-      if (options?.path) {
-        cookieString += ` path=${options.path};`;
-      }
-      document.cookie = cookieString;
-    }
+    const logout = () => {
+      document.cookie =
+        "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      navigate("/login");
+    };
 
-    // Rutas públicas que no requieren token
-    const publicRoutes = ['/login'];
-
-    function checkToken() {
-      const token = getCookie('token');
-      const isPublic = publicRoutes.some((r) => location.pathname.startsWith(r));
+    const checkToken = () => {
+      const token = getCookie("token");
+      const isPublic = publicRoutes.some((r) =>
+        location.pathname.startsWith(r)
+      );
 
       if (!token) {
-        if (!isPublic) navigate('/login');
+        if (!isPublic) logout();
         return;
       }
 
       const payload = parseJwt(token);
-      if (!payload || !payload.exp) {
-        removeCookie('token');
-        if (!isPublic) navigate('/login');
+      if (!payload?.exp) {
+        logout();
         return;
       }
 
       const now = Math.floor(Date.now() / 1000);
       if (payload.exp < now) {
-        removeCookie('token');
-        if (!isPublic) navigate('/login');
+        logout();
         return;
       }
 
-      // Si tienes un token y estás intentando acceder a una ruta pública, redirige al dashboard
+      // Si está logueado y entra a login -> manda al home privado
       if (isPublic) {
-        navigate('/leads/SalesProcess', { replace: true });
+        navigate("/", { replace: true });
       }
 
-      // Set timer to auto logout when token expires
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        removeCookie('token');
-        if (!isPublic) navigate('/login');
-      }, (payload.exp - now) * 1000);
-    }
+      timerRef.current = setTimeout(logout, (payload.exp - now) * 1000);
+    };
 
     checkToken();
     const interval = setInterval(checkToken, 2000);
+
     return () => {
       clearInterval(interval);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [location, navigate]);
 
+  /* ================= ROUTES ================= */
   return (
     <Routes>
+      {/* Públicas */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/403" element={<Forbidden />} />
 
+      {/* Privadas */}
       <Route element={<PrivateRoute />}>
         <Route element={<MainLayout />}>
-          <Route path="/leads/Opportunities" element={<OpportunitiesInterface />} />
-          <Route path="/leads/SalesProcess" element={<CRMSalesProcess />} />
-          <Route path="/leads/CreateClient" element={<CreateClient />} />
-          <Route path="/leads/CreateOpportunity" element={<CreateOpportunity />} />
-          <Route path="/leads/SelectClient" element={<SelectClient />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/leads/oportunidades/:id" element={<Leads />} />
-          <Route path="/leads/oportunidad/:id" element={<Oportunidad />} />
-          <Route path="/leads/asignacion" element={<Asignacion />} />
-          <Route path="/usuarios/usuarios" element={<Usuarios />} />
-          <Route path="/producto/departamentos" element={<Departamentos />} />
-          <Route path="/producto/docentes" element={<Docentes />} />
-          <Route path="/producto/modulos" element={<Modulos />} />
-          <Route path="/producto/alumnos" element={<Alumnos />} />
-          <Route path="/producto/productos" element={<Productos />} />
-          <Route path="/producto/productos/detalle/:id" element={<DetalleProducto />} />
-          <Route path="/producto/modulos/detalle/:id" element={<DetalleModulo />} />
-          <Route path="/producto/alumnos/detalle/:id" element={<DetalleAlumno />} />
+          {/* Home privado: por defecto manda a Leads (si no tiene, ProtectedContent se encarga) */}
+          <Route path="/" element={<Navigate to="/leads/SalesProcess" replace />} />
+
+          {/* ======================= LEADS (BLOQUE COMPLETO) ======================= */}
+          <Route
+            path="/leads/*"
+            element={
+              <ProtectedContent permiso="leads">
+                <Outlet />
+              </ProtectedContent>
+            }
+          >
+            <Route path="SalesProcess" element={<CRMSalesProcess />} />
+            <Route path="Opportunities" element={<OpportunitiesInterface />} />
+
+            <Route path="CreateClient" element={<CreateClient />} />
+            <Route path="CreateOpportunity" element={<CreateOpportunity />} />
+            <Route path="SelectClient" element={<SelectClient />} />
+
+            <Route path="oportunidades/:id" element={<Leads />} />
+            <Route path="oportunidad/:id" element={<Oportunidad />} />
+
+            {/* Asignación: permiso aparte */}
+            <Route
+              path="asignacion"
+              element={
+                <ProtectedContent permiso="asignacion">
+                  <Asignacion />
+                </ProtectedContent>
+              }
+            />
+          </Route>
+
+          {/* ======================= PRODUCTO (BLOQUE) ======================= */}
+          <Route
+            path="/producto/*"
+            element={
+              <ProtectedContent permiso="desarrollo">
+                <Outlet />
+              </ProtectedContent>
+            }
+          >
+            <Route path="departamentos" element={<Departamentos />} />
+            <Route path="docentes" element={<Docentes />} />
+            <Route path="modulos" element={<Modulos />} />
+            <Route path="alumnos" element={<Alumnos />} />
+            <Route path="productos" element={<Productos />} />
+            <Route path="productos/detalle/:id" element={<DetalleProducto />} />
+            <Route path="modulos/detalle/:id" element={<DetalleModulo />} />
+            <Route path="alumnos/detalle/:id" element={<DetalleAlumno />} />
+          </Route>
+
+          {/* ======================= USUARIOS ======================= */}
+          <Route
+            path="/usuarios/usuarios"
+            element={
+              <ProtectedContent permiso="usuarios">
+                <Usuarios />
+              </ProtectedContent>
+            }
+          />
         </Route>
       </Route>
 
-      {/* Redirige la raíz a login */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/403" replace />} />
     </Routes>
   );
 }
 
-export default App
+export default App;

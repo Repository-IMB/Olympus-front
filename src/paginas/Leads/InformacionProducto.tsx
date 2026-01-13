@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Card, Divider, Space, Typography, Row, Col, Spin } from "antd";
 import { RightOutlined } from "@ant-design/icons";
-import axios from "axios";
 import { getCookie } from "../../utils/cookies";
 import ModalHorarios from "./InformacionProductoModales/ModalHorarios";
 import ModalInversion from "./InformacionProductoModales/ModalInversion";
@@ -54,6 +53,8 @@ interface Producto {
   fechaPresentacion: string | null;
   datosImportantes: string;
   estado: boolean;
+  costoBase: number | null;
+  brochure: string | null;
   fechaCreacion: string;
   usuarioCreacion: string;
   fechaModificacion: string;
@@ -182,9 +183,10 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
   const [docentesInicializados, setDocentesInicializados] = useState(false);
   const [loading, setLoading] = useState(false);
   const [descuentoTemporal, setDescuentoTemporal] = useState<number | null>(null);
+  const [tabSeleccionado, setTabSeleccionado] = useState(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
-  const tabs = ["Producto actual", "Productos del área", "Otras áreas"];
+  const tabs = ["Producto actual", "Speech", "Ver brochure"];
 
 
   // Función para formatear fechas de ISO a DD-MM-YYYY
@@ -204,7 +206,7 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
   // Función para cargar los datos del producto
   const cargarDatosProducto = async (mantenerDocentesSeleccionados: boolean = false) => {
     if (!oportunidadId) {
-      console.warn("⚠️ No hay ID de oportunidad disponible para InformacionProducto");
+      // console.warn("⚠️ No hay ID de oportunidad disponible para InformacionProducto");
       return;
     }
 
@@ -221,10 +223,6 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
       const res = await api.get<ProductoDetalleResponse>(`/api/VTAModVentaProducto/DetallePorOportunidad/${oportunidadId}`, {
         headers: { Authorization: `Bearer ${token}` }, // opcional si tu interceptor ya lo añade
       });
-
-      console.log("🔄 Datos recibidos del API:", res.data);
-      console.log("💰 Inversiones recibidas:", res.data.inversiones);
-
       setProductoData(res.data.producto);
       setHorariosData(res.data.horarios || []);
       setInversionesData(res.data.inversiones || []);
@@ -242,7 +240,7 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
           }
         }
       } catch (err) {
-        console.debug("no fue posible dispatch evento costoOfrecidoActualizado", err);
+        // console.debug("no fue posible dispatch evento costoOfrecidoActualizado", err);
       }
 
       setEstructurasData(res.data.estructuras || []);
@@ -252,9 +250,7 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
       setBeneficiosData(res.data.beneficios || []);
       setDocentesData(res.data.docentesPorModulo || []);
     } catch (err: any) {
-      console.error("❌ Error al obtener datos del producto:", err?.response?.data ?? err.message);
-      // Puedes propagar o setear un estado de error si lo necesitas:
-      // setErrorState(err?.response?.data?.message ?? err.message ?? "Error al cargar producto");
+      // console.error("❌ Error al obtener datos del producto:", err?.response?.data ?? err.message);
     } finally {
       setLoading(false);
     }
@@ -265,6 +261,41 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
   useEffect(() => {
     cargarDatosProducto();
   }, [oportunidadId]);
+
+
+  // Manejar clic en tabs
+  const handleTabClick = (index: number) => {
+    setTabSeleccionado(index);
+
+    // Si se selecciona "Speech" (índice 1), emitir evento para mostrar speech
+    if (index === 1) {
+      window.dispatchEvent(
+        new CustomEvent("mostrarSpeech", {
+          detail: { productoId: productoData?.id },
+        })
+      );
+    }
+    // Si se selecciona "Ver brochure" (índice 2) y hay URL de brochure, emitir evento
+    else if (index === 2 && productoData?.brochure) {
+      window.dispatchEvent(
+        new CustomEvent("mostrarBrochure", {
+          detail: { brochureUrl: productoData.brochure },
+        })
+      );
+    } else {
+      // Si se selecciona otro tab, ocultar el brochure y speech
+      window.dispatchEvent(
+        new CustomEvent("ocultarBrochure", {
+          detail: {},
+        })
+      );
+      window.dispatchEvent(
+        new CustomEvent("ocultarSpeech", {
+          detail: {},
+        })
+      );
+    }
+  };
 
   const detalles: Array<[string, string]> = [
     ["Nombre producto:", productoData?.nombre || "-"],
@@ -347,19 +378,6 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
     }
 
     const tieneDescuento = porcentajeDescuento > 0;
-
-    console.log("📊 Datos de inversión en vista previa:", {
-      costoBase,
-      porcentajeDescuento,
-      costoConDescuento,
-      costoOfrecidoDelBackend: inversion.costoOfrecido,
-      tieneDescuento,
-      descuentoTemporal,
-      descuentoGuardado: inversion.descuentoPorcentaje,
-      usandoDescuentoTemporal: descuentoTemporal !== null,
-      inversionCompleta: inversion
-    });
-
     return {
       costoBase,
       porcentajeDescuento,
@@ -467,18 +485,31 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
           {tabs.map((tab, i) => (
             <Col flex={1} key={tab}>
               <Card
+                onClick={() => handleTabClick(i)}
                 style={{
-                  background: i === 0 ? "#252C35" : "#FFFFFF",
+                  background: i === tabSeleccionado ? "#252C35" : "#FFFFFF",
                   textAlign: "center",
                   borderRadius: 8,
                   boxShadow: "1px 1px 2px rgba(0,0,0,0.12)",
-                  border: i === 0 ? "none" : "1px solid #EAEAEA",
+                  border: i === tabSeleccionado ? "none" : "1px solid #EAEAEA",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
                 }}
                 bodyStyle={{ padding: "6px 8px" }}
+                onMouseEnter={(e) => {
+                  if (i !== tabSeleccionado) {
+                    e.currentTarget.style.background = "#F5F5F5";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (i !== tabSeleccionado) {
+                    e.currentTarget.style.background = "#FFFFFF";
+                  }
+                }}
               >
                 <Text
                   style={{
-                    color: i === 0 ? "#FFFFFF" : "#0D0C11",
+                    color: i === tabSeleccionado ? "#FFFFFF" : "#0D0C11",
                     fontSize: 13,
                   }}
                 >
@@ -501,6 +532,7 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
               <Spin size="large" />
             </div>
           ) : (
+            /* === Contenido de Producto actual === */
             <div>
               <Space direction="vertical" style={{ width: "100%" }} size={4}>
               {detalles.map(([label, value]) => (

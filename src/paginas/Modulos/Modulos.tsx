@@ -12,7 +12,7 @@ import {
 } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useMemo, useState, useEffect } from "react";
-import dayjs, { Dayjs } from "dayjs";
+import moment, { type Moment } from "moment";
 import estilos from "./Modulos.module.css";
 import type { ColumnsType } from "antd/es/table";
 import {
@@ -23,12 +23,12 @@ import {
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import ModalModulo from "./ModalModulo";
-import { 
-  obtenerModulos, 
-  crearModulo, 
+import {
+  obtenerModulos,
+  crearModulo,
   actualizarModulo,
   obtenerModuloPorId,
-  type IModulo 
+  type IModulo
 } from "../../servicios/ModuloService";
 
 const { Option } = Select;
@@ -51,7 +51,7 @@ export default function Modulos() {
   const [searchText, setSearchText] = useState("");
   const [productoSeleccionado, setProductoSeleccionado] = useState<string>();
   const [dateRange, setDateRange] = useState<
-    [Dayjs | null, Dayjs | null] | null
+    [Moment | null, Moment | null] | null
   >(null);
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -88,8 +88,8 @@ export default function Modulos() {
       const coincideBusqueda =
         !busqueda ||
         m.nombre.toLowerCase().includes(busqueda) ||
-        (m.productosCodigoLanzamiento && 
-         m.productosCodigoLanzamiento.toLowerCase().includes(busqueda));
+        (m.productosCodigoLanzamiento &&
+          m.productosCodigoLanzamiento.toLowerCase().includes(busqueda));
 
       const coincideProducto =
         !productoSeleccionado ||
@@ -101,7 +101,7 @@ export default function Modulos() {
         const [inicio, fin] = dateRange;
         if (!inicio || !fin) return true;
 
-        const fechaModulo = dayjs(m.fechaCreacion);
+        const fechaModulo = moment(m.fechaCreacion);
 
         return (
           (fechaModulo.isAfter(inicio.startOf("day")) ||
@@ -135,7 +135,7 @@ export default function Modulos() {
       // Obtener el módulo completo con todos sus campos
       const moduloCompleto = await obtenerModuloPorId(modulo.id!);
       console.log('Módulo completo:', JSON.stringify(moduloCompleto, null, 2));
-      
+
       setModoEdicion(true);
       setModuloEditando(moduloCompleto); // ⬅️ Usar el módulo completo
       setModalVisible(true);
@@ -176,6 +176,11 @@ export default function Modulos() {
       setModalVisible(false);
       await cargarModulos();
     } catch (error: any) {
+      console.log('=== ERROR COMPLETO ===');
+      console.log('Response:', error?.response);
+      console.log('Data:', error?.response?.data);
+      console.log('====================');
+      
       const errorMsg = error?.response?.data?.message || "Error al guardar el módulo";
       message.error(errorMsg);
       console.error("Error:", error);
@@ -224,7 +229,7 @@ export default function Modulos() {
       title: "Fecha de creación",
       dataIndex: "fechaCreacion",
       key: "fechaCreacion",
-      render: (fecha: string) => dayjs(fecha).format("DD/MM/YYYY"),
+      render: (fecha: string) => moment(fecha).format("DD/MM/YYYY"),
     },
     {
       title: "Estado",
@@ -317,7 +322,7 @@ export default function Modulos() {
           <RangePicker
             value={dateRange}
             onChange={(dates) =>
-              setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
+              setDateRange(dates as [Moment | null, Moment | null] | null)
             }
             format="DD/MM/YYYY"
             placeholder={["Fecha inicio", "Fecha fin"]}

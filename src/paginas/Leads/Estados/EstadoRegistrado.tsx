@@ -6,6 +6,8 @@ import {
 } from "../../../config/rutasApi";
 import api from "../../../servicios/api";
 import { emitHistorialChanged } from "../../../utils/events";
+import { getCookie } from "../../../utils/cookies";
+import { jwtDecode } from "jwt-decode";
 
 const { Text } = Typography;
 
@@ -50,6 +52,26 @@ function useMountedRef() {
   return mounted;
 }
 
+const token = getCookie("token");
+
+const getUserIdFromToken = () => {
+  if (!token) return 0;
+
+  try {
+    const decoded: any = jwtDecode(token);
+
+    const id =
+      decoded[
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+      ];
+
+    return id ? Number(id) : 0;
+  } catch (e) {
+    console.error("Error decodificando token", e);
+    return 0;
+  }
+};
+
 export default function EstadoRegistrado({
   oportunidadId,
   usuario = "SYSTEM",
@@ -84,7 +106,11 @@ export default function EstadoRegistrado({
     setCreatingId(ocId);
 
     try {
-      await crearHistorialConOcurrencia(oportunidadId, ocId, usuario);
+      await crearHistorialConOcurrencia(
+        oportunidadId,
+        ocId,
+        Number(getUserIdFromToken())
+      );
 
       emitHistorialChanged({
         motivo: "crearHistorialConOcurrencia",

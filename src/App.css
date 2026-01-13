@@ -57,3 +57,12 @@ html, body, #root {
 .read-the-docs {
   color: #888;
 }
+
+/* ===== DEBUG POPUPS ANT DESIGN (SOLO PARA PRUEBA) ===== */
+.ant-tooltip,
+.ant-notification {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 999999 !important;
+}

@@ -19,7 +19,7 @@ import {
   CalendarOutlined,
   EyeOutlined,
 } from "@ant-design/icons";
-import dayjs from 'dayjs';
+import moment, { type Moment } from "moment";
 import styles from "./DetalleProducto.module.css";
 import { obtenerProductoPorId, obtenerTiposEstadoProducto, actualizarProducto } from "../../servicios/ProductoService";
 import type { Producto, TipoEstadoProducto } from "../../interfaces/IProducto";
@@ -67,15 +67,15 @@ export default function DetalleProducto() {
         const deptData = await obtenerDepartamentos();
         const deptFormateados = deptData.map((d: any) => ({ id: d.id, nombre: d.nombre }));
         setDepartamentos(deptFormateados);
-        
+
         // Cargar tipos de estado
         const tiposData = await obtenerTiposEstadoProducto();
         setTiposEstadoProducto(tiposData);
-        
+
         // Cargar todos los módulos disponibles
         const todosLosModulos = await obtenerModulos();
         setModulosDisponibles(todosLosModulos);
-        
+
         // Cargar producto
         if (id) {
           const productoData = await obtenerProductoPorId(Number(id));
@@ -130,12 +130,12 @@ export default function DetalleProducto() {
   // Función para obtener los días que hay clase
   const obtenerDiasConClase = (modulo: Modulo) => {
     if (!modulo || !modulo.fechaInicio || !modulo.fechaFinPorSesiones) return [];
-    
+
     const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-    const fechaInicio = dayjs(modulo.fechaInicio);
-    const fechaFin = dayjs(modulo.fechaFinPorSesiones);
+    const fechaInicio = moment(modulo.fechaInicio);
+    const fechaFin = moment(modulo.fechaFinPorSesiones);
     const diasConClase: string[] = [];
-    
+
     let fechaActual = fechaInicio;
     while (fechaActual.isBefore(fechaFin) || fechaActual.isSame(fechaFin, 'day')) {
       const diaSemana = diasSemana[fechaActual.day()];
@@ -144,7 +144,7 @@ export default function DetalleProducto() {
       }
       fechaActual = fechaActual.add(1, 'day');
     }
-    
+
     return diasConClase;
   };
 
@@ -189,7 +189,7 @@ export default function DetalleProducto() {
         const dateB = new Date(b.fechaInicio).getTime();
         return dateA - dateB;
       },
-      render: (fecha: string) => fecha ? dayjs(fecha).format('DD/MM/YYYY') : '-'
+      render: (fecha: string) => fecha ? moment(fecha).format('DD/MM/YYYY') : '-'
     },
     {
       title: 'Fecha de Fin',
@@ -201,7 +201,7 @@ export default function DetalleProducto() {
         const dateB = new Date(b.fechaFinPorSesiones).getTime();
         return dateA - dateB;
       },
-      render: (fecha: string) => fecha ? dayjs(fecha).format('DD/MM/YYYY') : '-'
+      render: (fecha: string) => fecha ? moment(fecha).format('DD/MM/YYYY') : '-'
     },
     {
       title: 'Estado',
@@ -223,7 +223,7 @@ export default function DetalleProducto() {
       align: 'center' as const,
       render: (_: unknown, record: Modulo) => (
         <Tooltip title="Ver Detalle">
-          <Button 
+          <Button
             type="primary"
             icon={<EyeOutlined />}
             onClick={(e) => {
@@ -231,7 +231,7 @@ export default function DetalleProducto() {
               if (!record.moduloId) return;
               navigate(`/producto/modulos/detalle/${record.moduloId}`);
             }}
-            style={{ 
+            style={{
               backgroundColor: '#1f1f1f',
               borderColor: '#1f1f1f'
             }}
@@ -248,7 +248,7 @@ export default function DetalleProducto() {
 
   modulos.forEach((modulo, index) => {
     if (!modulo.moduloId || typeof modulo.moduloId !== 'number') return;
-    
+
     const color = coloresModulos[index % coloresModulos.length];
     const dias = obtenerDiasConClase(modulo);
 
@@ -321,9 +321,9 @@ export default function DetalleProducto() {
                   {producto.estadisticas && producto.estadisticas.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {producto.estadisticas.map((stat: any, index: number) => (
-                        <div 
+                        <div
                           key={index}
-                          style={{ 
+                          style={{
                             padding: '8px 12px',
                             backgroundColor: '#f5f5f5',
                             borderRadius: 4,
@@ -345,9 +345,9 @@ export default function DetalleProducto() {
                   {producto.objetivos && producto.objetivos.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {producto.objetivos.map((obj: any, index: number) => (
-                        <div 
+                        <div
                           key={index}
-                          style={{ 
+                          style={{
                             padding: '8px 12px',
                             backgroundColor: '#f5f5f5',
                             borderRadius: 4,
@@ -366,10 +366,10 @@ export default function DetalleProducto() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
-              <Button 
+              <Button
                 icon={<EditOutlined />}
                 size="large"
-                style={{ 
+                style={{
                   backgroundColor: '#1f1f1f',
                   borderColor: '#1f1f1f',
                   color: 'white',
@@ -381,10 +381,10 @@ export default function DetalleProducto() {
               >
                 Editar
               </Button>
-              <Button 
+              <Button
                 icon={<CalendarOutlined />}
                 size="large"
-                style={{ 
+                style={{
                   backgroundColor: '#1f1f1f',
                   borderColor: '#1f1f1f',
                   color: 'white',
@@ -398,171 +398,171 @@ export default function DetalleProducto() {
             </div>
           </Card>
 
-      {/* =========================
+          {/* =========================
           TABLA DE MÓDULOS
          ========================= */}
-      <Card style={{ marginBottom: 16 }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: 16 
-        }}>
-          <h4 className={styles.title} style={{ margin: 0 }}>
-            Módulos del producto
-          </h4>
-          <Button 
-            type="primary"
-            style={{ 
-              backgroundColor: '#1f1f1f',
-              borderColor: '#1f1f1f',
-              color: 'white'
-            }}
-            onClick={() => setModalAsignarVisible(true)}
-          >
-            Asignar nuevo módulo al producto
-          </Button>
-        </div>
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16
+            }}>
+              <h4 className={styles.title} style={{ margin: 0 }}>
+                Módulos del producto
+              </h4>
+              <Button
+                type="primary"
+                style={{
+                  backgroundColor: '#1f1f1f',
+                  borderColor: '#1f1f1f',
+                  color: 'white'
+                }}
+                onClick={() => setModalAsignarVisible(true)}
+              >
+                Asignar nuevo módulo al producto
+              </Button>
+            </div>
 
-        <Table
-          dataSource={modulos}
-          columns={columns}
-          rowKey="estructuraCurricularModuloId"
-          pagination={{ pageSize: 10 }}
-          size="small"
-          onRow={(record) => ({
-            onClick: () => setModuloSeleccionado(record),
-            style: { cursor: 'pointer' },
-          })}
-          rowClassName={(record) =>
-            moduloSeleccionado?.estructuraCurricularModuloId === record.estructuraCurricularModuloId ? styles.selectedRow : ''
-          }
-        />
-      </Card>
+            <Table
+              dataSource={modulos}
+              columns={columns}
+              rowKey="estructuraCurricularModuloId"
+              pagination={{ pageSize: 10 }}
+              size="small"
+              onRow={(record) => ({
+                onClick: () => setModuloSeleccionado(record),
+                style: { cursor: 'pointer' },
+              })}
+              rowClassName={(record) =>
+                moduloSeleccionado?.estructuraCurricularModuloId === record.estructuraCurricularModuloId ? styles.selectedRow : ''
+              }
+            />
+          </Card>
 
-      {/* =========================
+          {/* =========================
           VISTA CALENDARIO
          ========================= */}
-      <Card>
-        <h4 className={styles.title}>Vista calendario de módulos del producto</h4>
+          <Card>
+            <h4 className={styles.title}>Vista calendario de módulos del producto</h4>
 
-        {/* =========================
+            {/* =========================
             INFO DEL MODULO (OPCIONAL)
           ========================= */}
-        {moduloSeleccionado && (
-          <div style={{ 
-            backgroundColor: '#f5f5f5', 
-            padding: 16, 
-            borderRadius: 4,
-            marginBottom: 16,
-            fontSize: 13
-          }}>
-            <div style={{ marginBottom: 8 }}>
-              <span style={{ color: '#8c8c8c' }}>Nombre del Módulo:</span>{" "}
-              <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.moduloNombre}
-              </span>
-            </div>
+            {moduloSeleccionado && (
+              <div style={{
+                backgroundColor: '#f5f5f5',
+                padding: 16,
+                borderRadius: 4,
+                marginBottom: 16,
+                fontSize: 13
+              }}>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ color: '#8c8c8c' }}>Nombre del Módulo:</span>{" "}
+                  <span style={{ color: '#262626', fontWeight: 500 }}>
+                    {moduloSeleccionado.moduloNombre}
+                  </span>
+                </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <span style={{ color: '#8c8c8c' }}>Código del módulo:</span>{" "}
-              <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.moduloCodigo || '-'}
-              </span>
-            </div>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ color: '#8c8c8c' }}>Código del módulo:</span>{" "}
+                  <span style={{ color: '#262626', fontWeight: 500 }}>
+                    {moduloSeleccionado.moduloCodigo || '-'}
+                  </span>
+                </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <span style={{ color: '#8c8c8c' }}>Sesiones:</span>{" "}
-              <span style={{ color: '#262626', fontWeight: 500 }}>
-                {typeof moduloSeleccionado.sesiones === 'number' ? moduloSeleccionado.sesiones : "-"}
-              </span>
-            </div>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ color: '#8c8c8c' }}>Sesiones:</span>{" "}
+                  <span style={{ color: '#262626', fontWeight: 500 }}>
+                    {typeof moduloSeleccionado.sesiones === 'number' ? moduloSeleccionado.sesiones : "-"}
+                  </span>
+                </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <span style={{ color: '#8c8c8c' }}>Fecha de Inicio:</span>{" "}
-              <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.fechaInicio ? dayjs(moduloSeleccionado.fechaInicio).format('DD/MM/YYYY') : '-'}
-              </span>
-              <span style={{ color: '#8c8c8c', marginLeft: 24 }}>Fecha Final:</span>{" "}
-              <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.fechaFinPorSesiones ? dayjs(moduloSeleccionado.fechaFinPorSesiones).format('DD/MM/YYYY') : '-'}
-              </span>
-            </div>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ color: '#8c8c8c' }}>Fecha de Inicio:</span>{" "}
+                  <span style={{ color: '#262626', fontWeight: 500 }}>
+                    {moduloSeleccionado.fechaInicio ? moment(moduloSeleccionado.fechaInicio).format('DD/MM/YYYY') : '-'}
+                  </span>
+                  <span style={{ color: '#8c8c8c', marginLeft: 24 }}>Fecha Final:</span>{" "}
+                  <span style={{ color: '#262626', fontWeight: 500 }}>
+                    {moduloSeleccionado.fechaFinPorSesiones ? moment(moduloSeleccionado.fechaFinPorSesiones).format('DD/MM/YYYY') : '-'}
+                  </span>
+                </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <span style={{ color: '#8c8c8c' }}>Duración:</span>{" "}
-              <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.duracionHoras ?? '-'} horas
-              </span>
-            </div>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ color: '#8c8c8c' }}>Duración:</span>{" "}
+                  <span style={{ color: '#262626', fontWeight: 500 }}>
+                    {moduloSeleccionado.duracionHoras ?? '-'} horas
+                  </span>
+                </div>
 
-            <div>
-              <span style={{ color: '#8c8c8c' }}>Docente:</span>{" "}
-              <span style={{ color: '#262626', fontWeight: 500 }}>
-                {moduloSeleccionado.docenteNombre || '-'}
-              </span>
-            </div>
-          </div>
-        )}
+                <div>
+                  <span style={{ color: '#8c8c8c' }}>Docente:</span>{" "}
+                  <span style={{ color: '#262626', fontWeight: 500 }}>
+                    {moduloSeleccionado.docenteNombre || '-'}
+                  </span>
+                </div>
+              </div>
+            )}
 
-        {!moduloSeleccionado && (
-          <div style={{ 
-            marginTop: 16,
-            textAlign: 'center',
-            color: '#8c8c8c',
-            fontSize: 13
-          }}>
-            Selecciona un módulo para ver su información detallada
-          </div>
-        )}
+            {!moduloSeleccionado && (
+              <div style={{
+                marginTop: 16,
+                textAlign: 'center',
+                color: '#8c8c8c',
+                fontSize: 13
+              }}>
+                Selecciona un módulo para ver su información detallada
+              </div>
+            )}
 
-        {/* =========================
+            {/* =========================
             CALENDARIO (SIEMPRE)
           ========================= */}
-        <Calendar
-          dateCellRender={(date) => {
-            const dateStr = date.format("YYYY-MM-DD");
-            const sesiones = diasClasesPorFecha[dateStr];
+            <Calendar
+              dateCellRender={(date) => {
+                const dateStr = date.format("YYYY-MM-DD");
+                const sesiones = diasClasesPorFecha[dateStr];
 
-            if (!sesiones) return null;
+                if (!sesiones) return null;
 
-            return (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {sesiones.map((s, idx) => {
-                  const modulo = modulos.find(m => m.moduloId === s.moduloId);
-                  if (!modulo) return null;
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {sesiones.map((s, idx) => {
+                      const modulo = modulos.find(m => m.moduloId === s.moduloId);
+                      if (!modulo) return null;
 
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        background: "#f5f5f5",
-                        borderLeft: `4px solid ${s.color}`,
-                        padding: "6px 8px",
-                        borderRadius: 4,
-                        fontSize: 12,
-                      }}
-                    >
-                      {/* Nombre del módulo */}
-                      <div style={{ fontWeight: 600 }}>
-                        {modulo.moduloNombre || 'Sin nombre'}
-                      </div>
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            background: "#f5f5f5",
+                            borderLeft: `4px solid ${s.color}`,
+                            padding: "6px 8px",
+                            borderRadius: 4,
+                            fontSize: 12,
+                          }}
+                        >
+                          {/* Nombre del módulo */}
+                          <div style={{ fontWeight: 600 }}>
+                            {modulo.moduloNombre || 'Sin nombre'}
+                          </div>
 
-                      <div>
-                        {typeof modulo.sesiones === 'number' ? `Sesión ${modulo.sesiones}` : 'Sin sesión'}
-                      </div>
+                          <div>
+                            {typeof modulo.sesiones === 'number' ? `Sesión ${modulo.sesiones}` : 'Sin sesión'}
+                          </div>
 
-                      {/* Horas */}
-                      <div style={{ fontSize: 11, color: "#8c8c8c" }}>
-                        {modulo.duracionHoras ?? '-'} hs totales
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          }}
-          headerRender={({ value, onChange }) => {
+                          {/* Horas */}
+                          <div style={{ fontSize: 11, color: "#8c8c8c" }}>
+                            {modulo.duracionHoras ?? '-'} hs totales
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }}
+              headerRender={({ value, onChange }) => {
                 const year = value.year();
                 const month = value.month();
                 const months = [
@@ -605,7 +605,7 @@ export default function DetalleProducto() {
                           <Select.Option key={idx} value={idx}>{m}</Select.Option>
                         ))}
                       </Select>
-                      <Button 
+                      <Button
                         size="small"
                         onClick={() => {
                           const newValue = value.clone().subtract(1, 'month');
@@ -614,16 +614,16 @@ export default function DetalleProducto() {
                       >
                         &lt;
                       </Button>
-                      <Button 
+                      <Button
                         size="small"
                         onClick={() => {
-                          const newValue = dayjs();
+                          const newValue = moment();
                           onChange(newValue);
                         }}
                       >
                         Hoy
                       </Button>
-                      <Button 
+                      <Button
                         size="small"
                         onClick={() => {
                           const newValue = value.clone().add(1, 'month');
@@ -636,70 +636,70 @@ export default function DetalleProducto() {
                   </div>
                 );
               }}
-        />
-      </Card>
+            />
+          </Card>
 
-      {/* =========================
+          {/* =========================
           MODAL ASIGNAR MÓDULO
          ========================= */}
-      <Modal
-        title="Asignar módulo al producto"
-        open={modalAsignarVisible}
-        onCancel={() => {
-          setModalAsignarVisible(false);
-          setModuloBuscado(null);
-        }}
-        footer={[
-          <Button 
-            key="asignar" 
-            type="primary" 
-            block
-            onClick={handleAsignarModulo}
-            disabled={!moduloBuscado}
-          >
-            Asignar módulo
-          </Button>
-        ]}
-        width={500}
-      >
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            Módulo <span style={{ color: 'red' }}>*</span>
-          </label>
-          <Select
-            showSearch
-            placeholder="Buscar módulo por nombre"
-            style={{ width: '100%' }}
-            value={moduloBuscado || undefined}
-            onChange={(value) => setModuloBuscado(value)}
-            filterOption={(input, option) => {
-              const modulo = modulosDisponibles.find(m => m.id === option?.value);
-              if (!modulo) return false;
-              const searchText = input.toLowerCase();
-              return modulo.nombre.toLowerCase().includes(searchText);
+          <Modal
+            title="Asignar módulo al producto"
+            open={modalAsignarVisible}
+            onCancel={() => {
+              setModalAsignarVisible(false);
+              setModuloBuscado(null);
             }}
+            footer={[
+              <Button
+                key="asignar"
+                type="primary"
+                block
+                onClick={handleAsignarModulo}
+                disabled={!moduloBuscado}
+              >
+                Asignar módulo
+              </Button>
+            ]}
+            width={500}
           >
-            {modulosDisponibles.filter(mod => mod.estado).map(mod => (
-              <Select.Option key={mod.id} value={mod.id}>
-                {mod.nombre}
-              </Select.Option>
-            ))}
-          </Select>
-        </div>
-      </Modal>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 8 }}>
+                Módulo <span style={{ color: 'red' }}>*</span>
+              </label>
+              <Select
+                showSearch
+                placeholder="Buscar módulo por nombre"
+                style={{ width: '100%' }}
+                value={moduloBuscado || undefined}
+                onChange={(value) => setModuloBuscado(value)}
+                filterOption={(input, option) => {
+                  const modulo = modulosDisponibles.find(m => m.id === option?.value);
+                  if (!modulo) return false;
+                  const searchText = input.toLowerCase();
+                  return modulo.nombre.toLowerCase().includes(searchText);
+                }}
+              >
+                {modulosDisponibles.filter(mod => mod.estado).map(mod => (
+                  <Select.Option key={mod.id} value={mod.id}>
+                    {mod.nombre}
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
+          </Modal>
 
-      {/* =========================
+          {/* =========================
           MODAL EDITAR PRODUCTO
          ========================= */}
-      <ModalProducto
-        visible={modalEditarVisible}
-        modo="editar"
-        producto={producto}
-        onCancel={handleCancelarModal}
-        onSave={handleGuardarProducto}
-        departamentos={departamentos}
-        tiposEstadoProducto={tiposEstadoProducto}
-      />
+          <ModalProducto
+            visible={modalEditarVisible}
+            modo="editar"
+            producto={producto}
+            onCancel={handleCancelarModal}
+            onSave={handleGuardarProducto}
+            departamentos={departamentos}
+            tiposEstadoProducto={tiposEstadoProducto}
+          />
         </>
       ) : (
         <div style={{ textAlign: 'center', padding: '40px', color: '#8c8c8c' }}>

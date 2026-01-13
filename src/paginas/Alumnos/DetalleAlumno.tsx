@@ -52,70 +52,79 @@ export default function DetalleAlumno() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [modalEditarOpen, setModalEditarOpen] = useState(false);
+  const [modalCertificacionOpen, setModalCertificacionOpen] = useState(false);
+
+  const onEditarCertificacion = (record: any) => {
+    console.log("Editar certificación", record);
+  };
+
+  const onEliminarCertificacion = (record: any) => {
+    console.log("Eliminar certificación", record);
+  };
 
   const columns = [
     {
-        title: "Módulo",
-        dataIndex: "modulo",
-        key: "modulo",
-        sorter: (a: any, b: any) => a.modulo.localeCompare(b.modulo),
+      title: "Módulo",
+      dataIndex: "modulo",
+      key: "modulo",
+      sorter: (a: any, b: any) => a.modulo.localeCompare(b.modulo),
     },
     {
-        title: "Nivel",
-        dataIndex: "nivel",
-        key: "nivel",
-        sorter: (a: any, b: any) => a.nivel.localeCompare(b.nivel),
+      title: "Nivel",
+      dataIndex: "nivel",
+      key: "nivel",
+      sorter: (a: any, b: any) => a.nivel.localeCompare(b.nivel),
     },
     {
-        title: "Código",
-        dataIndex: "codigo",
-        key: "codigo",
-        sorter: (a: any, b: any) => a.codigo.localeCompare(b.codigo),
+      title: "Código",
+      dataIndex: "codigo",
+      key: "codigo",
+      sorter: (a: any, b: any) => a.codigo.localeCompare(b.codigo),
     },
     {
-        title: "Emisión",
-        dataIndex: "emision",
-        key: "emision",
-        align: "center",
-        sorter: (a: any, b: any) => Number(a.emision) - Number(b.emision),
-        render: (value: boolean) => (
+      title: "Emisión",
+      dataIndex: "emision",
+      key: "emision",
+      align: "center" as const,
+      sorter: (a: any, b: any) => Number(a.emision) - Number(b.emision),
+      render: (value: boolean) => (
         <Checkbox checked={value} disabled />
-        ),
+      ),
     },
     {
-        title: "Envío",
-        dataIndex: "envio",
-        key: "envio",
-        align: "center",
-        sorter: (a: any, b: any) => Number(a.envio) - Number(b.envio),
-        render: (value: boolean) => (
+      title: "Envío",
+      dataIndex: "envio",
+      key: "envio",
+      align: "center" as const,
+      sorter: (a: any, b: any) => Number(a.envio) - Number(b.envio),
+      render: (value: boolean) => (
         <Checkbox checked={value} disabled />
-        ),
+      ),
     },
     {
-        title: "Acciones",
-        key: "acciones",
-        align: "center",
-        render: (_: any, record: any) => (
+      title: "Acciones",
+      key: "acciones",
+      align: "center" as const,
+      render: (_: any, record: any) => (
         <Space size="middle">
-            <Tooltip title="Editar">
-                <Button
-                icon={<EditOutlined />}
-                className={styles.iconDarkButton}
-                onClick={() => onEditarCertificacion(record)}
-                />
-            </Tooltip>
-            <Tooltip title="Eliminar">
-                <Button
-                icon={<DeleteOutlined />}
-                className={styles.iconDarkButton}
-                onClick={() => onEliminarCertificacion(record)}
-                />
-            </Tooltip>
+          <Tooltip title="Editar">
+            <Button
+              icon={<EditOutlined />}
+              className={styles.iconDarkButton}
+              onClick={() => onEditarCertificacion(record)}
+            />
+          </Tooltip>
+          <Tooltip title="Eliminar">
+            <Button
+              icon={<DeleteOutlined />}
+              className={styles.iconDarkButton}
+              onClick={() => onEliminarCertificacion(record)}
+            />
+          </Tooltip>
         </Space>
-        ),
+      ),
     },
-    ];
+  ];
 
 
   return (
@@ -134,149 +143,149 @@ export default function DetalleAlumno() {
         <h3 className={styles.title}>{alumno.nombre + " " + alumno.apellido}</h3>
 
         <div className={styles.infoList}>
-        <div className={styles.infoItem}>
+          <div className={styles.infoItem}>
             <span className={styles.label}>Correo:</span>
             <span className={styles.value}>{alumno.correo}</span>
-        </div>
+          </div>
 
-        <div className={styles.infoItem}>
+          <div className={styles.infoItem}>
             <span className={styles.label}>Teléfono:</span>
             <span className={styles.value}>{alumno.telefono}</span>
-        </div>
+          </div>
 
-        <div className={styles.infoItem}>
+          <div className={styles.infoItem}>
             <span className={styles.label}>País:</span>
             <span className={styles.value}>{alumno.pais}</span>
-        </div>
+          </div>
 
-        <div className={styles.infoItem}>
+          <div className={styles.infoItem}>
             <span className={styles.label}>Documento de identidad:</span>
             <span className={styles.value}>{alumno.documento}</span>
-        </div>
+          </div>
 
-        <div className={styles.infoItem}>
+          <div className={styles.infoItem}>
             <span className={styles.label}>Código del curso:</span>
             <span className={styles.value}>{alumno.codigoCurso}</span>
-        </div>
+          </div>
 
-        <div className={styles.infoItem}>
+          <div className={styles.infoItem}>
             <span className={styles.label}>Área de trabajo:</span>
             <span className={styles.value}>
-            {alumno.areaTrabajo} · {alumno.industria} · {alumno.cargo}
+              {alumno.areaTrabajo} · {alumno.industria} · {alumno.cargo}
             </span>
-        </div>
+          </div>
 
-        <div className={styles.infoItem}>
+          <div className={styles.infoItem}>
             <span className={styles.label}>Acceso Moodle:</span>
             <span className={styles.value}>{alumno.accesoMoodle}</span>
-        </div>
+          </div>
 
-        <div className={styles.infoItem}>
+          <div className={styles.infoItem}>
             <span className={styles.label}>Contraseña Moodle:</span>
             <span className={styles.value}>{alumno.passwordMoodle}</span>
-        </div>
+          </div>
         </div>
 
         <Row gutter={16} style={{ marginTop: 24 }}>
-            <Col span={8}>
-                <Button
-                block
-                icon={<EditOutlined />}
-                size="large"
-                style={{ 
+          <Col span={8}>
+            <Button
+              block
+              icon={<EditOutlined />}
+              size="large"
+              style={{
                 backgroundColor: '#1f1f1f',
                 borderColor: '#1f1f1f',
                 color: 'white',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
-                }}
-                onClick={() => setModalEditarOpen(true)}
-                >
-                Editar
-                </Button>
-            </Col>
+              }}
+              onClick={() => setModalEditarOpen(true)}
+            >
+              Editar
+            </Button>
+          </Col>
 
-            <Col span={8}>
-                <Button
-                block
-                icon={<MailOutlined />}
-                size="large"
-                style={{ 
+          <Col span={8}>
+            <Button
+              block
+              icon={<MailOutlined />}
+              size="large"
+              style={{
                 backgroundColor: '#1f1f1f',
                 borderColor: '#1f1f1f',
                 color: 'white',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
-                }}
-                >
-                Enviar correo
-                </Button>
-            </Col>
+              }}
+            >
+              Enviar correo
+            </Button>
+          </Col>
 
-            <Col span={8}>
-                <Button
-                block
-                icon={<WhatsAppOutlined />}
-                size="large"
-                style={{ 
+          <Col span={8}>
+            <Button
+              block
+              icon={<WhatsAppOutlined />}
+              size="large"
+              style={{
                 backgroundColor: '#1f1f1f',
                 borderColor: '#1f1f1f',
                 color: 'white',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
-                }}
-                >
-                Enviar WhatsApp
-                </Button>
-            </Col>
+              }}
+            >
+              Enviar WhatsApp
+            </Button>
+          </Col>
         </Row>
       </Card>
 
       {/* CERTIFICACIONES */}
       <Card style={{ marginBottom: 16 }}>
         <div
-            style={{
+          style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             marginBottom: 16,
-            }}
+          }}
         >
-            <h4 className={styles.title} style={{ margin: 0 }}>
+          <h4 className={styles.title} style={{ margin: 0 }}>
             Certificaciones del alumno
-            </h4>
+          </h4>
 
-            <Button
+          <Button
             type="primary"
             className={styles.darkButton}
             onClick={() => setModalCertificacionOpen(true)}
-            >
+          >
             Agregar certificación
-            </Button>
+          </Button>
         </div>
 
         <Table
-            dataSource={certificaciones}
-            columns={columns}
-            rowKey="id"
-            pagination={false}
-            size="small"
+          dataSource={certificaciones}
+          columns={columns}
+          rowKey="id"
+          pagination={false}
+          size="small"
         />
-        </Card>
-        <ModalEditarAlumno
-          open={modalEditarOpen}
-          alumno={alumno}
-          onCancel={() => setModalEditarOpen(false)}
-          onSave={(alumnoEditado) => {
-            console.log("Alumno editado:", alumnoEditado);
-            setModalEditarOpen(false);
-          }}
-        />
+      </Card>
+      <ModalEditarAlumno
+        open={modalEditarOpen}
+        alumno={alumno}
+        onCancel={() => setModalEditarOpen(false)}
+        onSave={(alumnoEditado) => {
+          console.log("Alumno editado:", alumnoEditado);
+          setModalEditarOpen(false);
+        }}
+      />
     </div>
-    
+
   );
 }
 

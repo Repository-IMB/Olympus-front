@@ -71,11 +71,9 @@ const ModalDocentes: React.FC<Props> = ({ open, onClose, docentes, onSave }) => 
       width={800}
       centered
       closeIcon={<CloseOutlined />}
-      styles={{
-        body: {
-          padding: 20,
-          fontSize: 14,
-        }
+      bodyStyle={{
+        padding: 20,
+        fontSize: 14,
       }}
     >
       <Title

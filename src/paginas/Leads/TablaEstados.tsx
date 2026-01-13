@@ -1,15 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import {
-  Card,
-  Row,
-  Col,
-  Select,
-  Input,
-  message,
-  Button,
-  Modal,
-} from "antd";
+import { Card, Row, Col, Select, Input, message, Button, Modal } from "antd";
 import {
   ExclamationCircleOutlined,
   PlusCircleOutlined,
@@ -18,6 +9,7 @@ import {
 import axios from "axios";
 import Cookies from "js-cookie";
 import CallProgressBar from "../../componentes/CallProgressBar";
+import { jwtDecode } from "jwt-decode";
 
 const { TextArea } = Input;
 
@@ -33,7 +25,7 @@ const ESTADOS_MAP: Record<number, string> = {
 type HistorialEstado = {
   id: number;
   idOportunidad: number;
-  idAsesor: number;
+  IdPersonal: number;
   idMotivo: number;
   idEstado: number;
   observaciones: string;
@@ -73,7 +65,6 @@ export default function TablaEstadosReducida({
       );
       setHistorial(res.data.historialEstado || []);
     } catch (err) {
-      console.error("❌ Error al obtener historial:", err);
       message.error("Error al obtener historial de estados");
     }
   };
@@ -100,12 +91,19 @@ export default function TablaEstadosReducida({
 
   // 🔹 Obtener ID de usuario desde el token
   const getUserIdFromToken = () => {
+    if (!token) return 0;
+
     try {
-      const payload = JSON.parse(atob(token!.split(".")[1]));
-      return payload[
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-      ];
-    } catch {
+      const decoded: any = jwtDecode(token);
+
+      const id =
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ];
+
+      return id ? Number(id) : 0;
+    } catch (e) {
+      console.error("Error decodificando token", e);
       return 0;
     }
   };
@@ -115,7 +113,7 @@ export default function TablaEstadosReducida({
     try {
       const body = {
         idOportunidad: Number(idOportunidad),
-        idAsesor: Number(getUserIdFromToken()),
+        IdPersonal: Number(getUserIdFromToken()),
         idMotivo: formData.idMotivo,
         idEstado: formData.idEstado,
         observaciones: formData.observaciones,
@@ -126,7 +124,9 @@ export default function TablaEstadosReducida({
       };
 
       await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/VTAModVentaHistorialEstado/Insertar`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/VTAModVentaHistorialEstado/Insertar`,
         body,
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -138,7 +138,6 @@ export default function TablaEstadosReducida({
       setFormData({ idMotivo: 1, idEstado: 1, observaciones: "" });
       fetchHistorial();
     } catch (err) {
-      console.error("❌ Error al agregar estado:", err);
       message.error("Error al agregar estado");
     }
   };
@@ -157,7 +156,9 @@ export default function TablaEstadosReducida({
       };
 
       await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/VTAModVentaHistorialEstado/Actualizar`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/VTAModVentaHistorialEstado/Actualizar`,
         body,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -165,7 +166,6 @@ export default function TablaEstadosReducida({
       message.success("Historial actualizado");
       fetchHistorial();
     } catch (err) {
-      console.error("❌ Error al actualizar historial:", err);
       message.error("Error al actualizar llamadas");
     }
   };
@@ -321,7 +321,7 @@ export default function TablaEstadosReducida({
                         </div>
                       </div>
                       <div style={{ textAlign: "center" }}>
-                        {item.idAsesor || "-"}
+                        {item.IdPersonal || "-"}
                       </div>
                     </div>
 
@@ -430,9 +430,7 @@ export default function TablaEstadosReducida({
 
         {/* Campos */}
         <div style={{ padding: "16px 0" }}>
-          <label style={{ fontWeight: 600, fontSize: 12 }}>
-            Motivo
-          </label>
+          <label style={{ fontWeight: 600, fontSize: 12 }}>Motivo</label>
           <Select
             value={formData.idMotivo}
             onChange={(value) => setFormData({ ...formData, idMotivo: value })}
@@ -440,9 +438,7 @@ export default function TablaEstadosReducida({
             options={[{ value: 1, label: "El cliente no responde" }]}
           />
 
-          <label style={{ fontWeight: 600, fontSize: 12 }}>
-            Estado
-          </label>
+          <label style={{ fontWeight: 600, fontSize: 12 }}>Estado</label>
           <Select
             value={formData.idEstado}
             onChange={(value) => setFormData({ ...formData, idEstado: value })}
@@ -453,9 +449,7 @@ export default function TablaEstadosReducida({
             ]}
           />
 
-          <label style={{ fontWeight: 600, fontSize: 12 }}>
-            Observaciones
-          </label>
+          <label style={{ fontWeight: 600, fontSize: 12 }}>Observaciones</label>
           <TextArea
             rows={3}
             value={formData.observaciones}

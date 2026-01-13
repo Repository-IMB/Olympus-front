@@ -32,13 +32,10 @@ const SelectClient: React.FC<SelectClientProps> = ({
     const cargarClientes = async () => {
       try {
         setLoading(true);
-        const data = await obtenerClientesPotenciales();
-        console.log("Clientes obtenidos:", data);
-        // Ordenar de manera descendente por ID (más recientes primero)
-        const clientesOrdenados = data.sort((a, b) => b.id - a.id);
-        setClientes(clientesOrdenados);
-      } catch (error) {
-        console.error("Error al cargar clientes:", error);
+        const data = await obtenerClientesPotenciales(searchText);
+        setClientes(Array.isArray(data) ? data : []);
+      } catch {
+        setClientes([]);
       } finally {
         setLoading(false);
       }
@@ -47,7 +44,7 @@ const SelectClient: React.FC<SelectClientProps> = ({
     if (visible) {
       cargarClientes();
     }
-  }, [visible]);
+  }, [visible, searchText]);
 
   const handleClose = () => {
     if (onClose) {
@@ -65,12 +62,12 @@ const SelectClient: React.FC<SelectClientProps> = ({
     }
   };
 
+
   const handleConfirmClient = () => {
     if (clienteSeleccionado) {
       if (onSelectClient) {
         onSelectClient(clienteSeleccionado);
       } else {
-        console.log("Cliente seleccionado:", clienteSeleccionado);
         navigate("/leads/CreateOpportunity", {
           state: { client: clienteSeleccionado },
         });
@@ -86,27 +83,10 @@ const SelectClient: React.FC<SelectClientProps> = ({
     }
   };
 
-  // Filtrar clientes basado en el texto de búsqueda
-  const filteredClientes =
-    searchText.trim() === ""
-      ? clientes
-      : clientes.filter((cliente) => {
-          const nombreCompleto =
-            `${cliente.persona.nombres} ${cliente.persona.apellidos}`.toLowerCase();
-          const searchLower = searchText.toLowerCase();
-          return (
-            nombreCompleto.includes(searchLower) ||
-            cliente.persona.correo.toLowerCase().includes(searchLower) ||
-            cliente.persona.celular.includes(searchText)
-          );
-        });
-
-  const options = filteredClientes.map((cliente) => ({
+  const options = clientes.map((cliente) => ({
     value: cliente.id.toString(),
     label: (
-      <div
-        style={{ display: "flex", flexDirection: "column", padding: "8px 0" }}
-      >
+      <div style={{ display: "flex", flexDirection: "column", padding: "8px 0" }}>
         <div style={{ fontWeight: 500, fontSize: "14px" }}>
           {cliente.persona.nombres} {cliente.persona.apellidos}
         </div>
@@ -119,6 +99,7 @@ const SelectClient: React.FC<SelectClientProps> = ({
       </div>
     ),
   }));
+
 
   return (
     <Modal
@@ -144,7 +125,6 @@ const SelectClient: React.FC<SelectClientProps> = ({
           }
           filterOption={false}
           defaultActiveFirstOption={false}
-          popupMatchSelectWidth
           listHeight={400}
           virtual={false}
           placement="bottomLeft"
@@ -155,11 +135,7 @@ const SelectClient: React.FC<SelectClientProps> = ({
               adjustY: false,
             },
           }}
-          classNames={{
-            popup: {
-              root: "clientes-ac-popup",
-            },
-          }}
+          dropdownClassName="clientes-ac-popup"
           getPopupContainer={() =>
             document.querySelector(
               ".select-client-modal .ant-modal-body"

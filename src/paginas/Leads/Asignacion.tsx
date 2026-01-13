@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Input,
   Select,
@@ -14,6 +15,7 @@ import {
   Space,
   Form,
   TimePicker,
+  Tooltip,
 } from "antd";
 import {
   SearchOutlined,
@@ -21,14 +23,18 @@ import {
   CloseOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
+  FileTextOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import { type Lead } from "../../config/leadsTableItems";
 import estilos from "./Asignacion.module.css";
 import estilosModal from "./ReasignacionMasiva.module.css";
 import axios from "axios";
-import Cookies from "js-cookie";
 import type { ColumnsType } from "antd/es/table";
-import dayjs, { type Dayjs } from "dayjs";
+import moment, { type Moment } from "moment";
+import { getCookie } from "../../utils/cookies";
+import { jwtDecode } from "jwt-decode";
+import { obtenerPaises } from "../../config/rutasApi";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -39,10 +45,11 @@ interface OportunidadBackend {
   personaNombre: string;
   idProducto: number;
   productoNombre: string;
-  idAsesor: number;
-  asesorNombre: string;
+  IdPersonal: number;
+  personalNombre: string;
   personaCorreo: string;
   codigoLanzamiento: string;
+  codigoLinkedin: string;
   totalOportunidadesPersona: number;
   origen: string | null;
   idHistorialEstado: number;
@@ -58,11 +65,13 @@ interface OportunidadBackend {
   fechaModificacion: string;
   fechaFormulario: string;
   usuarioModificacion: string;
+  totalMarcaciones?: number;
+  recordatorios?: string[];
 }
 
 interface Asesor {
   idUsuario: number;
-  idPersona: number;
+  idPersonal: number;
   nombre: string;
   idRol: number;
 }
@@ -73,26 +82,68 @@ interface SkippedSource {
   createdDate?: string | null;
 }
 
+type LeadTabla = {
+  id: number;
+  codigoLanzamiento: string;
+  codigoLinkedin: string;
+  nombre: string;
+  asesor: string;
+  estado: string;
+  origen: string;
+  pais: string;
+  fechaCreacion: string;
+  fechaFormulario: string;
+  totalMarcaciones: number;
+  recordatorios: string[];
+};
+
+const ESTADOS = [
+  "Registrado",
+  "Calificado",
+  "Promesa",
+  "Pendiente",
+  "Matriculado",
+  "Cliente",
+  "No calificado",
+  "Perdido",
+];
+
+const ORIGENES = ["LinkedIn", "Manual"];
+
+const SELECT_PROPS = {
+  virtual: false,
+  listHeight: 240,
+  showSearch: true,
+  optionFilterProp: "children",
+  getPopupContainer: (trigger: HTMLElement) => trigger.parentElement!,
+};
+
 export default function Asignacion() {
   const [selectedRows, setSelectedRows] = useState<Lead[]>([]);
   const [searchText, setSearchText] = useState("");
-  const [filterEstado, setFilterEstado] = useState<string>("Todos");
+  const [filterEstado, setFilterEstado] = useState<string | string[]>("Todos");
   const [filterOrigen, setFilterOrigen] = useState<string>("Todos");
-  const [filterPais, setFilterPais] = useState<string>("Todos");
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(
-    null
-  );
+  const [filterPais, setFilterPais] = useState<string | string[]>("Todos");
+  const [dateRange, setDateRange] = useState<
+    [Moment | null, Moment | null] | null
+  >(null);
   const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
   const [modalOpen, setModalOpen] = useState(false);
   const [asesorDestino, setAsesorDestino] = useState<number | null>(null);
   const [forzarReasignacion, setForzarReasignacion] = useState(true);
   const [oportunidades, setOportunidades] = useState<OportunidadBackend[]>([]);
+  const [filterCodigoLanzamiento, setFilterCodigoLanzamiento] =
+    useState<string>("Todos");
+  const [filterCodigoLinkedin, setFilterCodigoLinkedin] =
+    useState<string>("Todos");
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingAsesores, setLoadingAsesores] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [importRange, setImportRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [importRange, setImportRange] = useState<
+    [Moment | null, Moment | null] | null
+  >(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<{
     filasProcesadas: number;
@@ -100,14 +151,46 @@ export default function Asignacion() {
     filasEnRango: number;
     skippedSources: SkippedSource[];
     mensaje: string;
-  } | null>(null  );
-
+  } | null>(null);
+  const [total, setTotal] = useState<number>(0);
+  const [historialActual, setHistorialActual] = useState<any[]>([]);
+  const [codigosLanzamiento, setCodigosLanzamiento] = useState<string[]>([]);
+  const [codigosLinkedin, setCodigosLinkedin] = useState<string[]>([]);
+  const [loadingCodigos, setLoadingCodigos] = useState(false);
   // 🔹 Fecha y hora de reasignación
-  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
-  const [selectedTime, setSelectedTime] = useState<Dayjs | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Moment | null>(null);
+  const [selectedTime, setSelectedTime] = useState<Moment | null>(null);
 
-  const token = Cookies.get("token");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const navigate = useNavigate();
+  interface Pais {
+    id: number;
+    nombre: string;
+  }
 
+  const [paises, setPaises] = useState<Pais[]>([]);
+  const [loadingPaises, setLoadingPaises] = useState(false);
+
+  const token = getCookie("token");
+
+  const getUserIdFromToken = () => {
+    if (!token) return 0;
+
+    try {
+      const decoded: any = jwtDecode(token);
+
+      const id =
+        decoded[
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ];
+
+      return id ? Number(id) : 0;
+    } catch (e) {
+      // console.error("Error decodificando token", e);
+      return 0;
+    }
+  };
   const handleReasignarMasivo = () => {
     if (selectedRows.length > 0) setModalOpen(true);
   };
@@ -120,217 +203,302 @@ export default function Asignacion() {
     setSelectedTime(null);
   };
 
-const handleConfirmarAsignacion = async () => {
-  if (!asesorDestino || selectedRows.length === 0 || !selectedDate || !selectedTime) {
-    return;
+  const handleClick = (id: number) => {
+    console.log("Asignacion", id);
+    navigate(`/leads/oportunidades/${id}`);
+  };
+
+  function agruparOportunidadesConRecordatorios(
+    data: OportunidadBackend[]
+  ): OportunidadBackend[] {
+    const map = new Map<
+      number,
+      OportunidadBackend & { recordatorios: string[] }
+    >();
+
+    data.forEach((o) => {
+      const recordatorio = o.fechaRecordatorio;
+
+      if (!map.has(o.id)) {
+        map.set(o.id, {
+          ...o,
+          recordatorios: recordatorio ? [recordatorio] : [],
+        });
+      } else {
+        if (recordatorio) {
+          map.get(o.id)!.recordatorios.push(recordatorio);
+        }
+      }
+    });
+
+    return Array.from(map.values());
   }
 
-  const hayConAsesor = selectedRows.some(
-    (r) => (r.asesor ?? "").trim() !== ""
-  );
+  const handleConfirmarAsignacion = async () => {
+    if (
+      !asesorDestino ||
+      selectedRows.length === 0 ||
+      !selectedDate ||
+      !selectedTime
+    ) {
+      return;
+    }
 
-  if (hayConAsesor && !forzarReasignacion) {
-    return;
-  }
+    const hayConAsesor = selectedRows.some(
+      (r) => (r.asesor ?? "").trim() !== ""
+    );
 
-  try {
-    setLoading(true);
+    if (hayConAsesor && !forzarReasignacion) {
+      return;
+    }
 
-    const asesor = asesores.find((a) => a.idUsuario === asesorDestino);
-    if (!asesor) throw new Error("Asesor no encontrado");
+    try {
+      setLoading(true);
 
-    // Fecha de recordatorio con hora formateada
-    const fechaRecordatorioISO = selectedDate
-      .hour(selectedTime.hour())
-      .minute(selectedTime.minute())
-      .second(0)
-      .toISOString();
+      const asesor = asesores.find((a) => a.idUsuario === asesorDestino);
+      if (!asesor) throw new Error("Asesor no encontrado");
 
-    const horaRecordatorio = selectedTime.format("HH:mm");
+      // Fecha de recordatorio con hora formateada
+      const fechaRecordatorioISO = selectedDate
+        .hour(selectedTime.hour())
+        .minute(selectedTime.minute())
+        .second(0)
+        .format("YYYY-MM-DDTHH:mm:ss");
 
-    for (const row of selectedRows) {
-      
-      const payloadInteraccion = {
-        id: 0,
-        idOportunidad: row.id,
-        idTipo: 10,
-        detalle: "Recordatorio inicial de creación de la oportunidad, generado automáticamente",
-        celular: "",
-        fechaRecordatorio: fechaRecordatorioISO,
-        estado: true,
-        fechaCreacion: new Date().toISOString(),
-        usuarioCreacion: "usuarioActual",
-        fechaModificacion: new Date().toISOString(),
-        usuarioModificacion: "usuarioActual",
+      const horaRecordatorio = selectedTime.format("HH:mm");
+
+      for (const row of selectedRows) {
+        const payloadInteraccion = {
+          id: 0,
+          idOportunidad: row.id,
+          idTipo: 10,
+          detalle:
+            "Recordatorio inicial de creación de la oportunidad, generado automáticamente",
+          celular: "",
+          fechaRecordatorio: fechaRecordatorioISO,
+          estado: true,
+          fechaCreacion: new Date().toISOString(),
+          usuarioCreacion: Number(getUserIdFromToken()).toString(),
+          fechaModificacion: new Date().toISOString(),
+          usuarioModificacion: Number(getUserIdFromToken()).toString(),
+        };
+
+        await axios.post(
+          `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+          }/api/VTAModVentaHistorialInteraccion/Insertar`,
+          payloadInteraccion,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+
+      const payload = {
+        IdOportunidades: selectedRows.map((r) => r.id),
+        IdPersonal: asesor.idPersonal,
+        UsuarioModificacion: Number(getUserIdFromToken()).toString(),
+        FechaRecordatorio: fechaRecordatorioISO,
+        HoraRecordatorio: horaRecordatorio,
       };
 
-      await axios.post(
-        `${import.meta.env.VITE_API_URL || "http://localhost:7020"}/api/VTAModVentaHistorialInteraccion/Insertar`,
-        payloadInteraccion,
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+        }/api/VTAModVentaOportunidad/AsignarPersonalMasivo`,
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
+      if (response.data.codigo === "SIN ERROR") {
+        message.success("Asesor asignado correctamente");
+        setSelectedRows([]);
+        handleCloseModal();
+        obtenerOportunidades();
+      } else {
+        message.error(response.data.mensaje || "Error al asignar asesor");
+      }
+    } catch (err: any) {
+      message.error(
+        err?.response?.data?.mensaje ||
+        err?.message ||
+        "Error al asignar asesor"
+      );
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const payload = {
-      IdOportunidades: selectedRows.map((r) => r.id),
-      IdAsesor: asesor.idPersona,
-      UsuarioModificacion: "usuarioActual",
-      FechaRecordatorio: fechaRecordatorioISO,
-      HoraRecordatorio: horaRecordatorio,
-    };
-
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_URL || "http://localhost:7020"}/api/VTAModVentaOportunidad/AsignarAsesor`,
-      payload,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    if (response.data.codigo === "SIN ERROR") {
-      message.success("Asesor asignado correctamente");
-      setSelectedRows([]);
-      handleCloseModal();
-      obtenerOportunidades();
-    } else {
-      message.error(response.data.mensaje || "Error al asignar asesor");
-    }
-  } catch (err: any) {
-    message.error(
-      err?.response?.data?.mensaje || err?.message || "Error al asignar asesor"
-    );
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-const handleAgregarLeads = () => {
-  setImportModalOpen(true);
-  setImportRange(null);
-  setImportResult(null);
-};
-
-const closeImportModal = () => {
-  setImportModalOpen(false);
-  setImportRange(null);
-  setImportResult(null);
-};
-
-const ejecutarImportacion = async () => {
-  try {
-    setImportLoading(true);
+  const handleAgregarLeads = () => {
+    setImportModalOpen(true);
+    setImportRange(null);
     setImportResult(null);
+  };
 
-    if (!token) throw new Error("No se encontró el token de autenticación");
+  const closeImportModal = () => {
+    setImportModalOpen(false);
+    setImportRange(null);
+    setImportResult(null);
+  };
 
-    const fechaInicioIso = importRange && importRange[0] ? importRange[0].toISOString() : null;
-    const fechaFinIso = importRange && importRange[1] ? importRange[1].toISOString() : null;
+  const ejecutarImportacion = async () => {
+    try {
+      setImportLoading(true);
+      setImportResult(null);
 
-    const payload = {
-      FechaInicio: fechaInicioIso,
-      FechaFin: fechaFinIso,
-    };
+      if (!token) throw new Error("No se encontró el token de autenticación");
 
-    const url = `${import.meta.env.VITE_API_URL || "http://localhost:7020"}/api/VTAModVentaOportunidad/ImportarProcesadoLinkedin`;
+      const fechaInicioIso =
+        importRange && importRange[0] ? importRange[0].toISOString() : null;
+      const fechaFinIso =
+        importRange && importRange[1] ? importRange[1].toISOString() : null;
 
-    const response = await axios.post(url, payload, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+      const payload = {
+        FechaInicio: fechaInicioIso,
+        FechaFin: fechaFinIso,
+      };
 
-    const data = response.data ?? {};
+      const url = `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+        }/api/VTAModVentaOportunidad/ImportarProcesadoLinkedin`;
 
-    const filasProcesadas = data?.filasProcesadas ?? data?.FilasProcesadas ?? 0;
-    const filasSaltadas = data?.filasSaltadas ?? data?.FilasSaltadas ?? 0;
-    const filasEnRango = data?.filasEnRango ?? data?.FilasEnRango ?? 0;
-    const skipped = Array.isArray(data?.skippedSources ?? data?.SkippedSources) ? (data?.skippedSources ?? data?.SkippedSources) : [];
+      const response = await axios.post(url, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    const skippedMapped: SkippedSource[] = skipped.map((s: any) => ({
-      id: s.id ?? s.Id ?? 0,
-      formName: s.formName ?? s.FormName ?? "",
-      motivo: s.motivo ?? s.Motivo ?? "",
-      createdDate: s.createdDate ?? s.CreatedDate ?? null,
-    }));
+      const data = response.data ?? {};
 
-    setImportResult({
-      filasProcesadas,
-      filasSaltadas,
-      filasEnRango,
-      skippedSources: skippedMapped,
-      mensaje: data?.respuesta?.mensaje ?? data?.Respuesta?.Mensaje ?? data?.mensaje ?? "",
-    });
+      const filasProcesadas =
+        data?.filasProcesadas ?? data?.FilasProcesadas ?? 0;
+      const filasSaltadas = data?.filasSaltadas ?? data?.FilasSaltadas ?? 0;
+      const filasEnRango = data?.filasEnRango ?? data?.FilasEnRango ?? 0;
+      const skipped = Array.isArray(
+        data?.skippedSources ?? data?.SkippedSources
+      )
+        ? data?.skippedSources ?? data?.SkippedSources
+        : [];
 
-    if ((data?.respuesta?.codigo ?? data?.Respuesta?.Codigo ?? "1") === "0") {
-      message.success("Importación finalizada correctamente.");
-      obtenerOportunidades(); // refresca la tabla principal
-    } else {
-      console.log(data?.respuesta?.mensaje ?? data?.Respuesta?.Mensaje ?? data?.mensaje ?? "Importación finalizada con advertencias.");
+      const skippedMapped: SkippedSource[] = skipped.map((s: any) => ({
+        id: s.id ?? s.Id ?? 0,
+        formName: s.formName ?? s.FormName ?? "",
+        motivo: s.motivo ?? s.Motivo ?? "",
+        createdDate: s.createdDate ?? s.CreatedDate ?? null,
+      }));
+
+      setImportResult({
+        filasProcesadas,
+        filasSaltadas,
+        filasEnRango,
+        skippedSources: skippedMapped,
+        mensaje:
+          data?.respuesta?.mensaje ??
+          data?.Respuesta?.Mensaje ??
+          data?.mensaje ??
+          "",
+      });
+
+      // if ((data?.respuesta?.codigo ?? data?.Respuesta?.Codigo ?? "1") === "0") {
+      //   message.success("Importación finalizada correctamente.");
+      //   obtenerOportunidades();
+      // } else {
+      //   console.log(
+      //     data?.respuesta?.mensaje ??
+      //       data?.Respuesta?.Mensaje ??
+      //       data?.mensaje ??
+      //       "Importación finalizada con advertencias."
+      //   );
+      // }
+    } catch (err: any) {
+      console.error("Error al importar:", err);
+      // message.error(
+      //   err?.response?.data?.mensaje ||
+      //     err?.message ||
+      //     "Error al ejecutar importación"
+      // );
+    } finally {
+      setImportLoading(false);
     }
-  } catch (err: any) {
-    console.error("Error al importar:", err);
-    message.error(err?.response?.data?.mensaje || err?.message || "Error al ejecutar importación");
-  } finally {
-    setImportLoading(false);
-  }
-};
+  };
   const handleLimpiarFiltros = () => {
     setSearchText("");
     setFilterEstado("Todos");
     setFilterOrigen("Todos");
     setFilterPais("Todos");
-    setFilterAsesor("Todos"); 
+    setFilterAsesor("Todos");
+    setFilterCodigoLanzamiento("Todos");
+    setFilterCodigoLinkedin("Todos");
     setDateRange(null);
   };
 
   const obtenerOportunidades = async () => {
     try {
       setLoading(true);
-      if (!token) throw new Error("No se encontró el token de autenticación");
+      const API = import.meta.env.VITE_API_URL || "http://localhost:7020";
 
       const response = await axios.get(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
-        }/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${API}/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorioAsignacion`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            page: currentPage,
+            pageSize,
+            search: searchText || null,
+            estadoFiltro:
+              filterEstado === "Todos"
+              ? null
+              : Array.isArray(filterEstado)
+              ? filterEstado.join(",")
+              : filterEstado,
+            origenFiltro: filterOrigen !== "Todos" ? filterOrigen : null,
+            paisFiltro:
+              filterPais === "Todos"
+                ? null
+                : Array.isArray(filterPais)
+                  ? filterPais.join(",")
+                  : filterPais,
+            asesorFiltro: filterAsesor !== "Todos" ? filterAsesor : null,
+            codigoLanzamientoFiltro:
+              filterCodigoLanzamiento !== "Todos"
+                ? filterCodigoLanzamiento
+                : null,
+            codigoLinkedinFiltro:
+              filterCodigoLinkedin !== "Todos" ? filterCodigoLinkedin : null,
+            fechaInicio: dateRange?.[0]?.format("YYYY-MM-DD") ?? null,
+            fechaFin: dateRange?.[1]?.format("YYYY-MM-DD") ?? null,
+          },
+        }
       );
 
-      const data = response.data;
-      if (data && data.oportunidad && Array.isArray(data.oportunidad)) {
-        const oportunidadesOrdenadas = [...data.oportunidad].sort(
-          (a: OportunidadBackend, b: OportunidadBackend) => {
-            const fechaA = new Date(a.fechaCreacion).getTime();
-            const fechaB = new Date(b.fechaCreacion).getTime();
+      const agrupadas = agruparOportunidadesConRecordatorios(
+        response.data.oportunidad ?? []
+      );
 
-            // Orden descendente: los más recientes primero
-            if (isNaN(fechaA) && isNaN(fechaB)) {
-              return b.id - a.id;
-            }
-            if (isNaN(fechaA)) return 1;
-            if (isNaN(fechaB)) return -1;
-
-            const diferenciaFecha = fechaB - fechaA;
-
-            if (Math.abs(diferenciaFecha) < 1000) {
-              return b.id - a.id;
-            }
-
-            return diferenciaFecha;
-          }
-        );
-        setOportunidades(oportunidadesOrdenadas);
-        console.log("✅ Oportunidades obtenidas:", oportunidadesOrdenadas.length);
-      } else {
-        setOportunidades([]);
-        console.warn("⚠️ No se encontraron oportunidades en la respuesta");
-      }
-    } catch (err: any) {
-      const errorMessage =
-        err?.response?.data?.mensaje ||
-        err?.message ||
-        "Error al cargar las oportunidades";
-      setError(errorMessage);
-      message.error(errorMessage);
-      setOportunidades([]);
+      setOportunidades(agrupadas);
+      setHistorialActual(response.data.historialActual ?? []);
+      setTotal(response.data.total ?? 0);
+    } catch (error) {
+      message.error("Error cargando oportunidades");
+      console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cargarCodigosProducto = async () => {
+    try {
+      setLoadingCodigos(true);
+
+      const API = import.meta.env.VITE_API_URL || "http://localhost:7020";
+
+      const res = await axios.get(
+        `${API}/api/VTAModVentaProducto/ObtenerCodigosUnicos`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setCodigosLanzamiento(res.data.codigosLanzamiento ?? []);
+      setCodigosLinkedin(res.data.codigosLinkedin ?? []);
+    } catch (error) {
+      console.error(error);
+      message.error("Error al cargar códigos de producto");
+    } finally {
+      setLoadingCodigos(false);
     }
   };
 
@@ -340,8 +508,7 @@ const ejecutarImportacion = async () => {
       if (!token) throw new Error("No se encontró el token de autenticación");
 
       const response = await axios.get(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -350,7 +517,7 @@ const ejecutarImportacion = async () => {
       if (data?.usuarios && Array.isArray(data.usuarios)) {
         const listaAsesores = data.usuarios.map((u: any) => ({
           idUsuario: u.id,
-          idPersona: u.idPersona,
+          idPersonal: u.idPersonal,
           nombre: u.nombre,
           idRol: u.idRol,
         }));
@@ -371,115 +538,83 @@ const ejecutarImportacion = async () => {
     }
   };
 
+  const getReminderColor = (fechaRecordatorio: string): string => {
+    const now = new Date();
+    const reminderDate = new Date(fechaRecordatorio);
+    const diffMs = reminderDate.getTime() - now.getTime();
+    const hoursRemaining = diffMs / (1000 * 60 * 60);
+
+    if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
+    if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
+    if (hoursRemaining < 24) return "#ffd666"; // amarillo
+    return "#1677ff"; // azul
+  };
+
+  const cargarPaises = async () => {
+    try {
+      setLoadingPaises(true);
+      const data = await obtenerPaises();
+      setPaises(data);
+    } catch (err) {
+      console.error("Error cargando países", err);
+      message.error("Error al cargar países");
+    } finally {
+      setLoadingPaises(false);
+    }
+  };
+
   useEffect(() => {
     obtenerOportunidades();
     obtenerAsesores();
-  }, []);
+    cargarCodigosProducto();
+    cargarPaises();
+  }, [
+    currentPage,
+    pageSize,
+    searchText,
+    filterEstado,
+    filterOrigen,
+    filterPais,
+    filterAsesor,
+    filterCodigoLanzamiento,
+    filterCodigoLinkedin,
+    dateRange,
+  ]);
 
-  const leadsMapeados = useMemo(
+  const marcacionesPorOportunidad = useMemo(() => {
+    const map = new Map<number, number>();
+
+    historialActual.forEach((h) => {
+      const total =
+        (h.cantidadLlamadasContestadas ?? 0) +
+        (h.cantidadLlamadasNoContestadas ?? 0);
+
+      map.set(h.idOportunidad, (map.get(h.idOportunidad) ?? 0) + total);
+    });
+
+    return map;
+  }, [historialActual]);
+
+  const leadsMapeados = useMemo<LeadTabla[]>(
     () =>
       oportunidades.map((o) => ({
         id: o.id,
         codigoLanzamiento: o.codigoLanzamiento || "-",
+        codigoLinkedin: o.codigoLinkedin || "-",
         nombre: o.personaNombre || "-",
-        asesor: o.asesorNombre || "-",
+        asesor: o.personalNombre || "-",
         estado: o.nombreEstado || "-",
         origen: o.origen || "-",
         pais: o.personaPaisNombre || "-",
         fechaCreacion: o.fechaCreacion,
         fechaFormulario: o.fechaFormulario,
+        totalMarcaciones: marcacionesPorOportunidad.get(o.id) ?? 0,
+        recordatorios: o.recordatorios ?? [],
       })),
-    [oportunidades]
+    [oportunidades, marcacionesPorOportunidad] // ✅
   );
 
-
-  const estadosUnicos = useMemo(() => {
-    const estados = new Set<string>();
-    oportunidades.forEach((op) => {
-      if (op.nombreEstado) {
-        estados.add(op.nombreEstado);
-      }
-    });
-    return Array.from(estados).sort();
-  }, [oportunidades]);
-
-  const origenesUnicos = useMemo(() => {
-    const origenes = new Set<string>();
-    leadsMapeados.forEach((lead) => {
-      if (lead.origen && lead.origen !== "-") {
-        origenes.add(lead.origen);
-      }
-    });
-    return Array.from(origenes).sort();
-  }, [leadsMapeados]);
-
-  const asesoresUnicos = useMemo(() => {
-  const setAsesores = new Set<string>();
-  leadsMapeados.forEach((lead) => {
-    if (lead.asesor && lead.asesor !== "-") {
-      setAsesores.add(lead.asesor);
-    }
-  });
-  return Array.from(setAsesores).sort();
-}, [leadsMapeados]);
-
-  const paisesUnicos = useMemo(() => {
-    const paises = new Set<string>();
-    leadsMapeados.forEach((lead) => {
-      if (lead.pais && lead.pais !== "-") {
-        paises.add(lead.pais);
-      }
-    });
-    return Array.from(paises).sort();
-  }, [leadsMapeados]);
-
-  const leadsFiltrados = useMemo(() => {
-    let filtrados = [...leadsMapeados];
-
-    if (searchText.trim()) {
-      const busqueda = searchText.toLowerCase();
-      filtrados = filtrados.filter(
-        (l) =>
-          l.nombre.toLowerCase().includes(busqueda) ||
-          l.origen.toLowerCase().includes(busqueda) ||
-          l.codigoLanzamiento.toLowerCase().includes(busqueda) ||
-          l.id.toString().includes(busqueda)
-      );
-    }
-
-    if (filterEstado !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.estado === filterEstado);
-    }
-
-    if (filterOrigen !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.origen === filterOrigen);
-    }
-
-    if (filterPais !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.pais === filterPais);
-    }
-    if (filterAsesor !== "Todos") {
-      filtrados = filtrados.filter((lead) => lead.asesor === filterAsesor);
-    }
-
-    if (dateRange && dateRange[0] && dateRange[1]) {
-      const fechaInicio = dateRange[0].startOf("day");
-      const fechaFin = dateRange[1].endOf("day");
-      filtrados = filtrados.filter((lead) => {
-        const fechaCreacion = dayjs(lead.fechaFormulario);
-        return (
-          (fechaCreacion.isAfter(fechaInicio) ||
-            fechaCreacion.isSame(fechaInicio, "day")) &&
-          (fechaCreacion.isBefore(fechaFin) ||
-            fechaCreacion.isSame(fechaFin, "day"))
-        );
-      });
-    }
-
-    return filtrados;
-  }, [leadsMapeados, searchText, filterEstado, filterOrigen, filterPais, filterAsesor, dateRange]);
-
-  const columns: ColumnsType<Lead> = useMemo(
+  const columns: ColumnsType<LeadTabla> = useMemo(
     () => [
       {
         title: "IdLead",
@@ -493,6 +628,13 @@ const ejecutarImportacion = async () => {
         key: "codigoLanzamiento",
         sorter: (a, b) =>
           (a.codigoLanzamiento || "").localeCompare(b.codigoLanzamiento || ""),
+      },
+      {
+        title: "Código Linkedin",
+        dataIndex: "codigoLinkedin",
+        key: "codigoLinkedin",
+        sorter: (a, b) =>
+          (a.codigoLinkedin || "").localeCompare(b.codigoLinkedin || ""),
       },
       {
         title: "Nombre",
@@ -518,18 +660,21 @@ const ejecutarImportacion = async () => {
             color = "blue";
           } else if (estado === "Registrado") {
             color = "blue";
+          } else if (estado === "Potencial") {
+            color = "blue";
           } else if (estado === "Promesa") {
-            color = "gold";
+            color = "blue";
           } else if (estado === "No calificado" || estado === "Perdido") {
             color = "red";
           } else if (estado === "Matriculado" || estado === "Cliente") {
             color = "green";
-          } else if (estado === "Pendiente") {
-            color = "orange";
           }
 
           return (
-            <Tag color={color} style={{ borderRadius: "12px", padding: "2px 12px" }}>
+            <Tag
+              color={color}
+              style={{ borderRadius: "12px", padding: "2px 12px" }}
+            >
               {estado}
             </Tag>
           );
@@ -547,92 +692,173 @@ const ejecutarImportacion = async () => {
         key: "pais",
         sorter: (a, b) => (a.pais || "").localeCompare(b.pais || ""),
       },
-    {
-      title: "Fecha Creación",
-      dataIndex: "fechaCreacion",
-      key: "fechaCreacion",
-      sorter: (a, b) =>
-        new Date(a.fechaCreacion ?? "").getTime() - new Date(b.fechaCreacion ?? "").getTime(),
-      render: (fechaCreacion: string | null) => {
-        if (!fechaCreacion) return "-";
-        const d = new Date(fechaCreacion);
-        return (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-            <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
-            <div>
-              <div style={{ color: "#000000", fontSize: "14px" }}>
-                {d.toLocaleDateString()}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  color: "#8c8c8c",
-                  fontSize: "13px",
-                }}
-              >
-                <ClockCircleOutlined style={{ fontSize: "12px" }} />
-                {d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      {
+        title: "Total Marcaciones",
+        dataIndex: "totalMarcaciones",
+        key: "totalMarcaciones",
+        sorter: (a: LeadTabla, b: LeadTabla) =>
+          (a.totalMarcaciones ?? 0) - (b.totalMarcaciones ?? 0),
+        render: (totalMarcaciones: number) => (
+          <span>
+            {typeof totalMarcaciones === "number" ? totalMarcaciones : "-"}
+          </span>
+        ),
+        align: "center",
+        width: 140,
+      },
+      {
+        title: "Recordatorio",
+        key: "recordatorios",
+        width: 240,
+        render: (_: any, record: LeadTabla) =>
+          !record.recordatorios || record.recordatorios.length === 0 ? (
+            "-"
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {record.recordatorios
+                .filter(Boolean)
+                .sort(
+                  (a: string, b: string) =>
+                    new Date(a).getTime() - new Date(b).getTime()
+                )
+                .slice(0, 3)
+                .map((r: string, i: number) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      backgroundColor: getReminderColor(r),
+                      color: "#ffffff",
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <FileTextOutlined style={{ fontSize: "12px" }} />
+                    {new Date(r).toLocaleDateString("es-ES")}{" "}
+                    {new Date(r).toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
+                  </div>
+                ))}
+            </div>
+          ),
+      },
+
+      {
+        title: "Fecha Creación",
+        dataIndex: "fechaCreacion",
+        key: "fechaCreacion",
+        sorter: (a, b) =>
+          new Date(a.fechaCreacion ?? "").getTime() -
+          new Date(b.fechaCreacion ?? "").getTime(),
+        render: (fechaCreacion: string | null) => {
+          if (!fechaCreacion) return "-";
+          const d = new Date(fechaCreacion);
+          return (
+            <div
+              style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}
+            >
+              <CalendarOutlined
+                style={{ color: "#8c8c8c", marginTop: "2px" }}
+              />
+              <div>
+                <div style={{ color: "#000000", fontSize: "14px" }}>
+                  {d.toLocaleDateString()}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    color: "#8c8c8c",
+                    fontSize: "13px",
+                  }}
+                >
+                  <ClockCircleOutlined style={{ fontSize: "12px" }} />
+                  {d.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        );
+          );
+        },
       },
-    },
-    // Columna existente: Fecha Formulario ahora usa fechaFormulario mapeado desde la API
-    {
-      title: "Fecha Formulario",
-      dataIndex: "fechaFormulario",
-      key: "fechaFormulario",
-      sorter: (a, b) =>
-        new Date(a.fechaFormulario ?? "").getTime() - new Date(b.fechaFormulario ?? "").getTime(),
-      render: (fechaFormulario: string | null) => {
-        if (!fechaFormulario) return "-";
-        const d = new Date(fechaFormulario);
-        return (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-            <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
-            <div>
-              <div style={{ color: "#000000", fontSize: "14px" }}>
-                {d.toLocaleDateString()}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  color: "#8c8c8c",
-                  fontSize: "13px",
-                }}
-              >
-                <ClockCircleOutlined style={{ fontSize: "12px" }} />
-                {d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      // Columna existente: Fecha Formulario ahora usa fechaFormulario mapeado desde la API
+      {
+        title: "Fecha Formulario",
+        dataIndex: "fechaFormulario",
+        key: "fechaFormulario",
+        sorter: (a, b) =>
+          new Date(a.fechaFormulario ?? "").getTime() -
+          new Date(b.fechaFormulario ?? "").getTime(),
+        render: (fechaFormulario: string | null) => {
+          if (!fechaFormulario) return "-";
+          const d = new Date(fechaFormulario);
+          return (
+            <div
+              style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}
+            >
+              <CalendarOutlined
+                style={{ color: "#8c8c8c", marginTop: "2px" }}
+              />
+              <div>
+                <div style={{ color: "#000000", fontSize: "14px" }}>
+                  {d.toLocaleDateString()}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    color: "#8c8c8c",
+                    fontSize: "13px",
+                  }}
+                >
+                  <ClockCircleOutlined style={{ fontSize: "12px" }} />
+                  {d.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        );
+          );
+        },
       },
-    },
+      {
+        title: "Acciones",
+        key: "actions",
+        align: "center",
+        render: (_: any, record: Lead) => (
+          <Tooltip title="Ver Detalle">
+            <Button
+              type="primary"
+              icon={<EyeOutlined />}
+              size="small"
+              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+              onClick={() => handleClick(record.id)}
+            />
+          </Tooltip>
+        ),
+      },
     ],
     []
   );
 
-  const rowSelection = useMemo(
-    () => ({
-      selectedRowKeys: selectedRows.map((row) => row.id),
-      onChange: (
-        _selectedRowKeys: React.Key[],
-        selectedRowsData: Lead[]
-      ) => {
-        setSelectedRows(selectedRowsData);
-      },
-      getCheckboxProps: (record: Lead) => ({
-        name: record.id.toString(),
-      }),
-    }),
-    [selectedRows]
-  );
+  const rowSelection = {
+    selectedRowKeys: selectedRows.map((r) => r.id),
+    onChange: (_: React.Key[], rows: LeadTabla[]) => {
+      setSelectedRows(rows);
+    },
+  };
 
   const hayOportunidadesConAsesor = selectedRows.some(
     (l) => (l.asesor ?? "").trim() !== ""
@@ -671,7 +897,10 @@ const ejecutarImportacion = async () => {
             >
               Reasignar masivo
             </Button>
-            <Button className={estilos.btnLimpiar} onClick={handleLimpiarFiltros}>
+            <Button
+              className={estilos.btnLimpiar}
+              onClick={handleLimpiarFiltros}
+            >
               Limpiar filtros
             </Button>
             <Button
@@ -688,61 +917,133 @@ const ejecutarImportacion = async () => {
         {/* Filtros - Abajo */}
         <div className={estilos.filtersRow}>
           <Select
+            {...SELECT_PROPS}
             value={filterAsesor}
             onChange={setFilterAsesor}
-            className={estilos.filterSelect}
             placeholder="Seleccionar asesor"
+            allowClear
           >
             <Option value="Todos">Todos los asesores</Option>
-            {asesoresUnicos.map((a) => (
-              <Option key={a} value={a}>
-                {a}
+            <Option value="__SIN_ASESOR__">Sin asesor</Option>
+
+            {asesores.map((a) => (
+              <Option key={a.idUsuario} value={a.nombre}>
+                {a.nombre}
               </Option>
             ))}
           </Select>
+
           <Select
-            value={filterEstado}
-            onChange={setFilterEstado}
+            {...SELECT_PROPS}
+            value={filterCodigoLinkedin}
+            onChange={setFilterCodigoLinkedin}
             className={estilos.filterSelect}
-            placeholder="Seleccionar estado"
+            placeholder="Seleccionar código Linkedin"
+            loading={loadingCodigos}
+            allowClear
+          >
+            <Option value="Todos">Todos códigos Linkedin</Option>
+            {codigosLinkedin.map((codigo) => (
+              <Option key={codigo} value={codigo}>
+                {codigo}
+              </Option>
+            ))}
+          </Select>
+
+          <Select
+            {...SELECT_PROPS}
+            value={filterCodigoLanzamiento}
+            onChange={setFilterCodigoLanzamiento}
+            className={estilos.filterSelect}
+            placeholder="Seleccionar código lanzamiento"
+            loading={loadingCodigos}
+            allowClear
+          >
+            <Option value="Todos">Todos códigos lanzamiento</Option>
+            {codigosLanzamiento.map((codigo) => (
+              <Option key={codigo} value={codigo}>
+                {codigo}
+              </Option>
+            ))}
+          </Select>
+
+          <Select
+            {...SELECT_PROPS}
+            mode="multiple"
+            value={Array.isArray(filterEstado) ? filterEstado : []}
+            onChange={(values: string[]) => {
+              if (!values || values.length === 0) {
+                setFilterEstado("Todos");
+                return;
+              }
+              if (values.includes("Todos")) {
+                setFilterEstado("Todos");
+              } else {
+                setFilterEstado(values);
+              }
+            }}
+            className={estilos.filterSelect}
+            placeholder="Todos los estados"
+            allowClear
+            maxTagCount="responsive"
+            filterOption={(input, option) =>
+              (option?.children as unknown as string).toLowerCase().includes(input.toLowerCase())
+            }
           >
             <Option value="Todos">Todos los estados</Option>
-            {estadosUnicos.map((estado) => (
-              <Option key={estado} value={estado}>
-                {estado}
+            {ESTADOS.map((e) => (
+              <Option key={e} value={e}>
+                {e}
               </Option>
             ))}
           </Select>
+
           <Select
+            {...SELECT_PROPS}
             value={filterOrigen}
             onChange={setFilterOrigen}
-            className={estilos.filterSelect}
-            placeholder="Seleccionar origen"
           >
             <Option value="Todos">Todos los orígenes</Option>
-            {origenesUnicos.map((origen) => (
-              <Option key={origen} value={origen}>
-                {origen}
+            {ORIGENES.map((o) => (
+              <Option key={o} value={o}>
+                {o}
               </Option>
             ))}
           </Select>
           <Select
-            value={filterPais}
-            onChange={setFilterPais}
+            mode="multiple"
+            showSearch
+            value={filterPais === "Todos" ? [] : filterPais}
+            onChange={(values) => {
+              if (!values || values.length === 0) {
+                setFilterPais("Todos");
+                return;
+              }
+              setFilterPais(values);
+            }}
             className={estilos.filterSelect}
-            placeholder="Seleccionar país"
+            placeholder="Todos los países"
+            allowClear
+            loading={loadingPaises}
+            virtual={false}
+            maxTagCount="responsive"
+            filterOption={(input, option) =>
+              (option?.children as string)
+                .toLowerCase()
+                .includes(input.toLowerCase())
+            }
           >
-            <Option value="Todos">Todos los países</Option>
-            {paisesUnicos.map((pais) => (
-              <Option key={pais} value={pais}>
-                {pais}
+            {paises.map((p) => (
+              <Option key={p.id} value={p.nombre}>
+                {p.nombre}
               </Option>
             ))}
           </Select>
+
           <RangePicker
             value={dateRange}
             onChange={(dates) =>
-              setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
+              setDateRange(dates as [Moment | null, Moment | null] | null)
             }
             format="DD/MM/YYYY"
             placeholder={["Fecha inicio", "Fecha fin"]}
@@ -759,11 +1060,24 @@ const ejecutarImportacion = async () => {
             <>
               <Table
                 columns={columns}
-                dataSource={leadsFiltrados}
-                rowKey="id"
                 rowSelection={rowSelection}
-                pagination={{ pageSize: 10 }}
+                dataSource={leadsMapeados}
+                rowKey="id"
+                pagination={{
+                  current: currentPage,
+                  pageSize,
+                  total, // 🔥 ESTE ES CLAVE
+                  showSizeChanger: true,
+                  pageSizeOptions: ["10", "20", "50", "100"],
+                  onChange: (page, size) => {
+                    setCurrentPage(page);
+                    setPageSize(size ?? 10);
+                  },
+                  showTotal: (total, range) =>
+                    `${range[0]}-${range[1]} de ${total}`,
+                }}
               />
+
               {selectedRows.length > 0 && (
                 <div className={estilos.selectionInfo}>
                   {selectedRows.length} Oportunidades seleccionadas
@@ -805,11 +1119,19 @@ const ejecutarImportacion = async () => {
               <Spin />
             ) : (
               <Select
-                value={asesorDestino}
+                showSearch
+                value={asesorDestino ?? undefined}
                 onChange={setAsesorDestino}
                 placeholder="Selecciona un asesor"
                 className={estilosModal.select}
                 size="large"
+                virtual={false}
+                filterOption={(input, option) =>
+                  (option?.children as unknown as string)
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+                listHeight={200}
               >
                 {asesores.map((a) => (
                   <Option key={a.idUsuario} value={a.idUsuario}>
@@ -829,7 +1151,6 @@ const ejecutarImportacion = async () => {
                     Fecha<span style={{ color: "#ff4d4f" }}>*</span>
                   </span>
                 }
-                required
                 style={{ flex: 1 }}
               >
                 <DatePicker
@@ -847,7 +1168,6 @@ const ejecutarImportacion = async () => {
                     Hora<span style={{ color: "#ff4d4f" }}>*</span>
                   </span>
                 }
-                required
                 style={{ flex: 1 }}
               >
                 <TimePicker
@@ -919,7 +1239,11 @@ const ejecutarImportacion = async () => {
                   }}
                   bodyStyle={{ padding: 12 }}
                 >
-                  <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                  <Space
+                    direction="vertical"
+                    size={4}
+                    style={{ width: "100%" }}
+                  >
                     <div style={{ fontWeight: 700, fontSize: 15 }}>
                       {op.nombre}
                     </div>
@@ -948,10 +1272,13 @@ const ejecutarImportacion = async () => {
                     <div style={{ fontSize: 13, color: "#666" }}>
                       <b>Fecha:</b>{" "}
                       {new Date(op.fechaFormulario).toLocaleDateString("es-ES")}{" "}
-                      {new Date(op.fechaFormulario).toLocaleTimeString("es-ES", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {new Date(op.fechaFormulario).toLocaleTimeString(
+                        "es-ES",
+                        {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }
+                      )}
                     </div>
                   </Space>
                 </Card>
@@ -1003,15 +1330,21 @@ const ejecutarImportacion = async () => {
         className={estilosModal.modal}
       >
         <div className={estilosModal.modalContent}>
-          <h2 className={estilosModal.title}>Importar Procesado desde LinkedIn</h2>
+          <h2 className={estilosModal.title}>
+            Importar Procesado desde LinkedIn
+          </h2>
 
           {/* Rango de fecha */}
           <div className={estilosModal.section}>
-            <label className={estilosModal.label}>Rango de fecha (fecha de subida al CRM):</label>
+            <label className={estilosModal.label}>
+              Rango de fecha (fecha de subida al CRM):
+            </label>
             <RangePicker
               showTime
               value={importRange}
-              onChange={(dates) => setImportRange(dates as [Dayjs | null, Dayjs | null] | null)}
+              onChange={(dates) =>
+                setImportRange(dates as [Moment | null, Moment | null] | null)
+              }
               format="DD/MM/YYYY HH:mm"
               style={{ width: "100%" }}
               placeholder={["Fecha inicio", "Fecha fin"]}
@@ -1021,7 +1354,10 @@ const ejecutarImportacion = async () => {
 
           <div className={estilosModal.section}>
             <Button
-              onClick={() => { setImportRange(null); setImportResult(null); }}
+              onClick={() => {
+                setImportRange(null);
+                setImportResult(null);
+              }}
               size="large"
             >
               Limpiar
@@ -1039,10 +1375,22 @@ const ejecutarImportacion = async () => {
             <>
               <Card style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-                  <div><strong>Filas procesadas:</strong> {importResult.filasProcesadas}</div>
-                  <div><strong>Filas saltadas:</strong> {importResult.filasSaltadas}</div>
-                  <div><strong>Filas en rango:</strong> {importResult.filasEnRango}</div>
-                  {importResult.mensaje && <div style={{ width: "100%", marginTop: 8 }}><strong>Mensaje:</strong> {importResult.mensaje}</div>}
+                  <div>
+                    <strong>Filas procesadas:</strong>{" "}
+                    {importResult.filasProcesadas}
+                  </div>
+                  <div>
+                    <strong>Filas saltadas:</strong>{" "}
+                    {importResult.filasSaltadas}
+                  </div>
+                  <div>
+                    <strong>Filas en rango:</strong> {importResult.filasEnRango}
+                  </div>
+                  {importResult.mensaje && (
+                    <div style={{ width: "100%", marginTop: 8 }}>
+                      <strong>Mensaje:</strong> {importResult.mensaje}
+                    </div>
+                  )}
                 </div>
               </Card>
             </>
@@ -1062,10 +1410,6 @@ const ejecutarImportacion = async () => {
           </Button>
         </div>
       </Modal>
-
-
     </div>
   );
-
-  
 }

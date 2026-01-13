@@ -125,9 +125,9 @@ export const actualizarProducto = async (
 /* =========================
    ELIMINAR
 ========================= */
-export const eliminarProducto = async (id: number): Promise<void> => {
+/* export const eliminarProducto = async (id: number): Promise<void> => {
   await api.delete(
     `/api/VTAModVentaProducto/Eliminar/${id}`
   );
-};
+}; */
 

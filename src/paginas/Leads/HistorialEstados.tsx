@@ -35,6 +35,12 @@ type HistorialItem = {
   FechaCreacion?: string;
   UsuarioCreacion?: string;
   EstadoNombre?: string;
+  Personal?: {
+    id: number;
+    nombres?: string;
+    apellidos?: string;
+    correo?: string;
+  };
 };
 
 type Props = {
@@ -77,6 +83,7 @@ const HistorialEstados: React.FC<Props> = ({ oportunidadId }) => {
         Observaciones: h.Observaciones ?? "",
         FechaCreacion: h.FechaCreacion ?? h.fechaCreacion ?? h.fecha ?? null,
         UsuarioCreacion: h.UsuarioCreacion ?? h.usuarioCreacion ?? "",
+        Personal: h.personal ?? null, // ✅ AQUÍ
         EstadoNombre:
           h.EstadoReferencia?.Nombre ??
           h.estadoReferencia?.nombre ??
@@ -120,7 +127,7 @@ const HistorialEstados: React.FC<Props> = ({ oportunidadId }) => {
   }, [oportunidadId]);
 
   const toggleRegistro = (id: number) => {
-    setAbiertoId(prev => (prev === id ? null : id));
+    setAbiertoId((prev) => (prev === id ? null : id));
   };
 
   const renderContenido = (
@@ -134,7 +141,8 @@ const HistorialEstados: React.FC<Props> = ({ oportunidadId }) => {
       activo: isLatest,
       cantidadContestadas: item.CantidadLlamadasContestadas ?? 0,
       cantidadNoContestadas: item.CantidadLlamadasNoContestadas ?? 0,
-      origenOcurrenciaId: item.IdOcurrencia != null ? Number(item.IdOcurrencia) : null,
+      origenOcurrenciaId:
+        item.IdOcurrencia != null ? Number(item.IdOcurrencia) : null,
     };
 
     switch (estadoNombre.toLowerCase()) {
@@ -196,12 +204,15 @@ const HistorialEstados: React.FC<Props> = ({ oportunidadId }) => {
         </div>
 
         {/* REGISTROS */}
-        {historial.map(h => {
+        {historial.map((h) => {
           const id = Number(h.Id ?? h.id);
           const abierto = abiertoId === id;
           const estado = h.EstadoNombre ?? estadoMap[h.IdEstado ?? 0] ?? "—";
           const fecha = h.FechaCreacion
             ? new Date(h.FechaCreacion).toLocaleDateString()
+            : "—";
+          const asesor = h.Personal
+            ? `${h.Personal.nombres ?? ""} ${h.Personal.apellidos ?? ""}`.trim()
             : "—";
 
           return (
@@ -216,9 +227,7 @@ const HistorialEstados: React.FC<Props> = ({ oportunidadId }) => {
                 onClick={() => toggleRegistro(id)}
               >
                 <Col flex="52px">
-                  <div className={styles.idColumn}>
-                    {id}
-                  </div>
+                  <div className={styles.idColumn}>{id}</div>
                 </Col>
 
                 <Col flex="1">
@@ -241,7 +250,7 @@ const HistorialEstados: React.FC<Props> = ({ oportunidadId }) => {
                 </Col>
 
                 <Col flex="1">
-                  <Text>{h.UsuarioCreacion}</Text>
+                  <Text>{asesor}</Text>
                 </Col>
 
                 <Col flex="24px">

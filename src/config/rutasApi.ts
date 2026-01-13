@@ -16,7 +16,7 @@ export async function getOcurrenciasPermitidas(oportunidadId: number): Promise<O
   return res.data?.ocurrencias ?? res.data ?? [];
 }
 
-export async function crearHistorialConOcurrencia(oportunidadId: number, ocurrenciaId: number, usuario = "SYSTEM") {
+export async function crearHistorialConOcurrencia(oportunidadId: number, ocurrenciaId: number, usuario:number) {
   try {
     const res = await api.post(
       `/api/VTAModVentaHistorialEstado/CrearHistorialConOcurrencia/${oportunidadId}`,
@@ -136,9 +136,13 @@ export interface ClientePotencial {
   persona: Persona;
 }
 
-export async function obtenerClientesPotenciales(): Promise<ClientePotencial[]> {
+export const obtenerClientesPotenciales = async (search?: string) => {
   try {
-    const res = await api.get('/api/VTAModVentaPotencialCliente/ObtenerTodas');
+    const res = await api.get('/api/VTAModVentaPotencialCliente/ObtenerTodas', {
+      params: {
+        search: search || null,
+      },
+    });
     return res.data?.potencialClientes ?? [];
   } catch (err: any) {
     console.error("obtenerClientesPotenciales axios error", err?.response?.status, err?.response?.data);
@@ -188,11 +192,9 @@ export async function obtenerLanzamientos(): Promise<Lanzamiento[]> {
     });
 
     const lanzamientos = Array.from(lanzamientosUnicos.values());
-    console.log('Lanzamientos únicos extraídos:', lanzamientos);
-
     return lanzamientos;
   } catch (err: any) {
-    console.error("obtenerLanzamientos axios error", err?.response?.status, err?.response?.data);
+    // console.error("obtenerLanzamientos axios error", err?.response?.status, err?.response?.data);
     throw err;
   }
 }

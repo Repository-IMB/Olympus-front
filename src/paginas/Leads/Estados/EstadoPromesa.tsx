@@ -5,6 +5,8 @@ import type { OcurrenciaDTO } from "../../../modelos/Ocurrencia";
 import { crearHistorialConOcurrencia, getOcurrenciasPermitidas } from "../../../config/rutasApi";
 import api from "../../../servicios/api";
 import { emitHistorialChanged } from "../../../utils/events";
+import { getCookie } from "../../../utils/cookies";
+import { jwtDecode } from "jwt-decode";
 
 const { Text } = Typography;
 const { Option } = Select as any;
@@ -42,6 +44,27 @@ function useMountedFlag() {
   }, []);
   return mounted;
 }
+
+ const token = getCookie("token");
+
+  const getUserIdFromToken = () => {
+        if (!token) return 0;
+    
+        try {
+          const decoded: any = jwtDecode(token);
+    
+          const id =
+            decoded[
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+            ];
+    
+          return id ? Number(id) : 0;
+        } catch (e) {
+          console.error("Error decodificando token", e);
+          return 0;
+        }
+      };
+      
 
 export default function EstadoPromesa({ oportunidadId, usuario = "SYSTEM", onCreado, activo = true }: Props) {
   const [ocurrencias, setOcurrencias] = useState<OcurrenciaDTO[]>([]);
@@ -158,7 +181,7 @@ export default function EstadoPromesa({ oportunidadId, usuario = "SYSTEM", onCre
     if (creatingId || !activo) return;
     setCreatingId(ocId);
     try {
-      await crearHistorialConOcurrencia(oportunidadId, ocId, usuario);
+      await crearHistorialConOcurrencia(oportunidadId, ocId, Number(getUserIdFromToken()));
       message.success("Cambio aplicado");
       emitHistorialChanged({ motivo: "crearHistorialConOcurrencia", ocurrenciaId: ocId });
       if (onCreado) onCreado();

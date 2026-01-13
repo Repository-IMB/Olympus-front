@@ -5,7 +5,6 @@ import {
   Table,
   Button,
   Tag,
-  Space,
   Spin,
   Alert,
   Tooltip,
@@ -17,22 +16,20 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   EyeOutlined,
-  EditOutlined,
   FileTextOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import dayjs, { type Dayjs } from "dayjs";
+import moment, { type Moment } from "moment";
 import SelectClient from "../SelectClient/SelectClient";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
 import api from "../../servicios/api";
-import { useBreakpoint } from "../../hooks/useBreakpoint";
 import styles from "./Opportunities.module.css";
-import type { ColumnType } from "antd/es/table";
+import type { ColumnsType } from "antd/es/table";
+import { useSearchParams } from "react-router-dom";
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
-
 const { Content } = Layout;
 
 interface TokenData {
@@ -47,26 +44,120 @@ interface Opportunity {
   productoNombre: string;
   fechaCreacion: string;
   personaCorreo: string;
-  fechaRecordatorio: string | null;
-  asesorNombre: string;
+  personalNombre: string;
+  totalMarcaciones?: number;
+  recordatorios: string[];
 }
 
+interface Asesor {
+  idUsuario: number;
+  idPersonal: number;
+  nombre: string;
+}
+
+const getReminderColor = (fechaRecordatorio: string): string => {
+  const now = new Date();
+  const reminderDate = new Date(fechaRecordatorio);
+
+  const diffMs = reminderDate.getTime() - now.getTime();
+  const hoursRemaining = diffMs / (1000 * 60 * 60);
+
+  if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
+  if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
+  if (hoursRemaining < 24) return "#ffd666"; // amarillo
+  return "#1677ff"; // azul
+};
+
 export default function OpportunitiesInterface() {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
     useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [filterEstado, setFilterEstado] = useState<string>("Todos");
-  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
-  const [dateRange, setDateRange] = useState<
-    [Dayjs | null, Dayjs | null] | null
-  >(null);
+
   const navigate = useNavigate();
-  const { isMobile, isTablet } = useBreakpoint();
 
   const token = getCookie("token");
+
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [data, setData] = useState<Opportunity[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
+  const [dateRange, setDateRange] = useState<
+    [Moment | null, Moment | null] | null
+  >(null);
+
+  const [currentPage, setCurrentPage] = useState(
+    Number(searchParams.get("page")) || 1
+  );
+
+  const [pageSize, setPageSize] = useState(
+    Number(searchParams.get("pageSize")) || 10
+  );
+
+  const [searchText, setSearchText] = useState(
+    searchParams.get("search") || ""
+  );
+
+  const [filterEstado, setFilterEstado] = useState(
+    searchParams.get("estado") || "Todos"
+  );
+
+
+  useEffect(() => {
+    setSearchParams({
+      page: currentPage.toString(),
+      pageSize: pageSize.toString(),
+      search: searchText || "",
+      estado: filterEstado !== "Todos" ? filterEstado : "",
+    });
+  }, [currentPage, pageSize, searchText, filterEstado]);
+
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const [asesores, setAsesores] = useState<Asesor[]>([]);
+  const [loadingAsesores, setLoadingAsesores] = useState(false);
+
+  const obtenerAsesores = async () => {
+    try {
+      setLoadingAsesores(true);
+
+      const res = await api.get("/api/CFGModUsuarios/ObtenerUsuariosPorRol/1");
+
+      if (res.data?.usuarios) {
+        const lista = res.data.usuarios.map((u: any) => ({
+          idUsuario: u.id,
+          idPersonal: u.idPersonal,
+          nombre: u.nombre,
+        }));
+
+        setAsesores(lista);
+      }
+    } catch (e) {
+      console.error("Error cargando asesores", e);
+      setAsesores([]);
+    } finally {
+      setLoadingAsesores(false);
+    }
+  };
+
+
+  useEffect(() => {
+    obtenerAsesores();
+  }, []);
+
+  const asesoresUnicos = useMemo(() => {
+    const set = new Set<string>();
+    asesores.forEach((a) => {
+      if (a.nombre) set.add(a.nombre);
+    });
+    return Array.from(set).sort();
+  }, [asesores]);
 
   const { idUsuario, idRol } = useMemo(() => {
     let idU = 0;
@@ -79,12 +170,12 @@ export default function OpportunitiesInterface() {
       const decoded = jwtDecode<TokenData>(token);
       idU = parseInt(
         decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ] || "0"
       );
       rNombre =
         decoded[
-          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
         ] || "";
 
       const rolesMap: Record<string, number> = {
@@ -103,51 +194,76 @@ export default function OpportunitiesInterface() {
   }, [token]);
 
   useEffect(() => {
-    if (!idUsuario || !idRol) {
-      setOpportunities([]);
-      setLoading(false);
-      return;
-    }
+    if (!idUsuario || !idRol) return;
 
-    const fetchOpportunities = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        setError(null);
 
         const res = await api.get(
-          "/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio",
+          "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
           {
-            params: { idUsuario, idRol },
+            params: {
+              idUsuario,
+              idRol,
+              page: currentPage,
+              pageSize,
+              search: searchText || null,
+              estadoFiltro: filterEstado !== "Todos" ? filterEstado : null,
+              asesorFiltro: filterAsesor !== "Todos" ? filterAsesor : null,
+              fechaInicio: dateRange?.[0]?.format("YYYY-MM-DD") ?? null,
+              fechaFin: dateRange?.[1]?.format("YYYY-MM-DD") ?? null,
+            },
           }
         );
 
-        const data = res.data;
-        const items: Opportunity[] = data?.oportunidad ?? [];
+        const mapped: Opportunity[] = (res.data.oportunidad ?? []).map(
+          (op: any) => ({
+            id: op.id,
+            personaNombre: op.personaNombre ?? "",
+            personaTelefono: op.personaTelefono ?? "",
+            nombreEstado: op.nombreEstado ?? "",
+            productoNombre: op.productoNombre ?? "",
+            fechaCreacion: op.fechaCreacion,
+            personaCorreo: op.personaCorreo ?? "",
+            personalNombre: op.personalNombre ?? "",
+            totalMarcaciones: op.totalOportunidadesPersona ?? 0,
 
-        // ordenar por fecha creación descendente
-        const sortedOpportunities = items.sort(
-          (a: Opportunity, b: Opportunity) =>
-            new Date(b.fechaCreacion).getTime() -
-            new Date(a.fechaCreacion).getTime()
+            recordatorios: op.recordatoriosJson
+              ? JSON.parse(op.recordatoriosJson).map(
+                (r: any) => r.FechaRecordatorio
+              )
+              : [],
+          })
         );
 
-        setOpportunities(sortedOpportunities);
+        setData(mapped);
+        setTotal(res.data.total ?? 0);
       } catch (e: any) {
-        console.error("Error al obtener oportunidades", e);
         setError(
-          e?.response?.data?.message ??
-            e.message ??
-            "Error al obtener oportunidades"
+          e?.response?.data?.mensaje ??
+          e?.message ??
+          "Error al obtener oportunidades"
         );
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOpportunities();
-  }, [idUsuario, idRol]);
+    fetchData();
+  }, [
+    idUsuario,
+    idRol,
+    currentPage,
+    pageSize,
+    searchText,
+    filterEstado,
+    filterAsesor,
+    dateRange,
+  ]);
 
   const handleClick = (id: number) => {
+    console.log(id)
     navigate(`/leads/oportunidades/${id}`);
   };
 
@@ -158,271 +274,197 @@ export default function OpportunitiesInterface() {
     setDateRange(null);
   };
 
-  // Obtener estados únicos
-  const estadosUnicos = useMemo(() => {
-    const estados = new Set<string>();
-    opportunities.forEach((op) => {
-      if (op.nombreEstado) {
-        estados.add(op.nombreEstado);
-      }
-    });
-    return Array.from(estados).sort();
-  }, [opportunities]);
+  const estadosUnicos = [
+    "Registrado",
+    "Calificado",
+    "Potencial",
+    "Promesa",
+    "Perdido",
+    "Convertido",
+    "Cobranza",
+    "No Calificado",
+  ];
 
-  const asesoresUnicos = useMemo(() => {
-    const asesores = new Set<string>();
-    opportunities.forEach((op) => {
-      if (op.asesorNombre) {
-        asesores.add(op.asesorNombre);
-      }
-    });
-    return Array.from(asesores).sort();
-  }, [opportunities]);
-
-  // Filtrar oportunidades
-  const opportunitiesFiltradas = useMemo(() => {
-    let filtradas = [...opportunities];
-
-    // Filtro por búsqueda de texto
-    if (searchText.trim()) {
-      const busqueda = searchText.toLowerCase().trim();
-      filtradas = filtradas.filter((op) => {
-        const nombreMatch = op.personaNombre.toLowerCase().includes(busqueda);
-        const correoMatch = (op.personaCorreo || "")
-          .toLowerCase()
-          .includes(busqueda);
-        const productoMatch = op.productoNombre
-          .toLowerCase()
-          .includes(busqueda);
-        const idMatch = op.id.toString().includes(busqueda);
-        return nombreMatch || correoMatch || productoMatch || idMatch;
-      });
-    }
-
-    // Filtro por estado
-    if (filterEstado !== "Todos") {
-      filtradas = filtradas.filter((op) => op.nombreEstado === filterEstado);
-    }
-
-    if (filterAsesor !== "Todos") {
-      filtradas = filtradas.filter((op) => op.asesorNombre === filterAsesor);
-    }
-
-    // Filtro por rango de fechas
-    if (dateRange && dateRange[0] && dateRange[1]) {
-      const fechaInicio = dateRange[0].startOf("day");
-      const fechaFin = dateRange[1].endOf("day");
-      filtradas = filtradas.filter((op) => {
-        const fechaCreacion = dayjs(op.fechaCreacion);
-        return (
-          (fechaCreacion.isAfter(fechaInicio) ||
-            fechaCreacion.isSame(fechaInicio, "day")) &&
-          (fechaCreacion.isBefore(fechaFin) ||
-            fechaCreacion.isSame(fechaFin, "day"))
-        );
-      });
-    }
-
-    return filtradas;
-  }, [
-    opportunities,
-    searchText,
-    filterEstado,
-    filterAsesor,
-    dateRange,
-    asesoresUnicos,
-  ]);
-
-  // Columnas responsivas según el breakpoint
-  const columns = useMemo(() => {
-    const baseColumns: ColumnType<Opportunity>[] = [
-      {
-        title: "Fecha y Hora",
-        dataIndex: "fechaCreacion",
-        key: "fechaCreacion",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          new Date(a.fechaCreacion).getTime() -
-          new Date(b.fechaCreacion).getTime(),
-        render: (fechaCreacion: string) => (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-            <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
-            <div>
-              <div style={{ color: "#000000", fontSize: "14px" }}>
-                {new Date(fechaCreacion).toLocaleDateString()}
-              </div>
-              {!isMobile && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    color: "#8c8c8c",
-                    fontSize: "13px",
-                  }}
-                >
-                  <ClockCircleOutlined style={{ fontSize: "12px" }} />
-                  {new Date(fechaCreacion).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-              )}
+  const columns: ColumnsType<Opportunity> = [
+    {
+      title: "Fecha y Hora",
+      dataIndex: "fechaCreacion",
+      key: "fechaCreacion",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        new Date(a.fechaCreacion).getTime() -
+        new Date(b.fechaCreacion).getTime(),
+      render: (fechaCreacion: string) => (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+          <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
+          <div>
+            <div style={{ color: "#000000", fontSize: "14px" }}>
+              {new Date(fechaCreacion).toLocaleDateString()}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                color: "#8c8c8c",
+                fontSize: "13px",
+              }}
+            >
+              <ClockCircleOutlined style={{ fontSize: "12px" }} />
+              {new Date(fechaCreacion).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </div>
           </div>
-        ),
+        </div>
+      ),
+    },
+    {
+      title: "Nombre Completo",
+      dataIndex: "personaNombre",
+      key: "personaNombre",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        a.personaNombre.localeCompare(b.personaNombre),
+    },
+    {
+      title: "Correo",
+      dataIndex: "personaCorreo",
+      key: "personaCorreo",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Estado",
+      dataIndex: "nombreEstado",
+      key: "nombreEstado",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        a.nombreEstado.localeCompare(b.nombreEstado),
+      render: (nombreEstado: string) => {
+        let color = "green";
+
+        if (nombreEstado === "Calificado") {
+          color = "blue";
+        } else if (nombreEstado === "Registrado") {
+          color = "blue";
+        } else if (nombreEstado === "Potencial") {
+          color = "blue";
+        } else if (nombreEstado === "Promesa") {
+          color = "blue";
+        } else if (nombreEstado === "No calificado") {
+          color = "red";
+        } else if (nombreEstado === "Perdido") {
+          color = "red";
+        }
+
+        return (
+          <Tag
+            color={color}
+            style={{ borderRadius: "12px", padding: "2px 12px" }}
+          >
+            {nombreEstado}
+          </Tag>
+        );
       },
-      {
-        title: "Nombre Completo",
-        dataIndex: "personaNombre",
-        key: "personaNombre",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          a.personaNombre.localeCompare(b.personaNombre),
-      },
-      {
-        title: "Estado",
-        dataIndex: "nombreEstado",
-        key: "nombreEstado",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          a.nombreEstado.localeCompare(b.nombreEstado),
-        render: (nombreEstado: string) => {
-          let color = "green";
+    },
+    {
+      title: "Programa",
+      dataIndex: "productoNombre",
+      key: "productoNombre",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        a.productoNombre.localeCompare(b.productoNombre),
+    },
+    {
+      title: "Total Marcaciones",
+      dataIndex: "totalMarcaciones",
+      key: "totalMarcaciones",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.totalMarcaciones ?? 0) - (b.totalMarcaciones ?? 0),
+      render: (totalMarcaciones: number) => (
+        <span>
+          {typeof totalMarcaciones === "number" ? totalMarcaciones : "-"}
+        </span>
+      ),
 
-          if (nombreEstado === "Calificado") {
-            color = "blue";
-          } else if (nombreEstado === "Registrado") {
-            color = "blue";
-          } else if (nombreEstado === "Promesa") {
-            color = "gold";
-          } else if (nombreEstado === "No calificado") {
-            color = "red";
-          }
-
-          return (
-            <Tag
-              color={color}
-              style={{ borderRadius: "12px", padding: "2px 12px" }}
-            >
-              {nombreEstado}
-            </Tag>
-          );
-        },
-      },
-      {
-        title: "Acciones",
-        key: "actions",
-        align: "center",
-        fixed: isMobile ? undefined : "right",
-        render: (_: any, record: Opportunity) => (
-          <Space size="small">
-            <Tooltip title="Ver Detalle">
-              <Button
-                type="primary"
-                icon={<EyeOutlined />}
-                size="small"
-                style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
-                onClick={() => handleClick(record.id)}
-              />
-            </Tooltip>
-            {/* {!isMobile && (
-              <Tooltip title="Editar">
-                <Button
-                  type="primary"
-                  icon={<EditOutlined />}
-                  size="small"
-                  style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
-                />
-              </Tooltip>
-            )} */}
-          </Space>
-        ),
-      },
-    ];
-
-    // Columnas adicionales solo para tablet y desktop
-    if (!isMobile) {
-      baseColumns.splice(2, 0, {
-        title: "Correo",
-        dataIndex: "personaCorreo",
-        key: "personaCorreo",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
-        render: (personaCorreo: string) => <span>{personaCorreo || "-"}</span>,
-      });
-
-      baseColumns.splice(4, 0, {
-        title: "Programa",
-        dataIndex: "productoNombre",
-        key: "productoNombre",
-        sorter: (a: Opportunity, b: Opportunity) =>
-          a.productoNombre.localeCompare(b.productoNombre),
-      });
-
-      // Recordatorio solo en desktop
-      if (!isTablet) {
-        baseColumns.splice(5, 0, {
-          title: "Recordatorio",
-          dataIndex: "fechaRecordatorio",
-          key: "fechaRecordatorio",
-          width: 220,
-          sorter: (a: Opportunity, b: Opportunity) => {
-            if (!a.fechaRecordatorio && !b.fechaRecordatorio) return 0;
-            if (!a.fechaRecordatorio) return 1;
-            if (!b.fechaRecordatorio) return -1;
-            return (
-              new Date(a.fechaRecordatorio).getTime() -
-              new Date(b.fechaRecordatorio).getTime()
-            );
-          },
-          render: (fechaRecordatorio: string | null) => {
-            if (!fechaRecordatorio) return <span>-</span>;
-            return (
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  backgroundColor: "#1677ff",
-                  color: "#ffffff",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  fontSize: "12px",
-                  fontWeight: 500,
-                }}
-              >
-                <FileTextOutlined style={{ fontSize: "12px" }} />
-                <span>
-                  {new Date(fechaRecordatorio).toLocaleDateString("es-ES", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}{" "}
-                  {new Date(fechaRecordatorio).toLocaleTimeString("es-ES", {
+      align: "center",
+      width: 140,
+    },
+    {
+      title: "Recordatorio",
+      key: "recordatorios",
+      width: 240,
+      render: (_: any, record: Opportunity) =>
+        record.recordatorios.length === 0 ? (
+          "-"
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {record.recordatorios
+              .filter(Boolean)
+              .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+              .slice(0, 3)
+              .map((r, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    backgroundColor: getReminderColor(r),
+                    color: "#ffffff",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                  }}
+                >
+                  <FileTextOutlined style={{ fontSize: "12px" }} />
+                  {new Date(r).toLocaleDateString("es-ES")}{" "}
+                  {new Date(r).toLocaleTimeString("es-ES", {
                     hour: "2-digit",
                     minute: "2-digit",
                     hour12: false,
                   })}
-                </span>
-              </div>
-            );
-          },
-        });
-
-        baseColumns.splice(6, 0, {
-          title: "Asesor",
-          dataIndex: "asesorNombre",
-          key: "asesorNombre",
-          sorter: (a: Opportunity, b: Opportunity) =>
-            (a.asesorNombre || "").localeCompare(b.asesorNombre || ""),
-          render: (asesorNombre: string) =>  <span>{asesorNombre || "-"}</span>,
-        });
-      }
-    }
-
-    return baseColumns;
-  }, [isMobile, isTablet]);
+                </div>
+              ))}
+          </div>
+        ),
+    },
+    {
+      title: "Asesor",
+      dataIndex: "personalNombre",
+      key: "personalNombre",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personalNombre || "").localeCompare(b.personalNombre || ""),
+      render: (personalNombre: string) => personalNombre || "-",
+    },
+    {
+      title: "Acciones",
+      key: "actions",
+      align: "center",
+      render: (_: any, record: Opportunity) => (
+        <Tooltip title="Ver Detalle">
+          <Button
+            type="primary"
+            icon={<EyeOutlined />}
+            size="small"
+            style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+            onClick={() => handleClick(record.id)}
+          />
+        </Tooltip>
+      ),
+    },
+  ];
 
   return (
-    <Content className={styles.container}>
+    <Content style={{ padding: "20px", background: "#f5f5f5" }}>
       {/* Action Buttons */}
       <div
         style={{
@@ -467,7 +509,15 @@ export default function OpportunitiesInterface() {
         <h1 className={styles.title}>Oportunidades</h1>
 
         {/* Filtros */}
-        <div className={styles.filters}>
+        <div
+          style={{
+            marginBottom: "20px",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "12px",
+            alignItems: "center",
+          }}
+        >
           <Input
             placeholder="Buscar por nombre, correo, programa o ID"
             prefix={<SearchOutlined />}
@@ -480,7 +530,11 @@ export default function OpportunitiesInterface() {
             value={filterEstado}
             onChange={setFilterEstado}
             placeholder="Seleccionar estado"
-            className={styles.filterSelect}
+            style={{ width: "200px", borderRadius: "6px" }}
+            showSearch
+            virtual={false}
+            listHeight={220}
+            optionFilterProp="children"
           >
             <Option value="Todos">Todos los estados</Option>
             {estadosUnicos.map((estado) => (
@@ -490,38 +544,47 @@ export default function OpportunitiesInterface() {
             ))}
           </Select>
           <Select
+            showSearch
             value={filterAsesor}
             onChange={setFilterAsesor}
             placeholder="Seleccionar asesor"
-            className={styles.filterSelect}
+            style={{ width: "200px", borderRadius: "6px" }}
             disabled={asesoresUnicos.length === 0}
+            virtual={false}
+            listHeight={220}
+            optionFilterProp="children"
           >
             <Option value="Todos">Todos los asesores</Option>
-            {asesoresUnicos.map((asesor) => (
-              <Option key={asesor} value={asesor}>
-                {asesor}
+            <Option value="SIN ASESOR">SIN ASESOR</Option>
+            {asesoresUnicos.map((a) => (
+              <Option key={a} value={a}>
+                {a}
               </Option>
             ))}
           </Select>
           <RangePicker
             value={dateRange}
             onChange={(dates) =>
-              setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
+              setDateRange(dates as [Moment | null, Moment | null] | null)
             }
             format="DD/MM/YYYY"
             placeholder={["Fecha inicio", "Fecha fin"]}
-            className={styles.rangePicker}
+            style={{ borderRadius: "6px" }}
           />
-          <Button
-            onClick={handleLimpiarFiltros}
-            className={styles.clearButton}
-          >
+          <Button onClick={handleLimpiarFiltros} className={styles.clearButton}>
             Limpiar filtros
           </Button>
         </div>
 
         {loading ? (
-          <div className={styles.loadingContainer}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "50vh",
+            }}
+          >
             <Spin size="large" />
           </div>
         ) : error ? (
@@ -529,11 +592,22 @@ export default function OpportunitiesInterface() {
         ) : (
           <Table
             columns={columns}
-            dataSource={opportunitiesFiltradas}
+            dataSource={data}
             rowKey="id"
-            pagination={{ pageSize: 10 }}
-            className={styles.table}
-            scroll={{ x: isMobile ? 800 : undefined }}
+            loading={loading}
+            pagination={{
+              current: currentPage,
+              pageSize,
+              total,
+              showSizeChanger: true,
+              pageSizeOptions: ["10", "20", "50", "100"],
+              onChange: (page, size) => {
+                setCurrentPage(page);
+                if (size) setPageSize(size);
+              },
+              showTotal: (total, range) =>
+                `${range[0]}-${range[1]} de ${total}`,
+            }}
           />
         )}
       </div>

@@ -8,17 +8,20 @@ import {
 import { useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
-import { Layout, Dropdown, Button, Drawer, type MenuProps } from "antd";
+import { Layout, Dropdown, Button, Drawer, notification, Spin } from "antd";
+import { useRecordatoriosGlobales } from "../hooks/useRecordatoriosGlobales";
 import { useBreakpoint } from "../hooks/useBreakpoint";
+import { usePermisosMenu } from "../hooks/usePermisosMenu";
 import Sidebar from "../componentes/Sidebar/Sidebar";
+import api from "../servicios/api";
 import styles from "./MainLayout.module.css";
+import { UserContext } from "../context/UserContext";
 
 const { Sider, Header, Content } = Layout;
 
 interface TokenData {
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"?: string;
-  "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
 }
 
 export default function MainLayout() {
@@ -26,189 +29,153 @@ export default function MainLayout() {
   const navigate = useNavigate();
 
   const [userName, setUserName] = useState("Usuario");
-  const [userRole, setUserRole] = useState("");
   const [openMenu, setOpenMenu] = useState<string | null>("Leads");
-  const [isCollapsed, setIsCollapsed] = useState(false); // Sider (desktop/tablet)
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false); // Drawer (mobile)
-  const [previousPath, setPreviousPath] = useState<string>("");
-
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [apiNotification, contextHolder] = notification.useNotification();
   const { isMobile, isTablet, isDesktop } = useBreakpoint();
+  const [idUsuario, setIdUsuario] = useState<number>(0);
+  const [userContext, setUserContext] = useState<any>(null);
+  const [loadingContext, setLoadingContext] = useState(true);
 
-  // Detectar si estamos en una ruta de detalle (oportunidades/:id)
-  const isDetailRoute = location.pathname.match(/^\/leads\/oportunidad(es)?\/\d+$/);
-
+  /* ========= Leer token ========= */
   useEffect(() => {
     const token = Cookies.get("token");
-    if (token) {
-      try {
-        const decoded: TokenData = jwtDecode(token);
-        setUserName(
-          decoded[
-            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
-          ] || "Usuario"
-        );
-        setUserRole(
-          decoded[
-            "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
-          ] || ""
-        );
-      } catch (error) {
-        console.error("Error al decodificar token:", error);
-      }
-    }
+    if (!token) return;
+
+    const decoded: TokenData = jwtDecode(token);
+
+    setUserName(
+      decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ??
+        "Usuario"
+    );
+
+    const id =
+      decoded[
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+      ];
+    if (id) setIdUsuario(Number(id));
   }, []);
 
-  // Inicializar estado según breakpoint
+  /* ========= Contexto real ========= */
   useEffect(() => {
-    if (isDesktop) {
-      setIsCollapsed(false); // Expandido en desktop
-    } else if (isTablet) {
-      setIsCollapsed(true); // Colapsado en tablet
-    }
-  }, [isDesktop, isTablet]);
+    if (!idUsuario) return;
 
-  // Colapsar sidebar/drawer automáticamente cuando ENTRAMOS a una ruta de detalle
-  useEffect(() => {
-    const wasDetailRoute = previousPath.match(/^\/leads\/oportunidad(es)?\/\d+$/);
-
-    if (isDetailRoute && !wasDetailRoute) {
-      if (isMobile) {
-        setIsDrawerOpen(false); // Cerrar drawer en mobile
-      } else {
-        setIsCollapsed(true); // Colapsar sidebar en tablet/desktop
+    const fetchContext = async () => {
+      try {
+        const res = await api.get(`/api/CFGModPermisos/contexto/${idUsuario}`);
+        setUserContext(res.data);
+      } catch (e) {
+        console.error("Error contexto", e);
+        setUserContext(null);
+      } finally {
+        setLoadingContext(false);
       }
-    }
+    };
 
-    setPreviousPath(location.pathname);
-  }, [location.pathname, isDetailRoute, isMobile, previousPath]);
+    fetchContext();
+  }, [idUsuario]);
+
+  const permisos = usePermisosMenu(userContext);
+
+  
+  useRecordatoriosGlobales(idUsuario, apiNotification, navigate);
+
+  useEffect(() => {
+    if (isDesktop) setIsCollapsed(false);
+    else if (isTablet) setIsCollapsed(true);
+  }, [isDesktop, isTablet]);
 
   const handleLogout = () => {
     Cookies.remove("token");
     navigate("/login");
   };
 
-  const handleToggle = () => {
-    if (isMobile) {
-      setIsDrawerOpen(!isDrawerOpen); // Abre/cierra drawer
-    } else {
-      setIsCollapsed(!isCollapsed); // Colapsa/expande sider
-    }
-  };
-
   const handleNavigate = (path: string) => {
     navigate(path);
-    if (isMobile) {
-      setIsDrawerOpen(false); // Cerrar drawer después de navegar
-    }
+    if (isMobile) setIsDrawerOpen(false);
   };
 
-  const toggleMenu = (menu: string) => {
-    setOpenMenu(openMenu === menu ? null : menu);
-  };
-
-  const userMenuItems: MenuProps["items"] = [
-    {
-      key: "info",
-      label: (
-        <div style={{ padding: "6px 8px" }}>
-          <div style={{ fontWeight: 600 }}>{userName}</div>
-          <div style={{ fontSize: 13, color: "#666" }}>{userRole}</div>
-        </div>
-      ),
-      disabled: true,
-    },
-    { type: "divider" },
-    {
-      key: "logout",
-      label: (
-        <div
-          onClick={handleLogout}
-          style={{
-            color: "red",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <LogoutOutlined /> Cerrar sesión
-        </div>
-      ),
-    },
-  ];
-
-  const sidebarProps = {
-    userName,
-    userRole,
-    onNavigate: handleNavigate,
-    currentPath: location.pathname,
-    openMenu,
-    onToggleMenu: toggleMenu,
-  };
-
+if (loadingContext) {
   return (
+    <div style={{ height: "100vh", display: "grid", placeItems: "center" }}>
+      <Spin size="large" />
+    </div>
+  );
+}
+
+return (
+  <UserContext.Provider value={{ userContext }}>
     <Layout className={styles.layout}>
-      {/* Desktop/Tablet: Sider */}
+      {contextHolder}
+
       {!isMobile && (
-        <Sider
-          className={styles.sider}
-          collapsed={isCollapsed}
-          collapsedWidth={0}
-          width={200}
-          trigger={null}
-        >
-          <div className={styles.siderContent}>
-            <Sidebar {...sidebarProps} />
-          </div>
+        <Sider collapsed={isCollapsed} collapsedWidth={0} width={220}>
+          <Sidebar
+            permisos={permisos}
+            onNavigate={handleNavigate}
+            currentPath={location.pathname}
+            openMenu={openMenu}
+            onToggleMenu={setOpenMenu}
+          />
         </Sider>
       )}
 
-      {/* Mobile: Drawer */}
       {isMobile && (
         <Drawer
           open={isDrawerOpen}
           onClose={() => setIsDrawerOpen(false)}
           placement="left"
-          width={200}
-          styles={{
-            body: { padding: 0 },
-          }}
+          width={220}
         >
-          <div className={styles.siderContent}>
-            <Sidebar {...sidebarProps} />
-          </div>
+          <Sidebar
+            permisos={permisos}
+            onNavigate={handleNavigate}
+            currentPath={location.pathname}
+            openMenu={openMenu}
+            onToggleMenu={setOpenMenu}
+          />
         </Drawer>
       )}
 
       <Layout>
-        {/* Header */}
         <Header className={styles.header}>
           <Button
             type="text"
-            onClick={handleToggle}
-            icon={
-              isMobile ? (
-                <MenuUnfoldOutlined />
-              ) : isCollapsed ? (
-                <MenuUnfoldOutlined />
-              ) : (
-                <MenuFoldOutlined />
-              )
-            }
-            aria-label={isMobile ? "Abrir menú" : "Colapsar sidebar"}
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            icon={isCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
           />
 
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <div className={styles.userAvatar}>
-              <UserOutlined />
-            </div>
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: "info",
+                  label: <strong>{userName}</strong>,
+                  disabled: true,
+                },
+                { type: "divider" },
+                {
+                  key: "logout",
+                  label: (
+                    <span onClick={handleLogout} style={{ color: "red" }}>
+                      <LogoutOutlined /> Cerrar sesión
+                    </span>
+                  ),
+                },
+              ],
+            }}
+          >
+            <UserOutlined />
           </Dropdown>
         </Header>
 
-        {/* Content */}
         <Content className={styles.content}>
           <Outlet />
         </Content>
       </Layout>
     </Layout>
-  );
+  </UserContext.Provider>
+);
+
 }

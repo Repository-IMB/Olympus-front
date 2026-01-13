@@ -45,7 +45,6 @@ export function validarAccesoRuta(ruta: string, navigate: any) {
 
     idRol = rolesMap[rolNombre] ?? 0;
   } catch (e) {
-    console.error("Error al decodificar token", e);
     message.error("Error en la sesión");
     navigate("/login");
     return { permitido: false, error: "Token inválido" };
@@ -55,7 +54,7 @@ export function validarAccesoRuta(ruta: string, navigate: any) {
   const rolesPermitidos = permisosPorRuta[ruta];
 
   if (!rolesPermitidos) {
-    console.warn(`⚠ Ruta "${ruta}" no configurada en permisosPorRuta`);
+    // console.warn(`⚠ Ruta "${ruta}" no configurada en permisosPorRuta`);
     return { permitido: true };
   }
 
