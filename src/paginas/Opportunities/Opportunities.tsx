@@ -15,12 +15,14 @@ import {
   EyeOutlined,
   FileTextOutlined,
 } from "@ant-design/icons";
+import moment, { type Moment } from "moment";
 import SelectClient from "../SelectClient/SelectClient";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
 import api from "../../servicios/api";
 import styles from "./Opportunities.module.css";
 import type { ColumnsType } from "antd/es/table";
+import { useSearchParams } from "react-router-dom";
 
 const { Content } = Layout;
 
@@ -29,7 +31,6 @@ interface TokenData {
   "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
 }
 
-/** ⬇️ SOLO SE AGREGA recordatorios */
 interface Opportunity {
   id: number;
   personaNombre: string;
@@ -37,9 +38,15 @@ interface Opportunity {
   productoNombre: string;
   fechaCreacion: string;
   personaCorreo: string;
-  asesorNombre: string;
+  personalNombre: string;
   totalMarcaciones?: number;
   recordatorios: string[];
+}
+
+interface Asesor {
+  idUsuario: number;
+  idPersonal: number;
+  nombre: string;
 }
 
 const getReminderColor = (fechaRecordatorio: string): string => {
@@ -56,9 +63,6 @@ const getReminderColor = (fechaRecordatorio: string): string => {
 };
 
 export default function OpportunitiesInterface() {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
     useState(false);
 
@@ -71,12 +75,87 @@ export default function OpportunitiesInterface() {
   const [totalRecords, setTotalRecords] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [data, setData] = useState<Opportunity[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
+  const [dateRange, setDateRange] = useState<
+    [Moment | null, Moment | null] | null
+  >(null);
+
+  const [currentPage, setCurrentPage] = useState(
+    Number(searchParams.get("page")) || 1
+  );
+
+  const [pageSize, setPageSize] = useState(
+    Number(searchParams.get("pageSize")) || 10
+  );
+
+  const [searchText, setSearchText] = useState(
+    searchParams.get("search") || ""
+  );
+
+  const [filterEstado, setFilterEstado] = useState(
+    searchParams.get("estado") || "Todos"
+  );
+
+
+  useEffect(() => {
+    setSearchParams({
+      page: currentPage.toString(),
+      pageSize: pageSize.toString(),
+      search: searchText || "",
+      estado: filterEstado !== "Todos" ? filterEstado : "",
+    });
+  }, [currentPage, pageSize, searchText, filterEstado]);
+
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const [asesores, setAsesores] = useState<Asesor[]>([]);
+  const [loadingAsesores, setLoadingAsesores] = useState(false);
+
+  const obtenerAsesores = async () => {
+    try {
+      setLoadingAsesores(true);
+
+      const res = await api.get("/api/CFGModUsuarios/ObtenerUsuariosPorRol/1");
+
+      if (res.data?.usuarios) {
+        const lista = res.data.usuarios.map((u: any) => ({
+          idUsuario: u.id,
+          idPersonal: u.idPersonal,
+          nombre: u.nombre,
+        }));
+
+        setAsesores(lista);
+      }
+    } catch (e) {
+      console.error("Error cargando asesores", e);
+      setAsesores([]);
+    } finally {
+      setLoadingAsesores(false);
+    }
+  };
+
+
+  useEffect(() => {
+    obtenerAsesores();
+  }, []);
+
+  const asesoresUnicos = useMemo(() => {
+    const set = new Set<string>();
+    asesores.forEach((a) => {
+      if (a.nombre) set.add(a.nombre);
+    });
+    return Array.from(set).sort();
+  }, [asesores]);
 
   const { idUsuario, idRol } = useMemo(() => {
     let idU = 0;
@@ -89,12 +168,12 @@ export default function OpportunitiesInterface() {
       const decoded = jwtDecode<TokenData>(token);
       idU = parseInt(
         decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ] || "0"
       );
       rNombre =
         decoded[
-          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
         ] || "";
 
       const rolesMap: Record<string, number> = {
@@ -113,97 +192,98 @@ export default function OpportunitiesInterface() {
   }, [token]);
 
   useEffect(() => {
-    if (!idUsuario || !idRol) {
-      setOpportunities([]);
-      setLoading(false);
-      return;
-    }
+    if (!idUsuario || !idRol) return;
 
-    const fetchOpportunities = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        setError(null);
 
         const res = await api.get(
-          "/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorio",
+          "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
           {
             params: {
               idUsuario,
               idRol,
-              pageNumber: currentPage,
-              pageSize: pageSize
-            }
+              page: currentPage,
+              pageSize,
+              search: searchText || null,
+              estadoFiltro: filterEstado !== "Todos" ? filterEstado : null,
+              asesorFiltro: filterAsesor !== "Todos" ? filterAsesor : null,
+              fechaInicio: dateRange?.[0]?.format("YYYY-MM-DD") ?? null,
+              fechaFin: dateRange?.[1]?.format("YYYY-MM-DD") ?? null,
+            },
           }
         );
 
-        // Actualizar información de paginación desde el backend
-        setTotalRecords(res.data?.totalRecords ?? 0);
-        setTotalPages(res.data?.totalPages ?? 0);
+        const mapped: Opportunity[] = (res.data.oportunidad ?? []).map(
+          (op: any) => ({
+            id: op.id,
+            personaNombre: op.personaNombre ?? "",
+            personaTelefono: op.personaTelefono ?? "",
+            nombreEstado: op.nombreEstado ?? "",
+            productoNombre: op.productoNombre ?? "",
+            fechaCreacion: op.fechaCreacion,
+            personaCorreo: op.personaCorreo ?? "",
+            personalNombre: op.personalNombre ?? "",
+            totalMarcaciones: op.totalOportunidadesPersona ?? 0,
 
-        const raw: any[] = res.data?.oportunidad ?? [];
+            recordatorios: op.recordatoriosJson
+              ? JSON.parse(op.recordatoriosJson).map(
+                (r: any) => r.FechaRecordatorio
+              )
+              : [],
+          })
+        );
 
-        // ✅ OPTIMIZACIÓN: Usar Map para agrupación O(n) en lugar de filter repetido O(n²)
-        const map = new Map<number, Opportunity>();
-
-        // ✅ Un solo loop para procesar todo
-        for (let i = 0; i < raw.length; i++) {
-          const op = raw[i];
-          const id = op.id;
-
-          let opportunity = map.get(id);
-
-          // Si no existe, crear la oportunidad
-          if (!opportunity) {
-            opportunity = {
-              id: id,
-              personaNombre: op.personaNombre,
-              nombreEstado: op.nombreEstado,
-              productoNombre: op.productoNombre,
-              fechaCreacion: op.fechaCreacion,
-              personaCorreo: op.personaCorreo,
-              asesorNombre: op.asesorNombre,
-              totalMarcaciones: Number(op.totalMarcaciones ?? 0),
-              recordatorios: [],
-            };
-            map.set(id, opportunity);
-          }
-
-          // Agregar recordatorio si existe
-          if (op.fechaRecordatorio) {
-            opportunity.recordatorios.push(op.fechaRecordatorio);
-          }
-        }
-
-        // ✅ OPTIMIZACIÓN: Ordenar recordatorios una sola vez aquí, no en cada render
-        const agrupadas = Array.from(map.values());
-        for (let i = 0; i < agrupadas.length; i++) {
-          if (agrupadas[i].recordatorios.length > 1) {
-            agrupadas[i].recordatorios.sort((a, b) =>
-              new Date(a).getTime() - new Date(b).getTime()
-            );
-          }
-        }
-
-        setOpportunities(agrupadas);
+        setData(mapped);
+        setTotal(res.data.total ?? 0);
       } catch (e: any) {
-        console.error("Error al obtener oportunidades", e);
         setError(
-          e?.response?.data?.message ??
-            e.message ??
-            "Error al obtener oportunidades"
+          e?.response?.data?.mensaje ??
+          e?.message ??
+          "Error al obtener oportunidades"
         );
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOpportunities();
-  }, [idUsuario, idRol, currentPage, pageSize]);
+    fetchData();
+  }, [
+    idUsuario,
+    idRol,
+    currentPage,
+    pageSize,
+    searchText,
+    filterEstado,
+    filterAsesor,
+    dateRange,
+  ]);
 
   // ✅ OPTIMIZACIÓN: Memoizar para evitar re-crear en cada render
   const handleClick = useCallback((id: number) => {
+  const handleClick = (id: number) => {
+    console.log(id)
     navigate(`/leads/oportunidades/${id}`);
-  }, [navigate]);
+  };
+
+  const handleLimpiarFiltros = () => {
+    setSearchText("");
+    setFilterEstado("Todos");
+    setFilterAsesor("Todos");
+    setDateRange(null);
+  };
+
+  const estadosUnicos = [
+    "Registrado",
+    "Calificado",
+    "Potencial",
+    "Promesa",
+    "Perdido",
+    "Convertido",
+    "Cobranza",
+    "No Calificado",
+  ];
 
   const columns: ColumnsType<Opportunity> = [
     {
@@ -248,6 +328,22 @@ export default function OpportunitiesInterface() {
       render: (personaCorreo: string) => personaCorreo || "-",
     },
     {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
       title: "Estado",
       dataIndex: "nombreEstado",
       key: "nombreEstado",
@@ -258,9 +354,13 @@ export default function OpportunitiesInterface() {
           color = "blue";
         } else if (nombreEstado === "Registrado") {
           color = "blue";
+        } else if (nombreEstado === "Potencial") {
+          color = "blue";
         } else if (nombreEstado === "Promesa") {
-          color = "gold";
+          color = "blue";
         } else if (nombreEstado === "No calificado") {
+          color = "red";
+        } else if (nombreEstado === "Perdido") {
           color = "red";
         }
 
@@ -331,9 +431,11 @@ export default function OpportunitiesInterface() {
     },
     {
       title: "Asesor",
-      dataIndex: "asesorNombre",
-      key: "asesorNombre",
-      render: (asesorNombre: string) => asesorNombre || "-",
+      dataIndex: "personalNombre",
+      key: "personalNombre",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personalNombre || "").localeCompare(b.personalNombre || ""),
+      render: (personalNombre: string) => personalNombre || "-",
     },
     {
       title: "Acciones",
@@ -397,6 +499,74 @@ export default function OpportunitiesInterface() {
 
       <div className={styles.card}>
         <h1 className={styles.title}>Oportunidades</h1>
+
+        {/* Filtros */}
+        <div
+          style={{
+            marginBottom: "20px",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "12px",
+            alignItems: "center",
+          }}
+        >
+          <Input
+            placeholder="Buscar por nombre, correo, programa o ID"
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className={styles.searchInput}
+            allowClear
+          />
+          <Select
+            value={filterEstado}
+            onChange={setFilterEstado}
+            placeholder="Seleccionar estado"
+            style={{ width: "200px", borderRadius: "6px" }}
+            showSearch
+            virtual={false}
+            listHeight={220}
+            optionFilterProp="children"
+          >
+            <Option value="Todos">Todos los estados</Option>
+            {estadosUnicos.map((estado) => (
+              <Option key={estado} value={estado}>
+                {estado}
+              </Option>
+            ))}
+          </Select>
+          <Select
+            showSearch
+            value={filterAsesor}
+            onChange={setFilterAsesor}
+            placeholder="Seleccionar asesor"
+            style={{ width: "200px", borderRadius: "6px" }}
+            disabled={asesoresUnicos.length === 0}
+            virtual={false}
+            listHeight={220}
+            optionFilterProp="children"
+          >
+            <Option value="Todos">Todos los asesores</Option>
+            <Option value="SIN ASESOR">SIN ASESOR</Option>
+            {asesoresUnicos.map((a) => (
+              <Option key={a} value={a}>
+                {a}
+              </Option>
+            ))}
+          </Select>
+          <RangePicker
+            value={dateRange}
+            onChange={(dates) =>
+              setDateRange(dates as [Moment | null, Moment | null] | null)
+            }
+            format="DD/MM/YYYY"
+            placeholder={["Fecha inicio", "Fecha fin"]}
+            style={{ borderRadius: "6px" }}
+          />
+          <Button onClick={handleLimpiarFiltros} className={styles.clearButton}>
+            Limpiar filtros
+          </Button>
+        </div>
 
         {loading ? (
           <div
