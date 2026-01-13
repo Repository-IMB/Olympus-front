@@ -34,6 +34,7 @@ import type { ColumnsType } from "antd/es/table";
 import moment, { type Moment } from "moment";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
+import { obtenerPaises } from "../../config/rutasApi";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -109,17 +110,6 @@ const ESTADOS = [
 
 const ORIGENES = ["LinkedIn", "Manual"];
 
-const PAISES = [
-  "México",
-  "Chile",
-  "Colombia",
-  "Perú",
-  "Argentina",
-  "Ecuador",
-  "Bolivia",
-  "El Salvador",
-];
-
 const SELECT_PROPS = {
   virtual: false,
   listHeight: 240,
@@ -174,6 +164,13 @@ export default function Asignacion() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const navigate = useNavigate();
+  interface Pais {
+    id: number;
+    nombre: string;
+  }
+
+  const [paises, setPaises] = useState<Pais[]>([]);
+  const [loadingPaises, setLoadingPaises] = useState(false);
 
   const token = getCookie("token");
 
@@ -553,10 +550,24 @@ export default function Asignacion() {
     return "#1677ff"; // azul
   };
 
+  const cargarPaises = async () => {
+    try {
+      setLoadingPaises(true);
+      const data = await obtenerPaises();
+      setPaises(data);
+    } catch (err) {
+      console.error("Error cargando países", err);
+      message.error("Error al cargar países");
+    } finally {
+      setLoadingPaises(false);
+    }
+  };
+
   useEffect(() => {
     obtenerOportunidades();
     obtenerAsesores();
     cargarCodigosProducto();
+    cargarPaises();
   }, [
     currentPage,
     pageSize,
@@ -1002,34 +1013,29 @@ export default function Asignacion() {
           <Select
             mode="multiple"
             showSearch
-            value={Array.isArray(filterPais) ? filterPais : []}
+            value={filterPais === "Todos" ? [] : filterPais}
             onChange={(values) => {
-              if (values.length === 0) {
+              if (!values || values.length === 0) {
                 setFilterPais("Todos");
                 return;
               }
-
-              if (values.includes("Todos")) {
-                setFilterPais("Todos");
-              } else {
-                setFilterPais(values);
-              }
+              setFilterPais(values);
             }}
             className={estilos.filterSelect}
-            virtual={false}
-            placeholder="Todos los paises"
+            placeholder="Todos los países"
             allowClear
+            loading={loadingPaises}
+            virtual={false}
             maxTagCount="responsive"
             filterOption={(input, option) =>
-              (option?.children as unknown as string)
+              (option?.children as string)
                 .toLowerCase()
                 .includes(input.toLowerCase())
             }
           >
-            <Option value="Todos">Todos los países</Option>
-            {PAISES.map((p) => (
-              <Option key={p} value={p}>
-                {p}
+            {paises.map((p) => (
+              <Option key={p.id} value={p.nombre}>
+                {p.nombre}
               </Option>
             ))}
           </Select>

@@ -50,19 +50,20 @@ export const useRecordatoriosGlobales = (
               desactivarRecordatorio(r.id);
             },
 
-            btn: (
-              <Button
-                type="primary"
-                size="small"
-                onClick={async () => {
-                  await desactivarRecordatorio(r.id);
+btn: (
+  <Button
+    type="primary"
+    size="small"
+    onClick={async () => {
+      await desactivarRecordatorio(r.id);
 
-                  window.location.href = `/leads/oportunidades/${r.idOportunidad}`;
-                }}
-              >
-                Ir a oportunidad
-              </Button>
-            ),
+      window.location.href = `/leads/oportunidades/${r.idOportunidad}`;
+    }}
+  >
+    Ir a oportunidad
+  </Button>
+),
+
           });
         });
       } catch (err) {
