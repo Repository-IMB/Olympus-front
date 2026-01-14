@@ -10,7 +10,7 @@ import {
   obtenerProductos,
   crearProducto,
   actualizarProducto,
-  eliminarProducto,
+  //eliminarProducto,
   obtenerProductoPorId,
   obtenerTiposEstadoProducto,
 } from "../../servicios/ProductoService";

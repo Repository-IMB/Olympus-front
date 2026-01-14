@@ -25,8 +25,6 @@ interface Opportunity {
   nombreOcurrencia: string;
   productoNombre: string;
   fechaCreacion: string;
-
-  // ✅ NUEVO
   recordatorios: Recordatorio[];
 }
 
@@ -36,31 +34,38 @@ interface TokenData {
 }
 
 // =========================
-// SALES CARD
+// SALES CARD (MODIFICADO)
 // =========================
 
-const SalesCard = ({ sale }: { sale: Opportunity }) => {
+const SalesCard = ({ 
+  sale, 
+  highlightedId 
+}: { 
+  sale: Opportunity; 
+  highlightedId: string | null; 
+}) => {
   const navigate = useNavigate();
 
+  // Verificamos si este es el card que debe resaltarse
+  const isHighlighted = highlightedId === sale.id.toString();
+
   const handleClick = () => {
+    sessionStorage.setItem("lastViewedLeadId", sale.id.toString());
     navigate(`/leads/oportunidades/${sale.id}`);
   };
 
-  // Color basado en tiempo restante (si ya pasó -> gris)
   const getReminderColor = (fechaRecordatorio: string): string => {
     const now = new Date();
     const reminderDate = new Date(fechaRecordatorio);
-
     const timeDifference = reminderDate.getTime() - now.getTime();
     const hoursRemaining = timeDifference / (1000 * 60 * 60);
 
-    if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
-    if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
-    if (hoursRemaining < 24) return "#ffd666"; // amarillo
-    return "#1677ff"; // azul
+    if (hoursRemaining <= 0) return "#bfbfbf";
+    if (hoursRemaining <= 5) return "#ff4d4f";
+    if (hoursRemaining < 24) return "#ffd666";
+    return "#1677ff";
   };
 
-  // ✅ MOSTRAR SIEMPRE hasta 3 (sin filtrar por activos)
   const recordatoriosVisibles = useMemo(() => {
     return [...(sale.recordatorios || [])]
       .filter((r) => r?.fecha)
@@ -70,14 +75,25 @@ const SalesCard = ({ sale }: { sale: Opportunity }) => {
 
   return (
     <Card
+      // 2. ID ÚNICO PARA EL SCROLL
+      id={`card-${sale.id}`}
       size="small"
       className="client-card"
       onClick={handleClick}
-      style={{ cursor: "pointer" }}
+      style={{ 
+        cursor: "pointer",
+        // 3. ESTILOS CONDICIONALES SI ESTÁ RESALTADO
+        border: isHighlighted ? "2px solid #1677ff" : "1px solid #f0f0f0",
+        backgroundColor: isHighlighted ? "#e6f7ff" : "#ffffff",
+        transition: "all 0.3s ease",
+        transform: isHighlighted ? "scale(1.02)" : "scale(1)",
+        boxShadow: isHighlighted ? "0 4px 12px rgba(22, 119, 255, 0.3)" : undefined
+      }}
     >
-      <div className="client-name">{sale.personaNombre}</div>
+      <div className="client-name" style={{ fontWeight: isHighlighted ? "bold" : "normal" }}>
+        {sale.personaNombre}
+      </div>
 
-      {/* Usamos productoNombre como el "precio" o identificador del producto */}
       <div className="client-price">{sale.productoNombre}</div>
 
       <div className="client-date">
@@ -85,7 +101,6 @@ const SalesCard = ({ sale }: { sale: Opportunity }) => {
         <span>{new Date(sale.fechaCreacion).toLocaleDateString()}</span>
       </div>
 
-      {/* ✅ 1 a 3 recordatorios dentro del mismo card */}
       {recordatoriosVisibles.map((r) => (
         <div
           key={r.idRecordatorio}
@@ -130,32 +145,60 @@ const { Content } = Layout;
 
 export default function SalesProcess() {
   const [activeFilter, setActiveFilter] = useState("todos");
-  const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
-    useState(false);
-
+  const [isSelectClientModalVisible, setIsSelectClientModalVisible] = useState(false);
   const navigate = useNavigate();
 
-const [salesData, setSalesData] = useState<Record<string, Opportunity[]>>({
-  registrado: [],
-  calificado: [],
-  potencial: [],
-  promesa: [],
-});
+  // Estado para el ID resaltado
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
-const [otrosEstados, setOtrosEstados] = useState<Record<string, Opportunity[]>>({
-  coorporativo: [],
-  ventaCruzada: [],
-  seguimiento: [],
-  perdido: [],
-  noCalificado: [],
-  cobranza: [],
-  convertido: [],
-});
+  const [salesData, setSalesData] = useState<Record<string, Opportunity[]>>({
+    registrado: [],
+    calificado: [],
+    potencial: [],
+    promesa: [],
+  });
+
+  const [otrosEstados, setOtrosEstados] = useState<Record<string, Opportunity[]>>({
+    coorporativo: [],
+    ventaCruzada: [],
+    seguimiento: [],
+    perdido: [],
+    noCalificado: [],
+    cobranza: [],
+    convertido: [],
+  });
+  
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("");
 
   const token = getCookie("token");
+
+  // === 4. RECUPERAR ID AL CARGAR LA PAGINA ===
+  useEffect(() => {
+    const lastId = sessionStorage.getItem("lastViewedLeadId");
+    if (lastId) {
+      setHighlightedId(lastId);
+    }
+  }, []);
+
+  // === 5. EFECTO DE SCROLL ===
+  useEffect(() => {
+    // Solo ejecutamos si NO está cargando y tenemos un ID
+    if (!loading && highlightedId) {
+      
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`card-${highlightedId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          console.log("⚠️ Elemento no encontrado");
+        }
+      }, 500); // Esperamos 500ms para asegurar que el render terminó
+
+      return () => clearTimeout(timer);
+    }
+  }, [loading, highlightedId, activeFilter]); // Dependencias clave
 
   const { idUsuario, idRol } = useMemo(() => {
     let idU = 0;
@@ -190,7 +233,6 @@ const [otrosEstados, setOtrosEstados] = useState<Record<string, Opportunity[]>>(
     return { idUsuario: idU, idRol: idR, rolNombre: rolN };
   }, [token]);
 
-  // Rol para el botón "Agregar Oportunidad"
   useEffect(() => {
     const t = getCookie("token");
     if (!t) return;
@@ -206,45 +248,39 @@ const [otrosEstados, setOtrosEstados] = useState<Record<string, Opportunity[]>>(
     }
   }, []);
 
-  // =========================
-  // FETCH + AGRUPAR RECORDATORIOS
-  // =========================
-useEffect(() => {
-  if (!idUsuario || !idRol) {
-    setLoading(false);
-    return;
-  }
-
-  const fetchSalesProcess = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const res = await api.get(
-        "/api/VTAModVentaOportunidad/ObtenerSalesProcess",
-        { params: { idUsuario, idRol } }
-      );
-
-      setSalesData(res.data.salesData || {});
-      setOtrosEstados(res.data.otrosEstados || {});
-    } catch (e: any) {
-      console.error("Error SalesProcess", e);
-      setError(
-        e?.response?.data?.mensaje ??
-          e?.response?.data?.message ??
-          "Error al obtener SalesProcess"
-      );
-    } finally {
+  useEffect(() => {
+    if (!idUsuario || !idRol) {
       setLoading(false);
+      return;
     }
-  };
 
-  fetchSalesProcess();
-}, [idUsuario, idRol]);
+    const fetchSalesProcess = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  // =========================
-  // FILTROS (igual)
-  // =========================
+        const res = await api.get(
+          "/api/VTAModVentaOportunidad/ObtenerSalesProcess",
+          { params: { idUsuario, idRol } }
+        );
+
+        setSalesData(res.data.salesData || {});
+        setOtrosEstados(res.data.otrosEstados || {});
+      } catch (e: any) {
+        console.error("Error SalesProcess", e);
+        setError(
+          e?.response?.data?.mensaje ??
+            e?.response?.data?.message ??
+            "Error al obtener SalesProcess"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSalesProcess();
+  }, [idUsuario, idRol]);
+
   const filters = useMemo(
     () => [
       {
@@ -292,9 +328,6 @@ useEffect(() => {
       ? Object.values(otrosEstados).flat()
       : otrosEstados[activeFilter as keyof typeof otrosEstados] || [];
 
-  // =========================
-  // LOADING / ERROR (igual)
-  // =========================
   if (loading) {
     return (
       <div
@@ -314,9 +347,6 @@ useEffect(() => {
     return <Alert message="Error" description={error} type="error" showIcon />;
   }
 
-  // =========================
-  // RENDER COMPLETO (incluye sección de abajo)
-  // =========================
   return (
     <Layout style={{ height: "100vh" }}>
       <Content style={{ padding: "20px", background: "#f5f5f5" }}>
@@ -387,7 +417,11 @@ useEffect(() => {
 
                   <div className={`card-list-container ${stage}`}>
                     {items.map((sale) => (
-                      <SalesCard key={sale.id} sale={sale} />
+                      <SalesCard 
+                        key={sale.id} 
+                        sale={sale} 
+                        highlightedId={highlightedId} // PASAMOS EL PROP
+                      />
                     ))}
                   </div>
                 </div>
@@ -395,16 +429,13 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* =========================
-              SECCIÓN DE ABAJO (COMPLETA)
-             ========================= */}
+          {/* SECCIÓN DE ABAJO */}
           <div className="sales-section">
             <div className="other-states-header">
               <h3>Otras Ocurrencias</h3>
               <span className="total-count">({getFilteredData().length})</span>
             </div>
 
-            {/* Botones de filtros */}
             <div className="filters-container">
               <div className="filters">
                 {filters.map((filtro) => (
@@ -423,7 +454,6 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Contenedor dinámico según filtro */}
             <div className="other-states-grid">
               {activeFilter === "todos" ? (
                 Object.entries(otrosEstados)
@@ -446,7 +476,11 @@ useEffect(() => {
                       <div className={`state-content ${estado}`}>
                         {items.length > 0 ? (
                           items.map((sale) => (
-                            <SalesCard key={sale.id} sale={sale} />
+                            <SalesCard 
+                                key={sale.id} 
+                                sale={sale} 
+                                highlightedId={highlightedId} // PASAMOS EL PROP
+                            />
                           ))
                         ) : (
                           <div className="empty-box"></div>
@@ -470,7 +504,11 @@ useEffect(() => {
                   <div className={`state-content ${activeFilter}`}>
                     {getFilteredData().length > 0 ? (
                       getFilteredData().map((sale) => (
-                        <SalesCard key={sale.id} sale={sale} />
+                        <SalesCard 
+                            key={sale.id} 
+                            sale={sale} 
+                            highlightedId={highlightedId} // PASAMOS EL PROP
+                        />
                       ))
                     ) : (
                       <div className="empty-box"></div>
@@ -480,7 +518,6 @@ useEffect(() => {
               )}
             </div>
           </div>
-          {/* ========================= */}
         </div>
       </Content>
     </Layout>

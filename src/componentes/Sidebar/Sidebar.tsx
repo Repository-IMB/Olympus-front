@@ -10,6 +10,7 @@ import {
   BookOutlined,
   ReadOutlined,
   IdcardOutlined,
+  BlockOutlined,
 } from "@ant-design/icons";
 import styles from "./Sidebar.module.css";
 import type { PermisosMenu } from "../../hooks/usePermisosMenu";
@@ -112,25 +113,51 @@ export default function Sidebar({
             {openMenu === "Desarrollo" && (
               <div className={styles.menuItems}>
                 <div
-                  className={styles.menuItem}
+                  className={`${styles.menuItem} ${
+                    isActive("/producto/departamentos")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
                   onClick={() => onNavigate("/producto/departamentos")}
                 >
                   <ContainerOutlined /> Departamentos
                 </div>
                 <div
-                  className={styles.menuItem}
+                  className={`${styles.menuItem} ${
+                    isActive("/producto/docentes")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
                   onClick={() => onNavigate("/producto/docentes")}
                 >
                   <BookOutlined /> Docentes
                 </div>
                 <div
-                  className={styles.menuItem}
+                  className={`${styles.menuItem} ${
+                    isActive("/producto/modulos")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
+                  onClick={() => onNavigate("/producto/modulos")}
+                >
+                  <BlockOutlined /> Módulos
+                </div>
+                <div
+                  className={`${styles.menuItem} ${
+                    isActive("/producto/productos")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
                   onClick={() => onNavigate("/producto/productos")}
                 >
                   <ReadOutlined /> Productos
                 </div>
                 <div
-                  className={styles.menuItem}
+                  className={`${styles.menuItem} ${
+                    isActive("/producto/alumnos")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
                   onClick={() => onNavigate("/producto/alumnos")}
                 >
                   <IdcardOutlined /> Alumnos
