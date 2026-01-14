@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, ClipboardList } from "lucide-react";
+import { Calendar, ClipboardList, MapPin } from "lucide-react";
 import { Button, Card, Badge, Layout, Spin, Alert } from "antd";
 import SelectClient from "../SelectClient/SelectClient";
 import "./SalesProcess.css";
@@ -17,7 +17,6 @@ interface Recordatorio {
   fecha: string;
 }
 
-// Oportunidad ya AGRUPADA (1 card por oportunidad)
 interface Opportunity {
   id: number;
   personaNombre: string;
@@ -25,6 +24,8 @@ interface Opportunity {
   nombreOcurrencia: string;
   productoNombre: string;
   fechaCreacion: string;
+  // ✅ El dato ahora viene directo del Backend (DTO modificado)
+  nombrePais?: string; 
   recordatorios: Recordatorio[];
 }
 
@@ -34,7 +35,7 @@ interface TokenData {
 }
 
 // =========================
-// SALES CARD (MODIFICADO)
+// SALES CARD (LIMPIO Y RÁPIDO)
 // =========================
 
 const SalesCard = ({ 
@@ -45,11 +46,12 @@ const SalesCard = ({
   highlightedId: string | null; 
 }) => {
   const navigate = useNavigate();
-
+  
   // Verificamos si este es el card que debe resaltarse
   const isHighlighted = highlightedId === sale.id.toString();
 
   const handleClick = () => {
+    // Guardamos el ID para hacer scroll al volver
     sessionStorage.setItem("lastViewedLeadId", sale.id.toString());
     navigate(`/leads/oportunidades/${sale.id}`);
   };
@@ -75,14 +77,12 @@ const SalesCard = ({
 
   return (
     <Card
-      // 2. ID ÚNICO PARA EL SCROLL
       id={`card-${sale.id}`}
       size="small"
       className="client-card"
       onClick={handleClick}
       style={{ 
         cursor: "pointer",
-        // 3. ESTILOS CONDICIONALES SI ESTÁ RESALTADO
         border: isHighlighted ? "2px solid #1677ff" : "1px solid #f0f0f0",
         backgroundColor: isHighlighted ? "#e6f7ff" : "#ffffff",
         transition: "all 0.3s ease",
@@ -95,6 +95,23 @@ const SalesCard = ({
       </div>
 
       <div className="client-price">{sale.productoNombre}</div>
+
+      {/* ✅ RENDERING DIRECTO SIN PETICIONES EXTRA */}
+      <div 
+        className="client-country" 
+        style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "6px", 
+            color: "#64748b", 
+            fontSize: "12px",
+            marginTop: "4px",
+            marginBottom: "4px"
+        }}
+      >
+        <MapPin size={12} />
+        <span>{sale.nombrePais || "Sin país"}</span>
+      </div>
 
       <div className="client-date">
         <Calendar size={14} />{" "}
@@ -147,8 +164,6 @@ export default function SalesProcess() {
   const [activeFilter, setActiveFilter] = useState("todos");
   const [isSelectClientModalVisible, setIsSelectClientModalVisible] = useState(false);
   const navigate = useNavigate();
-
-  // Estado para el ID resaltado
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const [salesData, setSalesData] = useState<Record<string, Opportunity[]>>({
@@ -174,31 +189,24 @@ export default function SalesProcess() {
 
   const token = getCookie("token");
 
-  // === 4. RECUPERAR ID AL CARGAR LA PAGINA ===
+  // Recuperar ID para scroll
   useEffect(() => {
     const lastId = sessionStorage.getItem("lastViewedLeadId");
-    if (lastId) {
-      setHighlightedId(lastId);
-    }
+    if (lastId) setHighlightedId(lastId);
   }, []);
 
-  // === 5. EFECTO DE SCROLL ===
+  // Efecto Scroll
   useEffect(() => {
-    // Solo ejecutamos si NO está cargando y tenemos un ID
     if (!loading && highlightedId) {
-      
       const timer = setTimeout(() => {
         const element = document.getElementById(`card-${highlightedId}`);
         if (element) {
           element.scrollIntoView({ behavior: "smooth", block: "center" });
-        } else {
-          console.log("⚠️ Elemento no encontrado");
         }
-      }, 500); // Esperamos 500ms para asegurar que el render terminó
-
+      }, 500); 
       return () => clearTimeout(timer);
     }
-  }, [loading, highlightedId, activeFilter]); // Dependencias clave
+  }, [loading, highlightedId, activeFilter]); 
 
   const { idUsuario, idRol } = useMemo(() => {
     let idU = 0;
@@ -208,28 +216,16 @@ export default function SalesProcess() {
 
     try {
       const decoded = jwtDecode<TokenData>(token);
-      idU = parseInt(
-        decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-        ] || "0"
-      );
-      rolN =
-        decoded[
-          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
-        ] || "";
+      idU = parseInt(decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || "0");
+      rolN = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || "";
 
       const rolesMap: Record<string, number> = {
-        Asesor: 1,
-        Supervisor: 2,
-        Gerente: 3,
-        Administrador: 4,
-        Desarrollador: 5,
+        Asesor: 1, Supervisor: 2, Gerente: 3, Administrador: 4, Desarrollador: 5,
       };
       idR = rolesMap[rolN] ?? 0;
     } catch (e) {
-      console.error("Error al decodificar token (useMemo)", e);
+      console.error("Error al decodificar token", e);
     }
-
     return { idUsuario: idU, idRol: idR, rolNombre: rolN };
   }, [token]);
 
@@ -238,10 +234,7 @@ export default function SalesProcess() {
     if (!t) return;
     try {
       const decoded = jwtDecode<TokenData>(t);
-      const role =
-        decoded[
-          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
-        ] || "";
+      const role = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || "";
       setUserRole(String(role));
     } catch (err) {
       console.error("Error decodificando token (rol):", err);
@@ -258,170 +251,66 @@ export default function SalesProcess() {
       try {
         setLoading(true);
         setError(null);
-
-        const res = await api.get(
-          "/api/VTAModVentaOportunidad/ObtenerSalesProcess",
-          { params: { idUsuario, idRol } }
-        );
-
+        const res = await api.get("/api/VTAModVentaOportunidad/ObtenerSalesProcess", { params: { idUsuario, idRol } });
+        console.log("📦 RESPUESTA DEL BACKEND:", res.data);
+        if (res.data.salesData && res.data.salesData.registrado && res.data.salesData.registrado.length > 0) {
+            console.log("🕵️‍♂️ Primer cliente registrado:", res.data.salesData.registrado[0]);
+            console.log("🌍 País detectado:", res.data.salesData.registrado[0].nombrePais);
+        }
         setSalesData(res.data.salesData || {});
         setOtrosEstados(res.data.otrosEstados || {});
       } catch (e: any) {
         console.error("Error SalesProcess", e);
-        setError(
-          e?.response?.data?.mensaje ??
-            e?.response?.data?.message ??
-            "Error al obtener SalesProcess"
-        );
+        setError(e?.response?.data?.mensaje ?? "Error al obtener SalesProcess");
       } finally {
         setLoading(false);
       }
     };
-
     fetchSalesProcess();
   }, [idUsuario, idRol]);
 
-  const filters = useMemo(
-    () => [
-      {
-        key: "todos",
-        label: "Todos",
-        count: Object.values(otrosEstados).flat().length,
-      },
-      {
-        key: "coorporativo",
-        label: "Coorporativo",
-        count: otrosEstados.coorporativo.length,
-      },
-      {
-        key: "ventaCruzada",
-        label: "Venta Cruzada",
-        count: otrosEstados.ventaCruzada.length,
-      },
-      {
-        key: "seguimiento",
-        label: "Seguimiento",
-        count: otrosEstados.seguimiento.length,
-      },
+  const filters = useMemo(() => [
+      { key: "todos", label: "Todos", count: Object.values(otrosEstados).flat().length },
+      { key: "coorporativo", label: "Coorporativo", count: otrosEstados.coorporativo.length },
+      { key: "ventaCruzada", label: "Venta Cruzada", count: otrosEstados.ventaCruzada.length },
+      { key: "seguimiento", label: "Seguimiento", count: otrosEstados.seguimiento.length },
       { key: "perdido", label: "Perdido", count: otrosEstados.perdido.length },
-      {
-        key: "noCalificado",
-        label: "No Calificado",
-        count: otrosEstados.noCalificado.length,
-      },
-      {
-        key: "cobranza",
-        label: "Cobranza",
-        count: otrosEstados.cobranza.length,
-      },
-      {
-        key: "convertido",
-        label: "Convertido",
-        count: otrosEstados.convertido.length,
-      },
-    ],
-    [otrosEstados]
-  );
+      { key: "noCalificado", label: "No Calificado", count: otrosEstados.noCalificado.length },
+      { key: "cobranza", label: "Cobranza", count: otrosEstados.cobranza.length },
+      { key: "convertido", label: "Convertido", count: otrosEstados.convertido.length },
+    ], [otrosEstados]);
 
-  const getFilteredData = () =>
-    activeFilter === "todos"
-      ? Object.values(otrosEstados).flat()
-      : otrosEstados[activeFilter as keyof typeof otrosEstados] || [];
+  const getFilteredData = () => activeFilter === "todos" ? Object.values(otrosEstados).flat() : otrosEstados[activeFilter as keyof typeof otrosEstados] || [];
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-        }}
-      >
-        <Spin size="large" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return <Alert message="Error" description={error} type="error" showIcon />;
-  }
+  if (loading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}><Spin size="large" /></div>;
+  if (error) return <Alert message="Error" description={error} type="error" showIcon />;
 
   return (
     <Layout style={{ height: "100vh" }}>
       <Content style={{ padding: "20px", background: "#f5f5f5" }}>
-        <div
-          style={{
-            marginBottom: "20px",
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "10px",
-          }}
-        >
+        <div style={{ marginBottom: "20px", display: "flex", justifyContent: "flex-end", gap: "10px" }}>
           {userRole !== "Asesor" && (
-            <Button onClick={() => setIsSelectClientModalVisible(true)}>
-              Agregar Oportunidad
-            </Button>
+            <Button onClick={() => setIsSelectClientModalVisible(true)}>Agregar Oportunidad</Button>
           )}
-
-          <Button
-            type="primary"
-            style={{
-              background: "#1f1f1f",
-              borderColor: "#1f1f1f",
-              borderRadius: "6px",
-            }}
-          >
-            Vista de Proceso
-          </Button>
-
-          <Button
-            style={{ borderRadius: "6px" }}
-            onClick={() => navigate("/leads/Opportunities")}
-          >
-            Vista de Tabla
-          </Button>
+          <Button type="primary" style={{ background: "#1f1f1f", borderColor: "#1f1f1f", borderRadius: "6px" }}>Vista de Proceso</Button>
+          <Button style={{ borderRadius: "6px" }} onClick={() => navigate("/leads/Opportunities")}>Vista de Tabla</Button>
         </div>
 
-        <SelectClient
-          visible={isSelectClientModalVisible}
-          onClose={() => setIsSelectClientModalVisible(false)}
-        />
+        <SelectClient visible={isSelectClientModalVisible} onClose={() => setIsSelectClientModalVisible(false)} />
 
         <div className="content-wrapper">
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "24px",
-              fontWeight: "600",
-              marginBottom: "20px",
-            }}
-          >
-            Proceso de Ventas
-          </h1>
-
-          {/* Sección principal */}
+          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: "600", marginBottom: "20px" }}>Proceso de Ventas</h1>
           <div className="sales-section">
             <div className="stages-grid">
               {Object.entries(salesData).map(([stage, items]) => (
                 <div key={stage} className={`stage-column ${stage}`}>
                   <div className="stage-header">
-                    <span className="stage-title">
-                      {stage.charAt(0).toUpperCase() + stage.slice(1)}
-                    </span>
-                    <Badge
-                      count={items.length}
-                      style={{ backgroundColor: "#1677ff" }}
-                    />
+                    <span className="stage-title">{stage.charAt(0).toUpperCase() + stage.slice(1)}</span>
+                    <Badge count={items.length} style={{ backgroundColor: "#1677ff" }} />
                   </div>
-
                   <div className={`card-list-container ${stage}`}>
                     {items.map((sale) => (
-                      <SalesCard 
-                        key={sale.id} 
-                        sale={sale} 
-                        highlightedId={highlightedId} // PASAMOS EL PROP
-                      />
+                      <SalesCard key={sale.id} sale={sale} highlightedId={highlightedId} />
                     ))}
                   </div>
                 </div>
@@ -429,90 +318,41 @@ export default function SalesProcess() {
             </div>
           </div>
 
-          {/* SECCIÓN DE ABAJO */}
           <div className="sales-section">
             <div className="other-states-header">
               <h3>Otras Ocurrencias</h3>
               <span className="total-count">({getFilteredData().length})</span>
             </div>
-
             <div className="filters-container">
               <div className="filters">
                 {filters.map((filtro) => (
-                  <Button
-                    key={filtro.key}
-                    size="small"
-                    type={activeFilter === filtro.key ? "primary" : "default"}
-                    onClick={() => setActiveFilter(filtro.key)}
-                    className={`filter-btn ${
-                      activeFilter === filtro.key ? "active" : ""
-                    }`}
-                  >
+                  <Button key={filtro.key} size="small" type={activeFilter === filtro.key ? "primary" : "default"} onClick={() => setActiveFilter(filtro.key)} className={`filter-btn ${activeFilter === filtro.key ? "active" : ""}`}>
                     {`${filtro.label} (${filtro.count})`}
                   </Button>
                 ))}
               </div>
             </div>
-
             <div className="other-states-grid">
               {activeFilter === "todos" ? (
-                Object.entries(otrosEstados)
-                  .filter(
-                    ([estado]) =>
-                      estado !== "noCalificado" && estado !== "seguimiento"
-                  )
-                  .map(([estado, items]) => (
+                Object.entries(otrosEstados).filter(([estado]) => estado !== "noCalificado" && estado !== "seguimiento").map(([estado, items]) => (
                     <div key={estado} className="other-state-column">
                       <div className="column-header">
-                        <span>
-                          {estado.charAt(0).toUpperCase() + estado.slice(1)}
-                        </span>
-                        <Badge
-                          count={items.length}
-                          style={{ backgroundColor: "#1677ff" }}
-                        />
+                        <span>{estado.charAt(0).toUpperCase() + estado.slice(1)}</span>
+                        <Badge count={items.length} style={{ backgroundColor: "#1677ff" }} />
                       </div>
-
                       <div className={`state-content ${estado}`}>
-                        {items.length > 0 ? (
-                          items.map((sale) => (
-                            <SalesCard 
-                                key={sale.id} 
-                                sale={sale} 
-                                highlightedId={highlightedId} // PASAMOS EL PROP
-                            />
-                          ))
-                        ) : (
-                          <div className="empty-box"></div>
-                        )}
+                        {items.length > 0 ? items.map((sale) => <SalesCard key={sale.id} sale={sale} highlightedId={highlightedId} />) : <div className="empty-box"></div>}
                       </div>
                     </div>
                   ))
               ) : (
                 <div className="other-state-column">
                   <div className="column-header">
-                    <span>
-                      {activeFilter.charAt(0).toUpperCase() +
-                        activeFilter.slice(1)}
-                    </span>
-                    <Badge
-                      count={getFilteredData().length}
-                      style={{ backgroundColor: "#1677ff" }}
-                    />
+                    <span>{activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}</span>
+                    <Badge count={getFilteredData().length} style={{ backgroundColor: "#1677ff" }} />
                   </div>
-
                   <div className={`state-content ${activeFilter}`}>
-                    {getFilteredData().length > 0 ? (
-                      getFilteredData().map((sale) => (
-                        <SalesCard 
-                            key={sale.id} 
-                            sale={sale} 
-                            highlightedId={highlightedId} // PASAMOS EL PROP
-                        />
-                      ))
-                    ) : (
-                      <div className="empty-box"></div>
-                    )}
+                    {getFilteredData().length > 0 ? getFilteredData().map((sale) => <SalesCard key={sale.id} sale={sale} highlightedId={highlightedId} />) : <div className="empty-box"></div>}
                   </div>
                 </div>
               )}
