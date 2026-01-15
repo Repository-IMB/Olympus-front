@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, memo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, ClipboardList, MapPin } from "lucide-react";
 import { Button, Card, Badge, Layout, Spin, Alert } from "antd";
@@ -38,13 +38,19 @@ interface TokenData {
 // SALES CARD (LIMPIO Y RÁPIDO)
 // =========================
 
-const SalesCard = ({ 
-  sale, 
-  highlightedId 
-}: { 
-  sale: Opportunity; 
-  highlightedId: string | null; 
-}) => {
+// ✅ Función de color de recordatorio fuera del componente (se calcula una sola vez)
+const getReminderColor = (fechaRecordatorio: string): string => {
+  const now = Date.now();
+  const reminderDate = new Date(fechaRecordatorio).getTime();
+  const hoursRemaining = (reminderDate - now) / (1000 * 60 * 60);
+
+  if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
+  if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
+  if (hoursRemaining < 24) return "#ffd666"; // amarillo
+  return "#1677ff"; // azul
+};
+
+const SalesCard = memo(({ sale }: { sale: Opportunity }) => {
   const navigate = useNavigate();
   
   // Verificamos si este es el card que debe resaltarse
@@ -56,20 +62,10 @@ const SalesCard = ({
     navigate(`/leads/oportunidades/${sale.id}`);
   };
 
-  const getReminderColor = (fechaRecordatorio: string): string => {
-    const now = new Date();
-    const reminderDate = new Date(fechaRecordatorio);
-    const timeDifference = reminderDate.getTime() - now.getTime();
-    const hoursRemaining = timeDifference / (1000 * 60 * 60);
-
-    if (hoursRemaining <= 0) return "#bfbfbf";
-    if (hoursRemaining <= 5) return "#ff4d4f";
-    if (hoursRemaining < 24) return "#ffd666";
-    return "#1677ff";
-  };
-
+  // ✅ MOSTRAR SIEMPRE hasta 3 (sin filtrar por activos) - optimizado
   const recordatoriosVisibles = useMemo(() => {
-    return [...(sale.recordatorios || [])]
+    if (!sale.recordatorios?.length) return [];
+    return sale.recordatorios
       .filter((r) => r?.fecha)
       .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
       .slice(0, 3);
@@ -152,7 +148,9 @@ const SalesCard = ({
       ))}
     </Card>
   );
-};
+});
+
+SalesCard.displayName = 'SalesCard';
 
 const { Content } = Layout;
 
@@ -162,7 +160,29 @@ const { Content } = Layout;
 
 export default function SalesProcess() {
   const [activeFilter, setActiveFilter] = useState("todos");
-  const [isSelectClientModalVisible, setIsSelectClientModalVisible] = useState(false);
+  const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
+    useState(false);
+
+  // Función para obtener altura inicial según el tamaño de pantalla
+  const getInitialHeight = () => {
+    const width = window.innerWidth;
+    if (width < 600) return 250; // Mobile
+    if (width < 768) return 280; // Tablet vertical
+    if (width < 1024) return 320; // Tablet horizontal
+    return 350; // Desktop
+  };
+
+  // Estados para el redimensionamiento vertical
+  const [salesSectionHeight, setSalesSectionHeight] = useState(getInitialHeight());
+  const [isResizing, setIsResizing] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const resizeRef = useRef({
+    startY: 0,
+    startHeight: 0,
+    rafId: null as number | null,
+    currentHeight: 0
+  });
+
   const navigate = useNavigate();
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
@@ -241,33 +261,335 @@ export default function SalesProcess() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!idUsuario || !idRol) {
-      setLoading(false);
-      return;
-    }
+  // =========================
+  // FETCH + AGRUPAR RECORDATORIOS (OPTIMIZADO)
+  // =========================
+useEffect(() => {
+  if (!idUsuario || !idRol) {
+    setLoading(false);
+    return;
+  }
 
-    const fetchSalesProcess = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await api.get("/api/VTAModVentaOportunidad/ObtenerSalesProcess", { params: { idUsuario, idRol } });
-        console.log("📦 RESPUESTA DEL BACKEND:", res.data);
-        if (res.data.salesData && res.data.salesData.registrado && res.data.salesData.registrado.length > 0) {
-            console.log("🕵️‍♂️ Primer cliente registrado:", res.data.salesData.registrado[0]);
-            console.log("🌍 País detectado:", res.data.salesData.registrado[0].nombrePais);
+  const fetchSalesProcess = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await api.get(
+        "/api/VTAModVentaOportunidad/ObtenerSalesProcess",
+        { params: { idUsuario, idRol } }
+      );
+
+        const raw = res.data?.oportunidad || [];
+
+        // ✅ Usar Map para mejor rendimiento
+        const grouped = new Map<number, Opportunity>();
+        const recordatoriosSet = new Map<number, Set<number>>();
+
+        // ✅ Procesamiento optimizado en un solo loop
+        for (const row of raw) {
+          const opportunityId = Number(row.idOportunidad ?? row.id ?? 0);
+          if (!opportunityId) continue;
+
+          // Crear oportunidad si no existe
+          if (!grouped.has(opportunityId)) {
+            grouped.set(opportunityId, {
+              id: opportunityId,
+              personaNombre: row.personaNombre,
+              nombreEstado: row.nombreEstado,
+              nombreOcurrencia: row.nombreOcurrencia,
+              productoNombre: row.productoNombre,
+              fechaCreacion: row.fechaCreacion,
+              recordatorios: [],
+            });
+            recordatoriosSet.set(opportunityId, new Set());
+          }
+
+          // Procesar recordatorio
+          const idRec =
+            row.idHistorialInteraccion ??
+            row.idRecordatorio ??
+            row.idReminder ??
+            row.pnId ??
+            row.pnIdHis ??
+            row.idHis;
+
+          const fecRec =
+            row.fechaRecordatorio ??
+            row.dFechaRecordatorio ??
+            row.fecha ??
+            row.reminderDate ??
+            row.dFecRec;
+
+          // Usar Set para evitar duplicados (más rápido que .some())
+          if (idRec && fecRec) {
+            const idR = Number(idRec);
+            const recordatoriosSeen = recordatoriosSet.get(opportunityId)!;
+
+            if (!recordatoriosSeen.has(idR)) {
+              recordatoriosSeen.add(idR);
+              grouped.get(opportunityId)!.recordatorios.push({
+                idRecordatorio: idR,
+                fecha: String(fecRec),
+              });
+            }
+          }
         }
-        setSalesData(res.data.salesData || {});
-        setOtrosEstados(res.data.otrosEstados || {});
+
+        // ✅ Ordenar recordatorios solo una vez al final
+        const opportunities = Array.from(grouped.values());
+        opportunities.forEach((op) => {
+          if (op.recordatorios.length > 0) {
+            op.recordatorios.sort(
+              (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+            );
+          }
+        });
+
+        setOpportunities(opportunities);
       } catch (e: any) {
-        console.error("Error SalesProcess", e);
-        setError(e?.response?.data?.mensaje ?? "Error al obtener SalesProcess");
-      } finally {
-        setLoading(false);
-      }
-    };
+        console.error("Error al obtener oportunidades", e);
+        setError(
+          e?.response?.data?.message ??
+          "Error al obtener SalesProcess"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
     fetchSalesProcess();
   }, [idUsuario, idRol]);
+
+
+  // =========================
+  // RESPONSIVE: Ajustar altura al redimensionar ventana
+  // =========================
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      let maxHeight = 800;
+      let minHeight = 200;
+
+      // Ajustar límites según el tamaño de pantalla
+      if (width < 600) {
+        maxHeight = 500;
+        minHeight = 250;
+      } else if (width < 768) {
+        maxHeight = 600;
+        minHeight = 300;
+      } else if (width < 1024) {
+        maxHeight = 700;
+        minHeight = 300;
+      }
+
+      // Ajustar altura actual si excede los nuevos límites
+      setSalesSectionHeight(prev => Math.max(minHeight, Math.min(maxHeight, prev)));
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // =========================
+  // REDIMENSIONAMIENTO
+  // =========================
+  const handleResizeStart = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setIsResizing(true);
+
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    resizeRef.current = {
+      ...resizeRef.current,
+      startY: clientY,
+      startHeight: salesSectionHeight
+    };
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault();
+
+      // Cancelar animación anterior si existe
+      if (resizeRef.current.rafId !== null) {
+        cancelAnimationFrame(resizeRef.current.rafId);
+      }
+
+      // Usar requestAnimationFrame para actualizar suavemente
+      resizeRef.current.rafId = requestAnimationFrame(() => {
+        if (!sectionRef.current) return;
+
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+        // Límites dinámicos según el ancho de pantalla
+        const width = window.innerWidth;
+        let maxHeight = 800;
+        let minHeight = 200;
+
+        if (width < 600) {
+          maxHeight = 500;
+          minHeight = 250;
+        } else if (width < 768) {
+          maxHeight = 600;
+          minHeight = 300;
+        } else if (width < 1024) {
+          maxHeight = 700;
+          minHeight = 300;
+        }
+
+        const delta = clientY - resizeRef.current.startY;
+        const newHeight = Math.max(minHeight, Math.min(maxHeight, resizeRef.current.startHeight + delta));
+
+        // Actualizar DOM directamente sin re-render
+        sectionRef.current.style.height = `${newHeight}px`;
+        resizeRef.current.currentHeight = newHeight;
+      });
+    };
+
+    const handleEnd = () => {
+      // Cancelar cualquier animación pendiente
+      if (resizeRef.current.rafId !== null) {
+        cancelAnimationFrame(resizeRef.current.rafId);
+        resizeRef.current.rafId = null;
+      }
+
+      // Actualizar el estado React SOLO al final
+      setSalesSectionHeight(resizeRef.current.currentHeight);
+
+      setIsResizing(false);
+      document.body.style.cursor = "default";
+      document.body.style.userSelect = "auto";
+    };
+
+    window.addEventListener("mousemove", handleMove, { passive: false });
+    window.addEventListener("mouseup", handleEnd);
+    window.addEventListener("touchmove", handleMove, { passive: false });
+    window.addEventListener("touchend", handleEnd);
+
+    return () => {
+      // Limpiar en caso de desmontaje
+      if (resizeRef.current.rafId !== null) {
+        cancelAnimationFrame(resizeRef.current.rafId);
+      }
+
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleEnd);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("touchend", handleEnd);
+    };
+  }, [isResizing]);
+
+  // =========================
+  // CATEGORIZAR (OPTIMIZADO)
+  // =========================
+  const categorizedData = useMemo(() => {
+    const MAX_PER_CATEGORY = 100;
+
+    const initialSalesData: { [key: string]: Opportunity[] } = {
+      registrado: [],
+      calificado: [],
+      potencial: [],
+      promesa: [],
+    };
+
+    const initialOtrosEstados: { [key: string]: Opportunity[] } = {
+      coorporativo: [],
+      ventaCruzada: [],
+      seguimiento: [],
+      perdido: [],
+      noCalificado: [],
+      cobranza: [],
+      convertido: [],
+    };
+
+    // ✅ Comparador pre-calculado fuera del loop
+    const sortByFechaDesc = (a: Opportunity, b: Opportunity) =>
+      new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime();
+
+    // ✅ Categorizar y contar en un solo paso
+    const counts: { [key: string]: number } = {
+      registrado: 0, calificado: 0, potencial: 0, promesa: 0,
+      coorporativo: 0, ventaCruzada: 0, seguimiento: 0, perdido: 0,
+      noCalificado: 0, cobranza: 0, convertido: 0,
+    };
+
+    for (const op of opportunities) {
+      let targetArray: Opportunity[] | null = null;
+      let targetKey: string | null = null;
+
+      // Determinar categoría
+      if (op.nombreEstado === "Registrado") {
+        targetArray = initialSalesData.registrado;
+        targetKey = "registrado";
+      } else if (op.nombreEstado === "Potencial") {
+        targetArray = initialSalesData.potencial;
+        targetKey = "potencial";
+      } else if (op.nombreEstado === "Promesa") {
+        if (op.nombreOcurrencia === "Corporativo") {
+          targetArray = initialOtrosEstados.coorporativo;
+          targetKey = "coorporativo";
+        } else {
+          targetArray = initialSalesData.promesa;
+          targetKey = "promesa";
+        }
+      } else if (op.nombreEstado === "Calificado") {
+        targetArray = initialSalesData.calificado;
+        targetKey = "calificado";
+      } else if (op.nombreOcurrencia === "Cobranza") {
+        targetArray = initialOtrosEstados.cobranza;
+        targetKey = "cobranza";
+      } else if (op.nombreOcurrencia === "No Calificado") {
+        targetArray = initialOtrosEstados.noCalificado;
+        targetKey = "noCalificado";
+      } else if (op.nombreOcurrencia === "Venta cruzada") {
+        targetArray = initialOtrosEstados.ventaCruzada;
+        targetKey = "ventaCruzada";
+      } else if (op.nombreOcurrencia === "Seguimiento") {
+        targetArray = initialOtrosEstados.seguimiento;
+        targetKey = "seguimiento";
+      } else if (op.nombreOcurrencia === "Perdido") {
+        targetArray = initialOtrosEstados.perdido;
+        targetKey = "perdido";
+      } else if (op.nombreOcurrencia === "Convertido") {
+        targetArray = initialOtrosEstados.convertido;
+        targetKey = "convertido";
+      }
+
+      // ✅ Agregar solo si no hemos alcanzado el límite
+      if (targetArray && targetKey && counts[targetKey] < MAX_PER_CATEGORY) {
+        targetArray.push(op);
+        counts[targetKey]++;
+      }
+    }
+
+    // ✅ Ordenar y limitar solo las categorías que tienen datos
+    for (const key in initialSalesData) {
+      if (initialSalesData[key].length > 0) {
+        initialSalesData[key] = initialSalesData[key]
+          .sort(sortByFechaDesc)
+          .slice(0, MAX_PER_CATEGORY);
+      }
+    }
+
+    for (const key in initialOtrosEstados) {
+      if (initialOtrosEstados[key].length > 0) {
+        initialOtrosEstados[key] = initialOtrosEstados[key]
+          .sort(sortByFechaDesc)
+          .slice(0, MAX_PER_CATEGORY);
+      }
+    }
+
+    return { salesData: initialSalesData, otrosEstados: initialOtrosEstados };
+  }, [opportunities]);
+
+  //const { salesData, otrosEstados } = categorizedData;
 
   const filters = useMemo(() => [
       { key: "todos", label: "Todos", count: Object.values(otrosEstados).flat().length },
@@ -280,7 +602,13 @@ export default function SalesProcess() {
       { key: "convertido", label: "Convertido", count: otrosEstados.convertido.length },
     ], [otrosEstados]);
 
-  const getFilteredData = () => activeFilter === "todos" ? Object.values(otrosEstados).flat() : otrosEstados[activeFilter as keyof typeof otrosEstados] || [];
+  // ✅ Memorizar función de filtrado
+  const getFilteredData = useCallback(() => {
+    if (activeFilter === "todos") {
+      return Object.values(otrosEstados).flat().slice(0, 100);
+    }
+    return otrosEstados[activeFilter as keyof typeof otrosEstados] || [];
+  }, [activeFilter, otrosEstados]);
 
   if (loading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}><Spin size="large" /></div>;
   if (error) return <Alert message="Error" description={error} type="error" showIcon />;
@@ -299,8 +627,23 @@ export default function SalesProcess() {
         <SelectClient visible={isSelectClientModalVisible} onClose={() => setIsSelectClientModalVisible(false)} />
 
         <div className="content-wrapper">
-          <h1 style={{ margin: 0, fontSize: "24px", fontWeight: "600", marginBottom: "20px" }}>Proceso de Ventas</h1>
-          <div className="sales-section">
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "24px",
+              fontWeight: "600",
+              marginBottom: "20px",
+            }}
+          >
+            Proceso de Ventas
+          </h1>
+
+          {/* Sección principal con altura redimensionable */}
+          <div
+            ref={sectionRef}
+            className={`sales-section resizable-section ${isResizing ? 'is-resizing' : ''}`}
+            style={{ height: `${salesSectionHeight}px` }}
+          >
             <div className="stages-grid">
               {Object.entries(salesData).map(([stage, items]) => (
                 <div key={stage} className={`stage-column ${stage}`}>
@@ -318,6 +661,18 @@ export default function SalesProcess() {
             </div>
           </div>
 
+          {/* Divisor de redimensionamiento */}
+          <div
+            className="resize-handle"
+            onMouseDown={handleResizeStart}
+            onTouchStart={handleResizeStart}
+          >
+            <div className="resize-handle-bar"></div>
+          </div>
+
+          {/* =========================
+              SECCIÓN DE ABAJO (COMPLETA)
+             ========================= */}
           <div className="sales-section">
             <div className="other-states-header">
               <h3>Otras Ocurrencias</h3>
@@ -334,7 +689,19 @@ export default function SalesProcess() {
             </div>
             <div className="other-states-grid">
               {activeFilter === "todos" ? (
-                Object.entries(otrosEstados).filter(([estado]) => estado !== "noCalificado" && estado !== "seguimiento").map(([estado, items]) => (
+                Object.entries(otrosEstados)
+                  .filter(
+                    ([estado]) =>
+                      estado !== "seguimiento" &&
+                      estado !== "coorporativo" &&
+                      estado !== "ventaCruzada"
+                  )
+                  .sort(([estadoA], [estadoB]) => {
+                    // Definir el orden deseado
+                    const orden = ["noCalificado", "perdido", "cobranza", "convertido"];
+                    return orden.indexOf(estadoA) - orden.indexOf(estadoB);
+                  })
+                  .map(([estado, items]) => (
                     <div key={estado} className="other-state-column">
                       <div className="column-header">
                         <span>{estado.charAt(0).toUpperCase() + estado.slice(1)}</span>

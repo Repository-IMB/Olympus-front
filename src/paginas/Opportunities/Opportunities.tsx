@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Layout,
@@ -8,9 +8,11 @@ import {
   Spin,
   Alert,
   Tooltip,
-  Input,
   Select,
-  DatePicker,
+  Input,
+  Option,
+  RangePicker
+
 } from "antd";
 import {
   CalendarOutlined,
@@ -27,8 +29,6 @@ import api from "../../servicios/api";
 import styles from "./Opportunities.module.css";
 import type { ColumnsType } from "antd/es/table";
 
-const { RangePicker } = DatePicker;
-const { Option } = Select;
 const { Content } = Layout;
 
 interface TokenData {
@@ -73,6 +73,10 @@ export default function OpportunitiesInterface() {
   const navigate = useNavigate();
   const token = getCookie("token");
 
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  //const [totalRecords, setTotalRecords] = useState<number>(0);
+  //const [totalPages, setTotalPages] = useState<number>(0);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
   
   // DATA
@@ -88,10 +92,6 @@ export default function OpportunitiesInterface() {
   const [searchText, setSearchText] = useState(searchParams.get("search") || "");
 
   const [dateRange, setDateRange] = useState<[Moment | null, Moment | null] | null>(null);
-  
-  // ✅ CORRECCIÓN 2: Inicializar Paginación leyendo la URL
-  const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
-  const [pageSize, setPageSize] = useState(Number(searchParams.get("pageSize")) || 10);
   
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
@@ -150,16 +150,6 @@ export default function OpportunitiesInterface() {
     });
   }, [allData, searchText, filterEstado, filterAsesor, filterPais, dateRange]);
 
-  // Calculamos países únicos
-  const paisesUnicos = useMemo(() => {
-    const set = new Set<string>();
-    allData.forEach((d) => {
-      if (d.pais && d.pais !== "Sin país" && d.pais !== "-") {
-        set.add(d.pais);
-      }
-    });
-    return Array.from(set).sort();
-  }, [allData]);
 
   // Efecto Scroll
   useEffect(() => {
@@ -374,7 +364,30 @@ export default function OpportunitiesInterface() {
       title: "Correo",
       dataIndex: "personaCorreo",
       key: "personaCorreo",
-      sorter: (a, b) => (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
       render: (personaCorreo: string) => personaCorreo || "-",
     },
     {
@@ -417,12 +430,32 @@ export default function OpportunitiesInterface() {
       render: (_, record) =>
         record.recordatorios.length === 0 ? "-" : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {record.recordatorios.filter(Boolean).sort((a, b) => new Date(a).getTime() - new Date(b).getTime()).slice(0, 3).map((r, i) => (
-              <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: "6px", backgroundColor: getReminderColor(r), color: "#ffffff", padding: "4px 8px", borderRadius: "4px", fontSize: "12px", fontWeight: 500 }}>
-                <FileTextOutlined style={{ fontSize: "12px" }} />
-                {new Date(r).toLocaleDateString("es-ES")} {new Date(r).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", hour12: false })}
-              </div>
-            ))}
+            {record.recordatorios
+              .slice(0, 3)
+              .map((r, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    backgroundColor: getReminderColor(r),
+                    color: "#ffffff",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                  }}
+                >
+                  <FileTextOutlined style={{ fontSize: "12px" }} />
+                  {new Date(r).toLocaleDateString("es-ES")}{" "}
+                  {new Date(r).toLocaleTimeString("es-ES", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  })}
+                </div>
+              ))}
           </div>
         ),
     },
