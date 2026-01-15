@@ -53,8 +53,15 @@ export default function ModalModulo({
   // Efecto para calcular horas sincrónicas automáticamente
   useEffect(() => {
     if (horaInicio && horaFin && nroSesiones) {
-      const diffHoras = moment(horaFin).diff(moment(horaInicio), "minute") / 60;
-      const total = diffHoras > 0 ? diffHoras * nroSesiones : 0;
+      // 1. Clonamos y limpiamos segundos/milisegundos para precisión exacta
+      const inicio = moment(horaInicio).second(0).millisecond(0);
+      const fin = moment(horaFin).second(0).millisecond(0);
+
+      // 2. Calculamos diferencia en minutos y pasamos a horas
+      const diffHoras = fin.diff(inicio, "minute") / 60;
+      
+      // 3. Calculamos total
+      const total = diffHoras > 0 ? diffHoras * Number(nroSesiones) : 0;
 
       form.setFieldsValue({
         duracionHoras: Number(total.toFixed(2)),
@@ -201,7 +208,7 @@ export default function ModalModulo({
 
           // ===== SESIÓN DE PRESENTACIÓN (SINCRÓNICA) =====
           fechaPresentacion: values.fechaPresentacion
-            ? dayjs(values.fechaPresentacion).format("YYYY-MM-DD")
+            ? moment(values.fechaPresentacion).format("YYYY-MM-DD")
             : null,
 
           // ===== SESIONES SINCRÓNICAS =====
@@ -228,14 +235,7 @@ export default function ModalModulo({
 
         // Horarios asincrónicos
         if (Number(values.nroSesionesAsync) > 0) {
-          // Validar campos requeridos
-          if (!values.diaAsync) {
-            message.error("Debe seleccionar el día de la clase asincrónica");
-            return;
-          }
-
-          // IMPORTANTE: Usar "DiasAsync" en lugar de "diaAsync"
-          payload.diasAsync = String(values.diaAsync); // ⬅️ Puede ser que el backend espere "diasAsync" como string
+          payload.diasAsync = "";
           payload.horaInicioAsync = values.horaInicioAsync
             ? moment(values.horaInicioAsync).format("HH:mm:ss")
             : "00:00:00";
@@ -265,7 +265,7 @@ export default function ModalModulo({
   };
 
   // Validador personalizado para hora inicio < hora fin
-  const validarHoraInicio = (_: any, value: Dayjs) => {
+  const validarHoraInicio = (_: any, value: Moment) => {
     if (!value) {
       return Promise.resolve();
     }
@@ -276,7 +276,7 @@ export default function ModalModulo({
     return Promise.resolve();
   };
 
-  const validarHoraFin = (_: any, value: Dayjs) => {
+  const validarHoraFin = (_: any, value: Moment) => {
     if (!value) {
       return Promise.resolve();
     }
@@ -288,7 +288,7 @@ export default function ModalModulo({
   };
 
   // Validador para hora inicio sábado < hora fin sábado
-  const validarHoraInicioSabado = (_: any, value: Dayjs) => {
+  const validarHoraInicioSabado = (_: any, value: Moment) => {
     if (!value) {
       return Promise.resolve();
     }
@@ -299,7 +299,7 @@ export default function ModalModulo({
     return Promise.resolve();
   };
 
-  const validarHoraFinSabado = (_: any, value: Dayjs) => {
+  const validarHoraFinSabado = (_: any, value: Moment) => {
     if (!value) {
       return Promise.resolve();
     }

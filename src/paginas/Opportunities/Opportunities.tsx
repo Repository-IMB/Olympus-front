@@ -47,6 +47,7 @@ interface Opportunity {
   pais: string;
   totalMarcaciones?: number;
   recordatorios: string[];
+  codigoLanzamiento?: string;
 }
 
 interface Asesor {
@@ -119,7 +120,8 @@ export default function OpportunitiesInterface() {
           item.personaNombre.toLowerCase().includes(lowerSearch) ||
           item.personaCorreo.toLowerCase().includes(lowerSearch) ||
           item.productoNombre.toLowerCase().includes(lowerSearch) ||
-          item.id.toString().includes(lowerSearch);
+          item.id.toString().includes(lowerSearch) ||
+          (item.codigoLanzamiento && item.codigoLanzamiento.toLowerCase().includes(lowerSearch));
         if (!match) return false;
       }
 
@@ -300,6 +302,7 @@ export default function OpportunitiesInterface() {
             personalNombre: op.personalNombre ?? "",
             totalMarcaciones: op.totalOportunidadesPersona ?? 0,
             pais: op.personaPaisNombre || "Sin país",
+            codigoLanzamiento: op.codigoLanzamiento ?? "",
             recordatorios: op.recordatoriosJson
               ? JSON.parse(op.recordatoriosJson).map((r: any) => r.FechaRecordatorio)
               : [],
@@ -464,7 +467,7 @@ export default function OpportunitiesInterface() {
         <h1 className={styles.title}>Oportunidades</h1>
 
         <div style={{ marginBottom: "20px", display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
-          <Input placeholder="Buscar por nombre, correo, programa o ID" prefix={<SearchOutlined />} value={searchText} onChange={(e) => setSearchText(e.target.value)} className={styles.searchInput} allowClear />
+          <Input placeholder="Buscar por nombre, correo, programa, ID o cód. lanzamiento" prefix={<SearchOutlined />} value={searchText} onChange={(e) => setSearchText(e.target.value)} className={styles.searchInput} allowClear />
           
           <Select value={filterEstado} onChange={setFilterEstado} placeholder="Seleccionar estado" style={{ width: "200px", borderRadius: "6px" }} showSearch virtual={false} listHeight={220} optionFilterProp="children">
             <Option value="Todos">Todos los estados</Option>
