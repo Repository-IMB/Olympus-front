@@ -50,14 +50,12 @@ const getReminderColor = (fechaRecordatorio: string): string => {
   return "#1677ff"; // azul
 };
 
-const SalesCard = memo(({ sale }: { sale: Opportunity }) => {
+const SalesCard = memo(({ sale, highlightedId }: { sale: Opportunity; highlightedId: string | null }) => {
   const navigate = useNavigate();
   
-  // Verificamos si este es el card que debe resaltarse
   const isHighlighted = highlightedId === sale.id.toString();
 
   const handleClick = () => {
-    // Guardamos el ID para hacer scroll al volver
     sessionStorage.setItem("lastViewedLeadId", sale.id.toString());
     navigate(`/leads/oportunidades/${sale.id}`);
   };
@@ -185,8 +183,9 @@ export default function SalesProcess() {
 
   const navigate = useNavigate();
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
 
-  const [salesData, setSalesData] = useState<Record<string, Opportunity[]>>({
+  /* const [salesData, setSalesData] = useState<Record<string, Opportunity[]>>({
     registrado: [],
     calificado: [],
     potencial: [],
@@ -201,7 +200,7 @@ export default function SalesProcess() {
     noCalificado: [],
     cobranza: [],
     convertido: [],
-  });
+  }); */
   
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -246,6 +245,7 @@ export default function SalesProcess() {
     } catch (e) {
       console.error("Error al decodificar token", e);
     }
+    console.log("🔍 USUARIO:", { idUsuario: idU, idRol: idR, tokenExists: !!token });
     return { idUsuario: idU, idRol: idR, rolNombre: rolN };
   }, [token]);
 
@@ -280,7 +280,15 @@ useEffect(() => {
         { params: { idUsuario, idRol } }
       );
 
-        const raw = res.data?.oportunidad || [];
+        console.log("📡 API RAW:", res.data);
+        // Extraemos todas las listas que vienen dentro de salesData
+        const list1 = Object.values(res.data?.salesData || {}).flat();
+        // Extraemos todas las listas que vienen dentro de otrosEstados
+        const list2 = Object.values(res.data?.otrosEstados || {}).flat();
+
+        const raw: any[] = [...list1, ...list2];
+
+        console.log("📦 Oportunidades extraídas (Corregido):", raw.length);
 
         // ✅ Usar Map para mejor rendimiento
         const grouped = new Map<number, Opportunity>();
@@ -300,6 +308,7 @@ useEffect(() => {
               nombreOcurrencia: row.nombreOcurrencia,
               productoNombre: row.productoNombre,
               fechaCreacion: row.fechaCreacion,
+              nombrePais: row.nombrePais,
               recordatorios: [],
             });
             recordatoriosSet.set(opportunityId, new Set());
@@ -345,7 +354,7 @@ useEffect(() => {
             );
           }
         });
-
+        console.log("✅ Oportunidades procesadas:", opportunities.length);
         setOpportunities(opportunities);
       } catch (e: any) {
         console.error("Error al obtener oportunidades", e);
@@ -520,6 +529,8 @@ useEffect(() => {
       noCalificado: 0, cobranza: 0, convertido: 0,
     };
 
+    let sinClasificar = 0;
+
     for (const op of opportunities) {
       let targetArray: Opportunity[] | null = null;
       let targetKey: string | null = null;
@@ -566,7 +577,19 @@ useEffect(() => {
       if (targetArray && targetKey && counts[targetKey] < MAX_PER_CATEGORY) {
         targetArray.push(op);
         counts[targetKey]++;
-      }
+    } else {
+        // 🔴 AQUÍ ES DONDE SE RE-ASIGNA LA VARIABLE
+        sinClasificar++; 
+        
+        // Log solo del primero para no llenar la consola
+        if (sinClasificar === 1) {
+             console.log("⚠️ PRIMER ITEM SIN CLASIFICAR:", { 
+                Estado: op.nombreEstado, 
+                Ocurrencia: op.nombreOcurrencia, 
+                Nombre: op.personaNombre 
+             });
+        }
+    }
     }
 
     // ✅ Ordenar y limitar solo las categorías que tienen datos
@@ -585,11 +608,13 @@ useEffect(() => {
           .slice(0, MAX_PER_CATEGORY);
       }
     }
+    console.log("📊 RESUMEN CATEGORÍAS:", counts);
+    console.log("🗑️ TOTAL SIN CLASIFICAR:", sinClasificar);
 
     return { salesData: initialSalesData, otrosEstados: initialOtrosEstados };
   }, [opportunities]);
 
-  //const { salesData, otrosEstados } = categorizedData;
+  const { salesData, otrosEstados } = categorizedData;
 
   const filters = useMemo(() => [
       { key: "todos", label: "Todos", count: Object.values(otrosEstados).flat().length },

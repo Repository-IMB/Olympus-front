@@ -10,8 +10,7 @@ import {
   Tooltip,
   Select,
   Input,
-  Option,
-  RangePicker
+  DatePicker,
 
 } from "antd";
 import {
@@ -30,6 +29,8 @@ import styles from "./Opportunities.module.css";
 import type { ColumnsType } from "antd/es/table";
 
 const { Content } = Layout;
+const { Option } = Select;
+const { RangePicker } = DatePicker;
 
 interface TokenData {
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
@@ -69,12 +70,19 @@ const getReminderColor = (fechaRecordatorio: string): string => {
 };
 
 export default function OpportunitiesInterface() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isSelectClientModalVisible, setIsSelectClientModalVisible] = useState(false);
   const navigate = useNavigate();
   const token = getCookie("token");
 
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    const pageParam = searchParams.get("page");
+    return pageParam ? Number(pageParam) : 1;
+  });
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const sizeParam = searchParams.get("pageSize");
+    return sizeParam ? Number(sizeParam) : 10;
+  });
   //const [totalRecords, setTotalRecords] = useState<number>(0);
   //const [totalPages, setTotalPages] = useState<number>(0);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
@@ -83,7 +91,6 @@ export default function OpportunitiesInterface() {
   const [allData, setAllData] = useState<Opportunity[]>([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchParams, setSearchParams] = useSearchParams();
   
   // ✅ CORRECCIÓN 1: Inicializar Filtros leyendo la URL
   const [filterAsesor, setFilterAsesor] = useState<string>(searchParams.get("asesor") || "Todos");
@@ -179,7 +186,9 @@ export default function OpportunitiesInterface() {
       estado: filterEstado !== "Todos" ? filterEstado : "",
       pais: filterPais !== "Todos" ? filterPais : "",
       asesor: filterAsesor !== "Todos" ? filterAsesor : "",
-    });
+    },
+    { replace: true }
+  );
   }, [currentPage, pageSize, searchText, filterEstado, filterPais, filterAsesor, setSearchParams]);
 
   // Cargar Asesores
