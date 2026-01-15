@@ -184,7 +184,7 @@ const OnboardingForm = () => {
               </label>
               <PhoneInput
                 international
-                defaultCountry="CO"
+                defaultCountry="PE"
                 value={celular}
                 onChange={(value) => setCelular(value || "")}
                 placeholder="321 1234567"

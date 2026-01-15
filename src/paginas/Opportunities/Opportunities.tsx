@@ -8,12 +8,16 @@ import {
   Spin,
   Alert,
   Tooltip,
+  Input,
+  Select,
+  DatePicker,
 } from "antd";
 import {
   CalendarOutlined,
   ClockCircleOutlined,
   EyeOutlined,
   FileTextOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import moment, { type Moment } from "moment";
 import SelectClient from "../SelectClient/SelectClient";
@@ -25,6 +29,8 @@ import type { ColumnsType } from "antd/es/table";
 import { useSearchParams } from "react-router-dom";
 
 const { Content } = Layout;
+const { RangePicker } = DatePicker;
+const { Option } = Select;
 
 interface TokenData {
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
@@ -38,6 +44,7 @@ interface Opportunity {
   productoNombre: string;
   fechaCreacion: string;
   personaCorreo: string;
+  personaTelefono?: string;
   personalNombre: string;
   totalMarcaciones?: number;
   recordatorios: string[];
@@ -69,21 +76,7 @@ export default function OpportunitiesInterface() {
   const navigate = useNavigate();
 
   const token = getCookie("token");
-
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
-  const [totalPages, setTotalPages] = useState<number>(0);
-  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
-  const [data, setData] = useState<Opportunity[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
-  const [dateRange, setDateRange] = useState<
-    [Moment | null, Moment | null] | null
-  >(null);
 
   const [currentPage, setCurrentPage] = useState(
     Number(searchParams.get("page")) || 1
@@ -92,6 +85,18 @@ export default function OpportunitiesInterface() {
   const [pageSize, setPageSize] = useState(
     Number(searchParams.get("pageSize")) || 10
   );
+
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(0);
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [data, setData] = useState<Opportunity[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
+  const [dateRange, setDateRange] = useState<
+    [Moment | null, Moment | null] | null
+  >(null);
 
   const [searchText, setSearchText] = useState(
     searchParams.get("search") || ""
@@ -330,32 +335,8 @@ export default function OpportunitiesInterface() {
       dataIndex: "personaTelefono",
       key: "personaTelefono",
       sorter: (a: Opportunity, b: Opportunity) =>
-        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
-      render: (personaCorreo: string) => personaCorreo || "-",
-    },
-    {
-      title: "Telefono",
-      dataIndex: "personaTelefono",
-      key: "personaTelefono",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
-      render: (personaCorreo: string) => personaCorreo || "-",
-    },
-    {
-      title: "Telefono",
-      dataIndex: "personaTelefono",
-      key: "personaTelefono",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
-      render: (personaCorreo: string) => personaCorreo || "-",
-    },
-    {
-      title: "Telefono",
-      dataIndex: "personaTelefono",
-      key: "personaTelefono",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
-      render: (personaCorreo: string) => personaCorreo || "-",
+        (a.personaTelefono || "").localeCompare(b.personaTelefono || ""),
+      render: (personaTelefono: string) => personaTelefono || "-",
     },
     {
       title: "Estado",
