@@ -1,5 +1,5 @@
 import { Card, Space, Typography, Tag, Spin, Alert, Select, DatePicker, TimePicker, Checkbox, Button, Form, message } from "antd";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import {
   WhatsAppOutlined,
@@ -7,6 +7,8 @@ import {
   FacebookOutlined,
   PhoneOutlined,
   CalendarOutlined,
+  LeftOutlined,
+  RightOutlined,
 } from "@ant-design/icons";
 import api from "../../servicios/api";
 import HistorialInteracciones from "./HistorialInterraciones";
@@ -60,6 +62,7 @@ interface Asesor {
 
 export default function HistorialInteraccion() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [oportunidad, setOportunidad] = useState<OportunidadDetalle | null>(
     null
   );
@@ -75,6 +78,10 @@ export default function HistorialInteraccion() {
   const [forzarReasignacion, setForzarReasignacion] = useState(true);
   const [loadingReasignacion, setLoadingReasignacion] = useState(false);
   const [userRole, setUserRole] = useState<number>(0);
+
+  // Estados para navegación
+  const [oportunidadesRelacionadas, setOportunidadesRelacionadas] = useState<number[]>([]);
+  const [currentIndex, setCurrentIndex] = useState<number>(-1);
 
   const fetchDetalle = useCallback(async () => {
     if (!id) {
@@ -135,6 +142,57 @@ export default function HistorialInteraccion() {
       return 0;
     }
   };
+
+  // Función para obtener todas las oportunidades de la tabla (para navegación)
+  const fetchOportunidadesRelacionadas = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      // Obtener todas las oportunidades del usuario (como en la tabla de Opportunities)
+      const userId = getUserIdFromToken();
+      const userRoleNum = getUserRoleFromToken();
+      
+      if (!userId || !userRoleNum) {
+        setOportunidadesRelacionadas([]);
+        setCurrentIndex(-1);
+        return;
+      }
+
+      // Obtener todas las oportunidades paginadas (similar a la tabla)
+      // Usamos un pageSize grande para obtener todas las oportunidades disponibles
+      const res = await api.get(
+        "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
+        {
+          params: {
+            idUsuario: userId,
+            idRol: userRoleNum,
+            page: 1,
+            pageSize: 10000, // Número grande para obtener todas
+            search: null,
+            estadoFiltro: null,
+            asesorFiltro: null,
+            fechaInicio: null,
+            fechaFin: null,
+          },
+        }
+      );
+
+      // Mapear todas las oportunidades a sus IDs
+      const todasOportunidades = res.data?.oportunidad || [];
+      const idsOportunidades = todasOportunidades.map((op: any) => op.id);
+
+      setOportunidadesRelacionadas(idsOportunidades);
+
+      // Encontrar el índice de la oportunidad actual
+      const currentId = Number(id);
+      const index = idsOportunidades.indexOf(currentId);
+      setCurrentIndex(index);
+    } catch (err: any) {
+      console.error("Error al obtener oportunidades para navegación:", err);
+      setOportunidadesRelacionadas([]);
+      setCurrentIndex(-1);
+    }
+  }, [id]);
 
   const obtenerAsesores = async () => {
     try {
@@ -295,6 +353,7 @@ export default function HistorialInteraccion() {
     fetchDetalle();
     obtenerAsesores();
     setUserRole(getUserRoleFromToken());
+    fetchOportunidadesRelacionadas();
     const removeListener = addHistorialChangedListener(() => {
       fetchDetalle();
     });
@@ -302,7 +361,7 @@ export default function HistorialInteraccion() {
     return () => {
       removeListener();
     };
-  }, [fetchDetalle]);
+  }, [fetchDetalle, fetchOportunidadesRelacionadas]);
 
   if (loading) {
     return (
@@ -380,6 +439,31 @@ export default function HistorialInteraccion() {
       year: "numeric",
     });
   };
+
+  // Funciones de navegación
+  const handleAnterior = () => {
+    if (currentIndex > 0 && oportunidadesRelacionadas.length > 0) {
+      const anteriorId = oportunidadesRelacionadas[currentIndex - 1];
+      navigate(`/leads/oportunidades/${anteriorId}`);
+    }
+  };
+
+  const handleSiguiente = () => {
+    if (
+      currentIndex >= 0 &&
+      currentIndex < oportunidadesRelacionadas.length - 1 &&
+      oportunidadesRelacionadas.length > 0
+    ) {
+      const siguienteId = oportunidadesRelacionadas[currentIndex + 1];
+      navigate(`/leads/oportunidades/${siguienteId}`);
+    }
+  };
+
+  const tieneAnterior = currentIndex > 0 && oportunidadesRelacionadas.length > 0;
+  const tieneSiguiente =
+    currentIndex >= 0 &&
+    currentIndex < oportunidadesRelacionadas.length - 1 &&
+    oportunidadesRelacionadas.length > 0;
 
   return (
     <div
@@ -685,6 +769,49 @@ export default function HistorialInteraccion() {
             </Space> */}
           </div>
         </Card>
+
+        {/* Botones de navegación - Fuera de la Card */}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginTop: 8,
+            justifyContent: "center",
+          }}
+        >
+          <Button
+            onClick={handleAnterior}
+            disabled={!tieneAnterior}
+            icon={<LeftOutlined />}
+            style={{
+              backgroundColor: "#000000",
+              color: "#FFFFFF",
+              borderColor: "#000000",
+              borderRadius: 8,
+              opacity: tieneAnterior ? 1 : 0.5,
+              cursor: tieneAnterior ? "pointer" : "not-allowed",
+              fontWeight: 500,
+            }}
+          >
+            Anterior oportunidad
+          </Button>
+          <Button
+            onClick={handleSiguiente}
+            disabled={!tieneSiguiente}
+            icon={<RightOutlined />}
+            style={{
+              backgroundColor: "#000000",
+              color: "#FFFFFF",
+              borderColor: "#000000",
+              borderRadius: 8,
+              opacity: tieneSiguiente ? 1 : 0.5,
+              cursor: tieneSiguiente ? "pointer" : "not-allowed",
+              fontWeight: 500,
+            }}
+          >
+            Siguiente oportunidad
+          </Button>
+        </div>
       </div>
 
       {/* === Sección de Reasignación === Solo visible para roles superiores (no asesores) */}
