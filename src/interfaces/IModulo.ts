@@ -10,6 +10,7 @@ export interface ISesion {
   estado: boolean;
   idMigracion?: number | null;
   fechaCreacion: string;
+  fechaInicio?: string;
   usuarioCreacion: string;
   fechaModificacion?: string | null;
   usuarioModificacion?: string | null;

@@ -5,10 +5,34 @@ export type { IModulo };
 
 export const baseUrl: string = (import.meta.env.VITE_API_URL as string) || "http://localhost:7020";
 
-/** 🔹 Obtener todos los módulos */
-export const obtenerModulos = async (): Promise<IModulo[]> => {
-  const response = await api.get("/api/VTAModVentaModulo/ObtenerTodas");
-  return response.data;
+/** 🔹 Obtener todos los módulos con Paginación */
+export const obtenerModulos = async (
+  search: string = "", 
+  page: number = 1, 
+  pageSize: number = 10,
+  producto: string = "", 
+  fechaDesde: string = "", 
+  fechaHasta: string = "",
+  sortColumn: string = "Id",
+  sortOrder: string = "DESC"
+): Promise<any> => { 
+  const response = await api.get("/api/VTAModVentaModulo/ObtenerTodas", {
+    params: {
+      search,
+      page,
+      pageSize,
+      producto,
+      fechaDesde,
+      fechaHasta,
+      sortColumn,
+      sortOrder
+    }
+  });
+
+  return {
+    modulos: response.data.modulos || [],
+    total: response.data.total || 0
+  };
 };
 
 /** 🔹 Obtener módulo por ID */
