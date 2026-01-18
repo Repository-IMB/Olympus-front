@@ -43,6 +43,9 @@ import DetalleProducto from "./paginas/Productos/DetalleProducto";
 import DetalleModulo from "./paginas/Modulos/DetalleModulo";
 import DetalleAlumno from "./paginas/Alumnos/DetalleAlumno";
 
+//Dashboard
+import Dashboard from "./paginas/Dashboard/Dashboard";
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -70,37 +73,44 @@ function App() {
       navigate("/login");
     };
 
-    const checkToken = () => {
-      const token = getCookie("token");
-      const isPublic = publicRoutes.some((r) =>
-        location.pathname.startsWith(r)
-      );
+const checkToken = () => {
+  const token = getCookie("token");
+  const isPublic = publicRoutes.some((r) =>
+    location.pathname.startsWith(r)
+  );
 
-      if (!token) {
-        if (!isPublic) logout();
-        return;
-      }
+  if (!token) {
+    if (!isPublic) logout();
+    return;
+  }
 
-      const payload = parseJwt(token);
-      if (!payload?.exp) {
-        logout();
-        return;
-      }
+  const payload = parseJwt(token);
+  if (!payload?.exp) {
+    logout();
+    return;
+  }
 
-      const now = Math.floor(Date.now() / 1000);
-      if (payload.exp < now) {
-        logout();
-        return;
-      }
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp < now) {
+    logout();
+    return;
+  }
 
-      // Si está logueado y entra a login -> manda al home privado
-      if (isPublic) {
-        navigate("/", { replace: true });
-      }
+  // 👇 LOGIN → DASHBOARD
+  if (isPublic) {
+    sessionStorage.setItem("forceDashboard", "1");
+    navigate("/", { replace: true });
+    return;
+  }
 
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(logout, (payload.exp - now) * 1000);
-    };
+  // 👇 FORZAR DASHBOARD SOLO 1 VEZ
+  const forceDashboard = sessionStorage.getItem("forceDashboard");
+  if (forceDashboard && location.pathname !== "/") {
+    sessionStorage.removeItem("forceDashboard");
+    navigate("/", { replace: true });
+    return;
+  }
+};
 
     checkToken();
     const interval = setInterval(checkToken, 2000);
@@ -124,7 +134,7 @@ function App() {
       <Route element={<PrivateRoute />}>
         <Route element={<MainLayout />}>
           {/* Home privado: por defecto manda a Leads (si no tiene, ProtectedContent se encarga) */}
-          <Route path="/" element={<Navigate to="/leads/SalesProcess" replace />} />
+        <Route path="/" element={<Dashboard />} />
 
           {/* ======================= LEADS (BLOQUE COMPLETO) ======================= */}
           <Route

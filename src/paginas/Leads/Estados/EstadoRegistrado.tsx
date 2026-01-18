@@ -52,9 +52,8 @@ function useMountedRef() {
   return mounted;
 }
 
-const token = getCookie("token");
-
 const getUserIdFromToken = () => {
+  const token = getCookie("token");
   if (!token) return 0;
 
   try {
@@ -127,7 +126,9 @@ export default function EstadoRegistrado({
 
   const findByName = (name: string) =>
     ocurrencias.find(
-      (o) => (o.nombre ?? o.Nombre ?? "").toString().toLowerCase() === name.toLowerCase()
+      (o) =>
+        (o.nombre ?? o.Nombre ?? "").toString().toLowerCase() ===
+        name.toLowerCase()
     );
 
   const renderActionBtn = (
@@ -145,7 +146,11 @@ export default function EstadoRegistrado({
         role="button"
         aria-disabled={disabled}
         style={{
-          ...buttonStyle(disabled ? "#F0F0F0" : baseColor, hoverColor, disabled),
+          ...buttonStyle(
+            disabled ? "#F0F0F0" : baseColor,
+            hoverColor,
+            disabled
+          ),
           opacity: disabled ? 0.7 : 1,
         }}
         title={
@@ -203,7 +208,9 @@ export default function EstadoRegistrado({
       // Si es NO y el SP devolvió ResultadoSP=4 → aplicar automáticamente "No Calificado"
       if (tipo === "N" && resultado === 4) {
         const ocNoCalificado = ocurrencias.find(
-          (o) => (o.nombre ?? o.Nombre ?? "").toString().toLowerCase() === "no calificado"
+          (o) =>
+            (o.nombre ?? o.Nombre ?? "").toString().toLowerCase() ===
+            "no calificado"
         );
 
         if (ocNoCalificado) {

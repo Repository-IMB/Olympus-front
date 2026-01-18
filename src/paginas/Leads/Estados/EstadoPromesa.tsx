@@ -45,9 +45,8 @@ function useMountedFlag() {
   return mounted;
 }
 
- const token = getCookie("token");
-
   const getUserIdFromToken = () => {
+     const token = getCookie("token");
         if (!token) return 0;
     
         try {

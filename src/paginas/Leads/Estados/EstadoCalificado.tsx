@@ -41,9 +41,8 @@ const buttonStyle = (
   opacity: disabled ? 0.7 : 1,
 });
 
-  const token = getCookie("token");
-
   const getUserIdFromToken = () => {
+      const token = getCookie("token");
         if (!token) return 0;
     
         try {
@@ -101,24 +100,27 @@ export default function EstadoCalificado({
   }, [oportunidadId]);
 
   const handleSelect = async (ocId: number) => {
-    if (creatingId || !activo) return;
-    setCreatingId(ocId);
-    try {
-      await crearHistorialConOcurrencia(oportunidadId, ocId, Number(getUserIdFromToken()));
-      message.success("Cambio aplicado");
-      emitHistorialChanged({
-        motivo: "crearHistorialConOcurrencia",
-        ocurrenciaId: ocId,
-      });
-      if (onCreado) onCreado();
-      const list = await getOcurrenciasPermitidas(oportunidadId);
-      if (mounted) setOcurrencias(Array.isArray(list) ? list : []);
-    } catch (err: any) {
-      console.error("crearHistorialConOcurrencia error", err);
-      message.error(err?.message ?? "Error al aplicar ocurrencia");
-    } finally {
-      if (mounted) setCreatingId(null);
-    }
+    // if (creatingId || !activo) return;
+    // setCreatingId(ocId);
+    // try {
+    //   await crearHistorialConOcurrencia(oportunidadId, ocId, Number(getUserIdFromToken()));
+    //   message.success("Cambio aplicado");
+    //   emitHistorialChanged({
+    //     motivo: "crearHistorialConOcurrencia",
+    //     ocurrenciaId: ocId,
+    //   });
+    //   if (onCreado) onCreado();
+    //   const list = await getOcurrenciasPermitidas(oportunidadId);
+    //   if (mounted) setOcurrencias(Array.isArray(list) ? list : []);
+    // } catch (err: any) {
+    //   console.error("crearHistorialConOcurrencia error", err);
+    //   message.error(err?.message ?? "Error al aplicar ocurrencia");
+    // } finally {
+    //   if (mounted) setCreatingId(null);
+    // }
+
+    const decoded: any = jwtDecode(token);
+console.log("JWT completo:", decoded);
   };
 
   const incrementarLlamada = async (tipo: "C" | "N") => {

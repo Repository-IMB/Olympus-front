@@ -43,6 +43,16 @@ export default function Sidebar({
       </div>
 
       <div className={styles.menuContainer}>
+        {/* ================= DASHBOARD ================= */}
+        <div
+          className={`${styles.menuItem} ${
+            isActive("/") ? styles.menuItemActive : ""
+          }`}
+          onClick={() => onNavigate("/")}
+        >
+          <DashboardOutlined /> Dashboard
+        </div>
+
         {/* ================= LEADS ================= */}
         {puedeVerLeads && (
           <div className={styles.menuSection}>
@@ -55,7 +65,11 @@ export default function Sidebar({
               <span className={styles.menuHeaderContent}>
                 <PhoneOutlined /> Leads
               </span>
-              {openMenu === "Leads" ? <CaretUpOutlined /> : <CaretDownOutlined />}
+              {openMenu === "Leads" ? (
+                <CaretUpOutlined />
+              ) : (
+                <CaretDownOutlined />
+              )}
             </div>
 
             {openMenu === "Leads" && (
@@ -76,9 +90,7 @@ export default function Sidebar({
                 {permisos.asignacion && (
                   <div
                     className={`${styles.menuItem} ${
-                      isActive("/leads/asignacion")
-                        ? styles.menuItemActive
-                        : ""
+                      isActive("/leads/asignacion") ? styles.menuItemActive : ""
                     }`}
                     onClick={() => onNavigate("/leads/asignacion")}
                   >
@@ -177,9 +189,7 @@ export default function Sidebar({
               <div className={styles.menuItems}>
                 <div
                   className={`${styles.menuItem} ${
-                    isActive("/usuarios/usuarios")
-                      ? styles.menuItemActive
-                      : ""
+                    isActive("/usuarios/usuarios") ? styles.menuItemActive : ""
                   }`}
                   onClick={() => onNavigate("/usuarios/usuarios")}
                 >

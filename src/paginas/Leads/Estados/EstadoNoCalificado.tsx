@@ -32,14 +32,13 @@ type Props = {
   activo?: boolean;
 };
 
-  const token = getCookie("token");
-
 export default function EstadoNoCalificado({ oportunidadId, usuario = "SYSTEM", onCreado, activo = true }: Props) {
   const [ocurrencias, setOcurrencias] = useState<OcurrenciaDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [creatingId, setCreatingId] = useState<number | null>(null);
 
     const getUserIdFromToken = () => {
+      const token = getCookie("token");
       if (!token) return 0;
   
       try {

@@ -94,9 +94,8 @@ const HistorialInteracciones: React.FC = () => {
   const [busqueda, setBusqueda] = useState<string>("");
   const [telefonoCliente, setTelefonoCliente] = useState<string | null>(null);
 
-  const token = getCookie("token");
-
   const getUserIdFromToken = () => {
+    const token = getCookie("token");
     if (!token) return 0;
 
     try {

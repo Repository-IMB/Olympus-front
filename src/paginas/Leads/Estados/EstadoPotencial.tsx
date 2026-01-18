@@ -19,9 +19,8 @@ type Props = {
   activo?: boolean;
 };
 
-const token = getCookie("token");
-
 const getUserIdFromToken = () => {
+  const token = getCookie("token");
   if (!token) return 0;
 
   try {
