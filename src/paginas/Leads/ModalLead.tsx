@@ -17,8 +17,9 @@ import {
 } from "antd";
 import axios from "axios";
 import Cookies from "js-cookie";
-import dayjs from "dayjs";
-import "dayjs/locale/es";
+import moment from "moment";
+// @ts-ignore
+import "moment/locale/es";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 
 const { Option } = Select;
@@ -72,7 +73,7 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
 
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [asesorSeleccionado, setAsesorSeleccionado] = useState<number | null>(
-    null
+    null,
   );
 
   // ======================================================
@@ -131,7 +132,7 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
         `${import.meta.env.VITE_API_URL}/api/VTAModVentaPersona/ObtenerTodas`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       setClientes(res.data.persona || []);
     } catch {
@@ -146,7 +147,7 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
         `${import.meta.env.VITE_API_URL}/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       const lista = (res.data.usuarios || []).map((u: any) => ({
@@ -172,7 +173,10 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
     }
 
     const normalizar = (t: string) =>
-      t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      t
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
 
     const f = normalizar(filtro.trim());
 
@@ -198,7 +202,7 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
       const res = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/VTAModVentaPersona/Insertar`,
         { ...values, estado: true },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       message.success("Cliente creado correctamente");
@@ -210,8 +214,8 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
         correo: values.correo,
         celular: values.celular,
         prefijoPaisCelular:
-          clientes.find((x) => x.idPais === values.idPais)?.prefijoPaisCelular ||
-          "+00",
+          clientes.find((x) => x.idPais === values.idPais)
+            ?.prefijoPaisCelular || "+00",
         idPais: values.idPais,
         paisNombre: paises[values.idPais],
         industria: values.industria,
@@ -252,11 +256,11 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
       setLoading(true);
       const token = Cookies.get("token");
 
-      const fechaISO = dayjs(fecha)
-        .hour(dayjs(hora).hour())
-        .minute(dayjs(hora).minute())
+      const fechaISO = moment(fecha)
+        .hour(hora.hour())
+        .minute(hora.minute())
         .second(0)
-        .toISOString();
+        .format("YYYY-MM-DDTHH:mm:ss");
 
       const body = {
         idPersona: clienteSeleccionado.id,
@@ -269,7 +273,7 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
       await axios.post(
         `${import.meta.env.VITE_API_URL}/api/VTAModVentaOportunidad/Insertar`,
         body,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       message.success("Oportunidad creada correctamente");
@@ -285,16 +289,16 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
   // FORMATO PREVIEW FECHA/HORA
   // ======================================================
   const fechaFormateada = fecha
-    ? dayjs(fecha).locale("es").format("dddd, DD [de] MMMM [de] YYYY")
+    ? moment(fecha).locale("es").format("dddd, DD [de] MMMM [de] YYYY")
     : "";
 
-  const horaFormateada = hora ? dayjs(hora).format("HH:mm") : "";
+  const horaFormateada = hora ? moment(hora).format("HH:mm") : "";
 
   const iso =
     fecha && hora
-      ? dayjs(fecha)
-          .hour(dayjs(hora).hour())
-          .minute(dayjs(hora).minute())
+      ? moment(fecha)
+          .hour(moment(hora).hour())
+          .minute(moment(hora).minute())
           .second(0)
           .toISOString()
       : "";
@@ -315,8 +319,8 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
           {fase === 1
             ? "Seleccionar cliente"
             : fase === 2
-            ? "Crear cliente"
-            : "Crear oportunidad"}
+              ? "Crear cliente"
+              : "Crear oportunidad"}
         </h3>
       }
     >
@@ -374,7 +378,11 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
                     border: "1px solid #e5e7eb",
                   }}
                 >
-                  <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                  <Space
+                    direction="vertical"
+                    size={4}
+                    style={{ width: "100%" }}
+                  >
                     <div style={{ fontWeight: 700 }}>
                       {c.nombres} {c.apellidos}
                     </div>
@@ -576,8 +584,8 @@ export default function ModalAgregarOportunidad({ open, onClose }: Props) {
               }}
             >
               <div>
-                <b>Programado para:</b> {fechaFormateada} a las{" "}
-                {horaFormateada} horas
+                <b>Programado para:</b> {fechaFormateada} a las {horaFormateada}{" "}
+                horas
               </div>
               <div>ISO: {iso}</div>
             </Card>

@@ -21,7 +21,7 @@ interface ValidacionFaseProps {
 const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
   const [mostrarBrochure, setMostrarBrochure] = useState(false);
   const [brochureUrl, setBrochureUrl] = useState<string | null>(null);
-  
+
   // Estados para Speech
   const [mostrarSpeech, setMostrarSpeech] = useState(false);
   const [productoId, setProductoId] = useState<number | null>(null);
@@ -57,7 +57,7 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
       }
       return;
     }
-    
+
     setSpeechCargando(true);
     try {
       const speech = await obtenerSpeechPorAsesorYProducto(IdPersonal, productoId);
@@ -109,13 +109,13 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
       } else {
         // Crear nuevo speech
         await crearSpeech({
-          IdPersonal: IdPersonal,
+          idPersonal: IdPersonal,
           idProducto: productoId,
           texto: speechTexto,
         });
         message.success("Speech creado correctamente");
       }
-      
+
       // Recargar el speech
       await cargarSpeech();
       setSpeechEditando(false);
@@ -230,7 +230,7 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
                 }}
               >
                 <Text type="secondary" style={{ fontSize: 14 }}>
-                  No eres un asesor asociado o tu asesor está inactivo. 
+                  No eres un asesor asociado o tu asesor está inactivo.
                   No puedes crear o editar un speech para este producto.
                 </Text>
               </div>
@@ -253,7 +253,7 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
                     </Button>
                   )}
                 </div>
-                
+
                 {speechEditando ? (
                   <div>
                     <TextArea
@@ -294,7 +294,7 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
                       <Text style={{ whiteSpace: "pre-wrap" }}>{speechData.texto}</Text>
                     ) : (
                       <Text type="secondary" italic>
-                        No tienes un speech configurado para este producto. 
+                        No tienes un speech configurado para este producto.
                         Haz clic en "Editar" para crear uno.
                       </Text>
                     )}

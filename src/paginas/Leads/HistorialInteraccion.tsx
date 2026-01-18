@@ -11,13 +11,14 @@ import {
 import api from "../../servicios/api";
 import HistorialInteracciones from "./HistorialInterraciones";
 import { addHistorialChangedListener } from "../../utils/events";
-import dayjs, { type Dayjs } from "dayjs";
-import "dayjs/locale/es";
+import moment, { type Moment } from "moment";
+// @ts-ignore
+import "moment/locale/es";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 
-dayjs.locale("es");
+moment.locale("es");
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -69,8 +70,8 @@ export default function HistorialInteraccion() {
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [loadingAsesores, setLoadingAsesores] = useState<boolean>(true);
   const [asesorDestino, setAsesorDestino] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
-  const [selectedTime, setSelectedTime] = useState<Dayjs | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Moment | null>(null);
+  const [selectedTime, setSelectedTime] = useState<Moment | null>(null);
   const [forzarReasignacion, setForzarReasignacion] = useState(true);
   const [loadingReasignacion, setLoadingReasignacion] = useState(false);
   const [userRole, setUserRole] = useState<number>(0);
@@ -104,7 +105,7 @@ export default function HistorialInteraccion() {
       const decoded: any = jwtDecode(token);
       const userId =
         decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ];
       return userId ? Number(userId) : 0;
     } catch (e) {
@@ -141,8 +142,7 @@ export default function HistorialInteraccion() {
       if (!token) throw new Error("No se encontró el token de autenticación");
 
       const response = await axios.get(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -221,8 +221,7 @@ export default function HistorialInteraccion() {
 
       try {
         await axios.post(
-          `${
-            import.meta.env.VITE_API_URL || "http://localhost:7020"
+          `${import.meta.env.VITE_API_URL || "http://localhost:7020"
           }/api/VTAModVentaHistorialInteraccion/Insertar`,
           payloadInteraccion,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -231,9 +230,8 @@ export default function HistorialInteraccion() {
       } catch (interaccionError: any) {
         console.error("❌ Error al crear interacción:", interaccionError);
         throw new Error(
-          `Error al crear interacción: ${
-            interaccionError?.response?.data?.mensaje ||
-            interaccionError?.message
+          `Error al crear interacción: ${interaccionError?.response?.data?.mensaje ||
+          interaccionError?.message
           }`
         );
       }
@@ -251,8 +249,7 @@ export default function HistorialInteraccion() {
 
       try {
         const response = await axios.post(
-          `${
-            import.meta.env.VITE_API_URL || "http://localhost:7020"
+          `${import.meta.env.VITE_API_URL || "http://localhost:7020"
           }/api/VTAModVentaOportunidad/AsignarPersonal`,
           payload,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -281,9 +278,8 @@ export default function HistorialInteraccion() {
       } catch (asignacionError: any) {
         console.error("❌ Error al asignar asesor:", asignacionError);
         throw new Error(
-          `Error al asignar asesor: ${
-            asignacionError?.response?.data?.mensaje ||
-            asignacionError?.message
+          `Error al asignar asesor: ${asignacionError?.response?.data?.mensaje ||
+          asignacionError?.message
           }`
         );
       }
@@ -443,7 +439,7 @@ export default function HistorialInteraccion() {
               <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Código Linkedin:</Text>
               <Text style={{ color: "#0D0C11", fontSize: 14 }}>{codigoLinkedin}</Text>
             </Space>
-            
+
             <Space size={4}>
               <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
                 Fecha de formulario:

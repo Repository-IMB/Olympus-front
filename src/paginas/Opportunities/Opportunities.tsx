@@ -19,7 +19,7 @@ import {
   FileTextOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { type Dayjs } from "dayjs";
+import moment, { type Moment } from "moment";
 import SelectClient from "../SelectClient/SelectClient";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
@@ -42,6 +42,7 @@ interface Opportunity {
   personaNombre: string;
   nombreEstado: string;
   productoNombre: string;
+  codigoLinkedin?: string;
   fechaCreacion: string;
   personaCorreo: string;
   personalNombre: string;
@@ -56,16 +57,33 @@ interface Asesor {
 }
 
 const getReminderColor = (fechaRecordatorio: string): string => {
-  const now = new Date();
-  const reminderDate = new Date(fechaRecordatorio);
+  const now = new Date().getTime();
+  const recordatorioTime = new Date(fechaRecordatorio).getTime();
 
-  const diffMs = reminderDate.getTime() - now.getTime();
-  const hoursRemaining = diffMs / (1000 * 60 * 60);
+  const diffMs = now - recordatorioTime;
+  const diffHours = diffMs / (1000 * 60 * 60);
 
-  if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
-  if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
-  if (hoursRemaining < 24) return "#ffd666"; // amarillo
-  return "#1677ff"; // azul
+  // 🔵 AÚN NO SE DESACTIVA (futuro)
+  if (diffHours < 0) {
+    const hoursRemaining = Math.abs(diffHours);
+
+    if (hoursRemaining <= 5) return "#ff4d4f"; // rojo (por vencer)
+    if (hoursRemaining < 24) return "#ffd666"; // amarillo
+    return "#1677ff"; // azul
+  }
+
+  // 0 a 1 hora DESPUÉS de desactivarse
+  if (diffHours >= 0 && diffHours < 1) {
+    return "#ff4d4f"; // rojo
+  }
+
+  // 1 a 25 horas DESPUÉS de desactivarse
+  if (diffHours >= 1 && diffHours <= 25) {
+    return "#bfbfbf"; // plomo
+  }
+
+  // Más de 25 horas
+  return "#bfbfbf";
 };
 
 export default function OpportunitiesInterface() {
@@ -84,35 +102,39 @@ export default function OpportunitiesInterface() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
   const [dateRange, setDateRange] = useState<
-    [Dayjs | null, Dayjs | null] | null
+    [Moment | null, Moment | null] | null
   >(null);
 
   const [currentPage, setCurrentPage] = useState(
-    Number(searchParams.get("page")) || 1
+    Number(searchParams.get("page")) || 1,
   );
 
   const [pageSize, setPageSize] = useState(
-    Number(searchParams.get("pageSize")) || 10
+    Number(searchParams.get("pageSize")) || 10,
   );
 
   const [searchText, setSearchText] = useState(
-    searchParams.get("search") || ""
+    searchParams.get("search") || "",
   );
 
   const [filterEstado, setFilterEstado] = useState(
-    searchParams.get("estado") || "Todos"
+    searchParams.get("estado") || "Todos",
   );
 
+  const [filterCodigoLinkedin, setFilterCodigoLinkedin] =
+    useState<string>("Todos");
 
-useEffect(() => {
-  setSearchParams({
-    page: currentPage.toString(),
-    pageSize: pageSize.toString(),
-    search: searchText || "",
-    estado: filterEstado !== "Todos" ? filterEstado : "",
-  });
-}, [currentPage, pageSize, searchText, filterEstado]);
+  const [codigosLinkedin, setCodigosLinkedin] = useState<string[]>([]);
+  const [loadingCodigosLinkedin, setLoadingCodigosLinkedin] = useState(false);
 
+  useEffect(() => {
+    setSearchParams({
+      page: currentPage.toString(),
+      pageSize: pageSize.toString(),
+      search: searchText || "",
+      estado: filterEstado !== "Todos" ? filterEstado : "",
+    });
+  }, [currentPage, pageSize, searchText, filterEstado]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -146,7 +168,6 @@ useEffect(() => {
     }
   };
 
-
   useEffect(() => {
     obtenerAsesores();
   }, []);
@@ -171,7 +192,7 @@ useEffect(() => {
       idU = parseInt(
         decoded[
           "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-        ] || "0"
+        ] || "0",
       );
       rNombre =
         decoded[
@@ -193,6 +214,27 @@ useEffect(() => {
     return { idUsuario: idU, rolNombre: rNombre, idRol: idR };
   }, [token]);
 
+  const cargarCodigosLinkedin = async () => {
+    try {
+      setLoadingCodigosLinkedin(true);
+
+      const res = await api.get(
+        "/api/VTAModVentaProducto/ObtenerCodigosUnicos",
+      );
+
+      setCodigosLinkedin(res.data.codigosLinkedin ?? []);
+    } catch (e) {
+      console.error("Error cargando códigos LinkedIn", e);
+      setCodigosLinkedin([]);
+    } finally {
+      setLoadingCodigosLinkedin(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarCodigosLinkedin();
+  }, []);
+
   useEffect(() => {
     if (!idUsuario || !idRol) return;
 
@@ -211,10 +253,12 @@ useEffect(() => {
               search: searchText || null,
               estadoFiltro: filterEstado !== "Todos" ? filterEstado : null,
               asesorFiltro: filterAsesor !== "Todos" ? filterAsesor : null,
+              codigoLinkedinFiltro:
+                filterCodigoLinkedin !== "Todos" ? filterCodigoLinkedin : null,
               fechaInicio: dateRange?.[0]?.format("YYYY-MM-DD") ?? null,
               fechaFin: dateRange?.[1]?.format("YYYY-MM-DD") ?? null,
             },
-          }
+          },
         );
 
         const mapped: Opportunity[] = (res.data.oportunidad ?? []).map(
@@ -224,6 +268,7 @@ useEffect(() => {
             personaTelefono: op.personaTelefono ?? "",
             nombreEstado: op.nombreEstado ?? "",
             productoNombre: op.productoNombre ?? "",
+            codigoLinkedin: op.codigoLinkedin ?? "-",
             fechaCreacion: op.fechaCreacion,
             personaCorreo: op.personaCorreo ?? "",
             personalNombre: op.personalNombre ?? "",
@@ -231,10 +276,10 @@ useEffect(() => {
 
             recordatorios: op.recordatoriosJson
               ? JSON.parse(op.recordatoriosJson).map(
-                  (r: any) => r.FechaRecordatorio
+                  (r: any) => r.FechaRecordatorio,
                 )
               : [],
-          })
+          }),
         );
 
         setData(mapped);
@@ -243,7 +288,7 @@ useEffect(() => {
         setError(
           e?.response?.data?.mensaje ??
             e?.message ??
-            "Error al obtener oportunidades"
+            "Error al obtener oportunidades",
         );
       } finally {
         setLoading(false);
@@ -259,11 +304,12 @@ useEffect(() => {
     searchText,
     filterEstado,
     filterAsesor,
+    filterCodigoLinkedin,
     dateRange,
   ]);
 
   const handleClick = (id: number) => {
-    console.log(id)
+    console.log(id);
     navigate(`/leads/oportunidades/${id}`);
   };
 
@@ -334,7 +380,7 @@ useEffect(() => {
         (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
       render: (personaCorreo: string) => personaCorreo || "-",
     },
-        {
+    {
       title: "Telefono",
       dataIndex: "personaTelefono",
       key: "personaTelefono",
@@ -382,6 +428,17 @@ useEffect(() => {
       sorter: (a: Opportunity, b: Opportunity) =>
         a.productoNombre.localeCompare(b.productoNombre),
     },
+    {
+      title: "Código LinkedIn",
+      dataIndex: "codigoLinkedin",
+      key: "codigoLinkedin",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.codigoLinkedin || "").localeCompare(b.codigoLinkedin || ""),
+      render: (codigo: string) =>
+        codigo && codigo !== "-" ? <Tag color="geekblue">{codigo}</Tag> : "-",
+      width: 160,
+    },
+
     {
       title: "Total Marcaciones",
       dataIndex: "totalMarcaciones",
@@ -470,7 +527,8 @@ useEffect(() => {
         style={{
           marginBottom: "20px",
           display: "flex",
-          justifyContent: "flex-end",
+          justifyContent: "right",
+          alignContent: "right",
           gap: "10px",
         }}
       >
@@ -550,7 +608,6 @@ useEffect(() => {
             placeholder="Seleccionar asesor"
             style={{ width: "200px", borderRadius: "6px" }}
             disabled={asesoresUnicos.length === 0}
-            showSearch
             virtual={false}
             listHeight={220}
             optionFilterProp="children"
@@ -563,10 +620,30 @@ useEffect(() => {
               </Option>
             ))}
           </Select>
+          <Select
+            value={filterCodigoLinkedin}
+            onChange={setFilterCodigoLinkedin}
+            placeholder="Código LinkedIn"
+            style={{ width: "200px", borderRadius: "6px" }}
+            loading={loadingCodigosLinkedin}
+            showSearch
+            virtual={false}
+            listHeight={220}
+            optionFilterProp="children"
+          >
+            <Option value="Todos">Todos códigos LinkedIn</Option>
+
+            {codigosLinkedin.map((codigo) => (
+              <Option key={codigo} value={codigo}>
+                {codigo}
+              </Option>
+            ))}
+          </Select>
+
           <RangePicker
             value={dateRange}
             onChange={(dates) =>
-              setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
+              setDateRange(dates as [Moment | null, Moment | null] | null)
             }
             format="DD/MM/YYYY"
             placeholder={["Fecha inicio", "Fecha fin"]}

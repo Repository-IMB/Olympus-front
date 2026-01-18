@@ -290,12 +290,12 @@ export default function ModalProducto({
                   </Select.Option>
                 ))}
                 {/* Si estamos editando y el estadoProductoTipoNombre existe pero no está en la lista, agregar como opción */}
-                {modo === "editar" && producto?.estadoProductoTipoNombre && 
+                {modo === "editar" && producto?.estadoProductoTipoNombre &&
                   !tiposEstadoProducto.some(t => t.id === producto.estadoProductoTipoId) && (
-                  <Select.Option value={producto.estadoProductoTipoId}>
-                    {producto.estadoProductoTipoNombre}
-                  </Select.Option>
-                )}
+                    <Select.Option value={producto.estadoProductoTipoId}>
+                      {producto.estadoProductoTipoNombre}
+                    </Select.Option>
+                  )}
               </Select>
             </Form.Item>
 
@@ -370,51 +370,45 @@ export default function ModalProducto({
                   />
                 </Col>
               </Row>
-              <Collapse
-                items={[
-                  {
-                    key: "1",
-                    label: "Estadísticas",
-                    children: (
-                      <Space direction="vertical" style={{ width: "100%" }}>
-                        {estadisticas.map((est, index) => (
-                          <div key={index} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0" }}>
-                            <span style={{ flex: 1 }}>{index + 1}. {est}</span>
-                            <Space size={4}>
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<UpOutlined />}
-                                onClick={() => handleMoverEstadisticaArriba(index)}
-                                disabled={index === 0}
-                                style={{ border: "1px solid #000", color: "#000" }}
-                              />
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<DownOutlined />}
-                                onClick={() => handleMoverEstadisticaAbajo(index)}
-                                disabled={index === estadisticas.length - 1}
-                                style={{ border: "1px solid #000", color: "#000" }}
-                              />
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<DeleteOutlined />}
-                                onClick={() => handleEliminarEstadistica(index)}
-                                style={{ border: "1px solid #000", color: "#000" }}
-                              />
-                            </Space>
-                          </div>
-                        ))}
-                        {estadisticas.length === 0 && (
-                          <p style={{ color: "#999" }}>Sin estadísticas agregadas</p>
-                        )}
-                      </Space>
-                    ),
-                  },
-                ]}
-              />
+              <Collapse>
+                <Collapse.Panel header="Estadísticas" key="1">
+                  <Space direction="vertical" style={{ width: "100%" }}>
+                    {estadisticas.map((est, index) => (
+                      <div key={index} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0" }}>
+                        <span style={{ flex: 1 }}>{index + 1}. {est}</span>
+                        <Space size={4}>
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<UpOutlined />}
+                            onClick={() => handleMoverEstadisticaArriba(index)}
+                            disabled={index === 0}
+                            style={{ border: "1px solid #000", color: "#000" }}
+                          />
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<DownOutlined />}
+                            onClick={() => handleMoverEstadisticaAbajo(index)}
+                            disabled={index === estadisticas.length - 1}
+                            style={{ border: "1px solid #000", color: "#000" }}
+                          />
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleEliminarEstadistica(index)}
+                            style={{ border: "1px solid #000", color: "#000" }}
+                          />
+                        </Space>
+                      </div>
+                    ))}
+                    {estadisticas.length === 0 && (
+                      <p style={{ color: "#999" }}>Sin estadísticas agregadas</p>
+                    )}
+                  </Space>
+                </Collapse.Panel>
+              </Collapse>
             </div>
 
             {/* OBJETIVOS */}
@@ -439,51 +433,45 @@ export default function ModalProducto({
                   />
                 </Col>
               </Row>
-              <Collapse
-                items={[
-                  {
-                    key: "1",
-                    label: "Objetivos",
-                    children: (
-                      <Space direction="vertical" style={{ width: "100%" }}>
-                        {objetivos.map((obj, index) => (
-                          <div key={index} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0" }}>
-                            <span style={{ flex: 1 }}>{index + 1}. {obj}</span>
-                            <Space size={4}>
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<UpOutlined />}
-                                onClick={() => handleMoverObjetivoArriba(index)}
-                                disabled={index === 0}
-                                style={{ border: "1px solid #000", color: "#000" }}
-                              />
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<DownOutlined />}
-                                onClick={() => handleMoverObjetivoAbajo(index)}
-                                disabled={index === objetivos.length - 1}
-                                style={{ border: "1px solid #000", color: "#000" }}
-                              />
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<DeleteOutlined />}
-                                onClick={() => handleEliminarObjetivo(index)}
-                                style={{ border: "1px solid #000", color: "#000" }}
-                              />
-                            </Space>
-                          </div>
-                        ))}
-                        {objetivos.length === 0 && (
-                          <p style={{ color: "#999" }}>Sin objetivos agregados</p>
-                        )}
-                      </Space>
-                    ),
-                  },
-                ]}
-              />
+              <Collapse>
+                <Collapse.Panel header="Objetivos" key="1">
+                  <Space direction="vertical" style={{ width: "100%" }}>
+                    {objetivos.map((obj, index) => (
+                      <div key={index} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0" }}>
+                        <span style={{ flex: 1 }}>{index + 1}. {obj}</span>
+                        <Space size={4}>
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<UpOutlined />}
+                            onClick={() => handleMoverObjetivoArriba(index)}
+                            disabled={index === 0}
+                            style={{ border: "1px solid #000", color: "#000" }}
+                          />
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<DownOutlined />}
+                            onClick={() => handleMoverObjetivoAbajo(index)}
+                            disabled={index === objetivos.length - 1}
+                            style={{ border: "1px solid #000", color: "#000" }}
+                          />
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleEliminarObjetivo(index)}
+                            style={{ border: "1px solid #000", color: "#000" }}
+                          />
+                        </Space>
+                      </div>
+                    ))}
+                    {objetivos.length === 0 && (
+                      <p style={{ color: "#999" }}>Sin objetivos agregados</p>
+                    )}
+                  </Space>
+                </Collapse.Panel>
+              </Collapse>
             </div>
           </Col>
         </Row>

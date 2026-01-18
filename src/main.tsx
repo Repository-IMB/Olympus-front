@@ -10,11 +10,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ConfigProvider
       getPopupContainer={() => document.body}
-      theme={{
-        token: {
-          motion: false,
-        },
-      }}
+
     >
       <BrowserRouter>
         <App />

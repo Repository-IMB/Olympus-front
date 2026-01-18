@@ -42,7 +42,9 @@ const buttonStyle = (
 });
 
   const getUserIdFromToken = () => {
+
       const token = getCookie("token");
+
         if (!token) return 0;
     
         try {
@@ -322,7 +324,7 @@ console.log("JWT completo:", decoded);
       <Row gutter={8}>
         {/* Columna Izquierda */}
         <Col span={12}>
-          <Space direction="vertical" style={{ width: "100%" }} size={8}>
+          <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
             <div
               style={{
                 background: "#FFFFFF",
@@ -362,7 +364,7 @@ console.log("JWT completo:", decoded);
 
         {/* Columna Derecha */}
         <Col span={12}>
-          <Space direction="vertical" style={{ width: "100%" }} size={8}>
+          <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
             <div
               style={{
                 background: "#FFFFFF",

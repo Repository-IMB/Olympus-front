@@ -34,6 +34,12 @@ export default function Sidebar({
 
   const puedeVerLeads = permisos.leads || permisos.asignacion;
 
+  // ✅ Navega y CIERRA el menú lateral
+  const navigateAndClose = (path: string) => {
+    onNavigate(path);
+    onToggleMenu(null);
+  };
+
   return (
     <div className={styles.container}>
       {/* LOGO */}
@@ -46,9 +52,11 @@ export default function Sidebar({
         {/* ================= DASHBOARD ================= */}
         <div
           className={`${styles.menuItem} ${
-            isActive("/") ? styles.menuItemActive : ""
+            isActive("/") || isActive("/dashboard")
+              ? styles.menuItemActive
+              : ""
           }`}
-          onClick={() => onNavigate("/")}
+          onClick={() => navigateAndClose("/")}
         >
           <DashboardOutlined /> Dashboard
         </div>
@@ -81,7 +89,9 @@ export default function Sidebar({
                         ? styles.menuItemActive
                         : ""
                     }`}
-                    onClick={() => onNavigate("/leads/SalesProcess")}
+                    onClick={() =>
+                      navigateAndClose("/leads/SalesProcess")
+                    }
                   >
                     <AppstoreOutlined /> Oportunidades
                   </div>
@@ -92,7 +102,9 @@ export default function Sidebar({
                     className={`${styles.menuItem} ${
                       isActive("/leads/asignacion") ? styles.menuItemActive : ""
                     }`}
-                    onClick={() => onNavigate("/leads/asignacion")}
+                    onClick={() =>
+                      navigateAndClose("/leads/asignacion")
+                    }
                   >
                     <DashboardOutlined /> Asignación
                   </div>
@@ -108,7 +120,9 @@ export default function Sidebar({
             <div
               className={styles.menuHeader}
               onClick={() =>
-                onToggleMenu(openMenu === "Desarrollo" ? null : "Desarrollo")
+                onToggleMenu(
+                  openMenu === "Desarrollo" ? null : "Desarrollo"
+                )
               }
             >
               <span className={styles.menuHeaderContent}>
@@ -125,25 +139,36 @@ export default function Sidebar({
               <div className={styles.menuItems}>
                 <div
                   className={styles.menuItem}
-                  onClick={() => onNavigate("/producto/departamentos")}
+                  onClick={() =>
+                    navigateAndClose("/producto/departamentos")
+                  }
                 >
                   <ContainerOutlined /> Departamentos
                 </div>
+
                 <div
                   className={styles.menuItem}
-                  onClick={() => onNavigate("/producto/docentes")}
+                  onClick={() =>
+                    navigateAndClose("/producto/docentes")
+                  }
                 >
                   <BookOutlined /> Docentes
                 </div>
+
                 <div
                   className={styles.menuItem}
-                  onClick={() => onNavigate("/producto/productos")}
+                  onClick={() =>
+                    navigateAndClose("/producto/productos")
+                  }
                 >
                   <ReadOutlined /> Productos
                 </div>
+
                 <div
                   className={styles.menuItem}
-                  onClick={() => onNavigate("/producto/alumnos")}
+                  onClick={() =>
+                    navigateAndClose("/producto/alumnos")
+                  }
                 >
                   <IdcardOutlined /> Alumnos
                 </div>
@@ -157,7 +182,9 @@ export default function Sidebar({
           <div className={styles.menuSection}>
             <div
               className={styles.menuHeader}
-              onClick={() => onNavigate("/logistica/activos")}
+              onClick={() =>
+                navigateAndClose("/logistica/activos")
+              }
             >
               <span className={styles.menuHeaderContent}>
                 <ContainerOutlined /> Gestión de activos
@@ -172,7 +199,9 @@ export default function Sidebar({
             <div
               className={styles.menuHeader}
               onClick={() =>
-                onToggleMenu(openMenu === "Usuarios" ? null : "Usuarios")
+                onToggleMenu(
+                  openMenu === "Usuarios" ? null : "Usuarios"
+                )
               }
             >
               <span className={styles.menuHeaderContent}>
@@ -191,7 +220,9 @@ export default function Sidebar({
                   className={`${styles.menuItem} ${
                     isActive("/usuarios/usuarios") ? styles.menuItemActive : ""
                   }`}
-                  onClick={() => onNavigate("/usuarios/usuarios")}
+                  onClick={() =>
+                    navigateAndClose("/usuarios/usuarios")
+                  }
                 >
                   <DashboardOutlined /> Mantenimiento
                 </div>

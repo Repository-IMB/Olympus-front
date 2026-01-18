@@ -301,7 +301,7 @@ export default function EstadoPromesa({ oportunidadId, usuario = "SYSTEM", onCre
       >
         <Row gutter={8}>
           <Col span={12}>
-            <Space direction="vertical" style={{ width: "100%" }} size={8}>
+            <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
               <div
                 style={{
                   background: "#FFFFFF",

@@ -281,7 +281,7 @@ export default function EstadoRegistrado({
 
           <Row gutter={8}>
             <Col span={12}>
-              <Space direction="vertical" style={{ width: "100%" }} size={8}>
+              <Space className="spaceCenter"direction="vertical" style={{ width: "100%" }} size={8}>
                 <div
                   style={{
                     background: "#FFFFFF",
@@ -291,7 +291,7 @@ export default function EstadoRegistrado({
                     justifyContent: "center",
                   }}
                 >
-                  <Space wrap size={10}>
+                  <Space className="spaceCenter" wrap size={10}>
                     {renderActionBtn("Registrado", "#C9C9C9", "#BEBEBE")}
                     {renderActionBtn("Calificado", "#9CBDFD", "#86ACFB")}
                     {renderActionBtn("Potencial", "#9CBDFD", "#86ACFB")}
@@ -302,7 +302,7 @@ export default function EstadoRegistrado({
             </Col>
 
             <Col span={12}>
-              <Space direction="vertical" style={{ width: "100%" }} size={8}>
+              <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
                 <div
                   style={{
                     background: "#FFFFFF",
@@ -312,7 +312,7 @@ export default function EstadoRegistrado({
                     justifyContent: "center",
                   }}
                 >
-                  <Space wrap size={10}>
+                  <Space className="spaceCenter"wrap size={10}>
                     {renderActionBtn("Cobranza", "#B8F3B8", "#A7E8A7")}
                     {renderActionBtn("Convertido", "#B8F3B8", "#A7E8A7")}
                   </Space>
@@ -328,7 +328,7 @@ export default function EstadoRegistrado({
                     justifyContent: "center",
                   }}
                 >
-                  <Space wrap size={10}>
+                  <Space wrap className="spaceCenter" size={10}>
                     {renderActionBtn("No Calificado", "#F7B1B1", "#F29C9C")}
                     {renderActionBtn("Perdido", "#F7B1B1", "#F29C9C")}
                   </Space>
@@ -357,7 +357,7 @@ export default function EstadoRegistrado({
                   justifyContent: "center",
                 }}
               >
-                <Space wrap size={10}>
+                <Space wrap className="spaceCenter" size={10}>
                   {renderActionBtn("No Calificado", "#F7B1B1", "#F29C9C")}
                   {renderActionBtn("Perdido", "#F7B1B1", "#F29C9C")}
                 </Space>
