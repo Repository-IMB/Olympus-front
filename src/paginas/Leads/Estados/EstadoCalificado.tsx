@@ -41,9 +41,10 @@ const buttonStyle = (
   opacity: disabled ? 0.7 : 1,
 });
 
-  const token = getCookie("token");
-
   const getUserIdFromToken = () => {
+
+      const token = getCookie("token");
+
         if (!token) return 0;
     
         try {
@@ -320,7 +321,7 @@ export default function EstadoCalificado({
       <Row gutter={8}>
         {/* Columna Izquierda */}
         <Col span={12}>
-          <Space direction="vertical" style={{ width: "100%" }} size={8}>
+          <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
             <div
               style={{
                 background: "#FFFFFF",
@@ -360,7 +361,7 @@ export default function EstadoCalificado({
 
         {/* Columna Derecha */}
         <Col span={12}>
-          <Space direction="vertical" style={{ width: "100%" }} size={8}>
+          <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
             <div
               style={{
                 background: "#FFFFFF",

@@ -19,9 +19,9 @@ type Props = {
   activo?: boolean;
 };
 
-const token = getCookie("token");
 
 const getUserIdFromToken = () => {
+  const token = getCookie("token");
   if (!token) return 0;
 
   try {
@@ -297,7 +297,7 @@ export default function EstadoPotencial({
       {/* === Ocurrencia header === */}
       <Row justify="space-between" align="middle" style={{ marginTop: 6 }}>
         <Text style={{ fontSize: 14, color: "#0D0C11" }}>Ocurrencia:</Text>
-        <Space>
+        <Space className="spaceCenter">
           <div
             style={{
               width: 12,
@@ -316,7 +316,7 @@ export default function EstadoPotencial({
       <Row gutter={8} style={{ marginTop: 8 }}>
         {/* Columna Izquierda */}
         <Col span={12}>
-          <Space direction="vertical" style={{ width: "100%" }} size={8}>
+          <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
             <div
               style={{
                 background: "#FFFFFF",
@@ -356,7 +356,7 @@ export default function EstadoPotencial({
 
         {/* Columna Derecha */}
         <Col span={12}>
-          <Space direction="vertical" style={{ width: "100%" }} size={8}>
+          <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
             <div
               style={{
                 background: "#FFFFFF",

@@ -42,6 +42,7 @@ import Productos from "./paginas/Productos/Productos";
 import DetalleProducto from "./paginas/Productos/DetalleProducto";
 import DetalleModulo from "./paginas/Modulos/DetalleModulo";
 import DetalleAlumno from "./paginas/Alumnos/DetalleAlumno";
+import Dashboard from "./paginas/Dashboard/Dashboard";
 
 function App() {
   const navigate = useNavigate();
@@ -124,7 +125,7 @@ function App() {
       <Route element={<PrivateRoute />}>
         <Route element={<MainLayout />}>
           {/* Home privado: por defecto manda a Leads (si no tiene, ProtectedContent se encarga) */}
-          <Route path="/" element={<Navigate to="/leads/SalesProcess" replace />} />
+          <Route path="/" element={<Dashboard />} />
 
           {/* ======================= LEADS (BLOQUE COMPLETO) ======================= */}
           <Route
