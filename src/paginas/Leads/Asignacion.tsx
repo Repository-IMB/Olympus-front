@@ -123,7 +123,7 @@ export default function Asignacion() {
 
   const [selectedRows, setSelectedRows] = useState<Lead[]>([]);
   const [searchText, setSearchText] = useState("");
-  const [filterEstado, setFilterEstado] = useState<string>("Todos");
+  const [filterEstado, setFilterEstado] = useState<string | string[]>("Todos");
   const [filterOrigen, setFilterOrigen] = useState<string>("Todos");
   const [filterPais, setFilterPais] = useState<string | string[]>("Todos");
   const [dateRange, setDateRange] = useState<
@@ -210,6 +210,17 @@ export default function Asignacion() {
     console.log("Asignacion", id);
     navigate(`/leads/oportunidades/${id}`);
   };
+
+  function optionToString(option: any) {
+  const children = option?.children ?? option?.label ?? "";
+  if (Array.isArray(children)) {
+    return children
+      .map((c) => (typeof c === "string" ? c : String(c ?? "")))
+      .join("");
+  }
+  return String(children);
+}
+
 
   function agruparOportunidadesConRecordatorios(
     data: OportunidadBackend[],
@@ -432,7 +443,12 @@ export default function Asignacion() {
             page: currentPage,
             pageSize,
             search: searchText || null,
-            estadoFiltro: filterEstado !== "Todos" ? filterEstado : null,
+            estadoFiltro:
+              filterEstado === "Todos"
+              ? null
+              : Array.isArray(filterEstado)
+              ? filterEstado.join(",")
+              : filterEstado,
             origenFiltro: filterOrigen !== "Todos" ? filterOrigen : null,
             paisFiltro:
               filterPais === "Todos"
@@ -958,8 +974,26 @@ export default function Asignacion() {
 
           <Select
             {...SELECT_PROPS}
-            value={filterEstado}
-            onChange={setFilterEstado}
+            mode="multiple"
+            value={Array.isArray(filterEstado) ? filterEstado : []}
+            onChange={(values: string[]) => {
+              if (!values || values.length === 0) {
+                setFilterEstado("Todos");
+                return;
+              }
+              if (values.includes("Todos")) {
+                setFilterEstado("Todos");
+              } else {
+                setFilterEstado(values);
+              }
+            }}
+            className={estilos.filterSelect}
+            placeholder="Todos los estados"
+            allowClear
+            maxTagCount="responsive"
+            filterOption={(input, option) =>
+              (option?.children as unknown as string).toLowerCase().includes(input.toLowerCase())
+            }
           >
             <Option value="Todos">Todos los estados</Option>
             {ESTADOS.map((e) => (
@@ -998,10 +1032,8 @@ export default function Asignacion() {
             loading={loadingPaises}
             virtual={false}
             maxTagCount="responsive"
-            filterOption={(input, option) =>
-              (option?.children as string)
-                .toLowerCase()
-                .includes(input.toLowerCase())
+            filterOption={(input: string, option: any) =>
+              optionToString(option).toLowerCase().includes(input.toLowerCase())
             }
           >
             {paises.map((p) => (
