@@ -1,10 +1,22 @@
-import { Card, Space, Typography, Tag, Spin, Alert, Select, DatePicker, TimePicker, Checkbox, Button, Form, message } from "antd";
+import {
+  Card,
+  Space,
+  Typography,
+  Tag,
+  Spin,
+  Alert,
+  Select,
+  DatePicker,
+  TimePicker,
+  Checkbox,
+  Button,
+  Form,
+  message,
+} from "antd";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import {
-  WhatsAppOutlined,
   LinkedinOutlined,
-  FacebookOutlined,
   PhoneOutlined,
   CalendarOutlined,
   LeftOutlined,
@@ -14,7 +26,6 @@ import api from "../../servicios/api";
 import HistorialInteracciones from "./HistorialInterraciones";
 import { addHistorialChangedListener } from "../../utils/events";
 import moment, { type Moment } from "moment";
-// @ts-ignore
 import "moment/locale/es";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
@@ -64,7 +75,7 @@ export default function HistorialInteraccion() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [oportunidad, setOportunidad] = useState<OportunidadDetalle | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,9 +90,13 @@ export default function HistorialInteraccion() {
   const [loadingReasignacion, setLoadingReasignacion] = useState(false);
   const [userRole, setUserRole] = useState<number>(0);
 
-  // Estados para navegación
-  const [oportunidadesRelacionadas, setOportunidadesRelacionadas] = useState<number[]>([]);
-  const [currentIndex, setCurrentIndex] = useState<number>(-1);
+  const [vecinos, setVecinos] = useState<{
+    anteriorId: number | null;
+    siguienteId: number | null;
+  }>({
+    anteriorId: null,
+    siguienteId: null,
+  });
 
   const fetchDetalle = useCallback(async () => {
     if (!id) {
@@ -92,7 +107,7 @@ export default function HistorialInteraccion() {
     setError(null);
     try {
       const res = await api.get(
-        `/api/VTAModVentaOportunidad/ObtenerDetallePorId/${id}`
+        `/api/VTAModVentaOportunidad/ObtenerDetallePorId/${id}`,
       );
       setOportunidad(res.data ?? null);
     } catch (err: any) {
@@ -112,7 +127,7 @@ export default function HistorialInteraccion() {
       const decoded: any = jwtDecode(token);
       const userId =
         decoded[
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ];
       return userId ? Number(userId) : 0;
     } catch (e) {
@@ -126,7 +141,9 @@ export default function HistorialInteraccion() {
     try {
       const decoded: any = jwtDecode(token);
       const rolNombre =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || "";
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
 
       const rolesMap: Record<string, number> = {
         Asesor: 1,
@@ -143,54 +160,42 @@ export default function HistorialInteraccion() {
     }
   };
 
-  // Función para obtener todas las oportunidades de la tabla (para navegación)
-  const fetchOportunidadesRelacionadas = useCallback(async () => {
+  const fetchVecinos = useCallback(async () => {
     if (!id) return;
 
     try {
-      // Obtener todas las oportunidades del usuario (como en la tabla de Opportunities)
       const userId = getUserIdFromToken();
       const userRoleNum = getUserRoleFromToken();
-      
+
       if (!userId || !userRoleNum) {
-        setOportunidadesRelacionadas([]);
-        setCurrentIndex(-1);
+        setVecinos({ anteriorId: null, siguienteId: null });
         return;
       }
 
-      // Obtener todas las oportunidades paginadas (similar a la tabla)
-      // Usamos un pageSize grande para obtener todas las oportunidades disponibles
       const res = await api.get(
-        "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
+        "/api/VTAModVentaOportunidad/ObtenerOportunidadVecinos",
         {
           params: {
+            idOportunidadActual: Number(id),
             idUsuario: userId,
             idRol: userRoleNum,
-            page: 1,
-            pageSize: 10000, // Número grande para obtener todas
             search: null,
             estadoFiltro: null,
             asesorFiltro: null,
+            codigoLinkedinFiltro: null,
             fechaInicio: null,
             fechaFin: null,
           },
-        }
+        },
       );
 
-      // Mapear todas las oportunidades a sus IDs
-      const todasOportunidades = res.data?.oportunidad || [];
-      const idsOportunidades = todasOportunidades.map((op: any) => op.id);
-
-      setOportunidadesRelacionadas(idsOportunidades);
-
-      // Encontrar el índice de la oportunidad actual
-      const currentId = Number(id);
-      const index = idsOportunidades.indexOf(currentId);
-      setCurrentIndex(index);
-    } catch (err: any) {
-      console.error("Error al obtener oportunidades para navegación:", err);
-      setOportunidadesRelacionadas([]);
-      setCurrentIndex(-1);
+      setVecinos({
+        anteriorId: res.data?.anteriorId ?? null,
+        siguienteId: res.data?.siguienteId ?? null,
+      });
+    } catch (error) {
+      console.error("Error obteniendo vecinos:", error);
+      setVecinos({ anteriorId: null, siguienteId: null });
     }
   }, [id]);
 
@@ -200,9 +205,10 @@ export default function HistorialInteraccion() {
       if (!token) throw new Error("No se encontró el token de autenticación");
 
       const response = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       const data = response.data;
@@ -279,18 +285,20 @@ export default function HistorialInteraccion() {
 
       try {
         await axios.post(
-          `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+          `${
+            import.meta.env.VITE_API_URL || "http://localhost:7020"
           }/api/VTAModVentaHistorialInteraccion/Insertar`,
           payloadInteraccion,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         console.log("✅ Interacción creada exitosamente");
       } catch (interaccionError: any) {
         console.error("❌ Error al crear interacción:", interaccionError);
         throw new Error(
-          `Error al crear interacción: ${interaccionError?.response?.data?.mensaje ||
-          interaccionError?.message
-          }`
+          `Error al crear interacción: ${
+            interaccionError?.response?.data?.mensaje ||
+            interaccionError?.message
+          }`,
         );
       }
 
@@ -307,10 +315,11 @@ export default function HistorialInteraccion() {
 
       try {
         const response = await axios.post(
-          `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+          `${
+            import.meta.env.VITE_API_URL || "http://localhost:7020"
           }/api/VTAModVentaOportunidad/AsignarPersonal`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
         console.log("📥 Respuesta de asignación:", response.data);
@@ -336,9 +345,9 @@ export default function HistorialInteraccion() {
       } catch (asignacionError: any) {
         console.error("❌ Error al asignar asesor:", asignacionError);
         throw new Error(
-          `Error al asignar asesor: ${asignacionError?.response?.data?.mensaje ||
-          asignacionError?.message
-          }`
+          `Error al asignar asesor: ${
+            asignacionError?.response?.data?.mensaje || asignacionError?.message
+          }`,
         );
       }
     } catch (err: any) {
@@ -351,9 +360,10 @@ export default function HistorialInteraccion() {
 
   useEffect(() => {
     fetchDetalle();
+    fetchVecinos();
     obtenerAsesores();
     setUserRole(getUserRoleFromToken());
-    fetchOportunidadesRelacionadas();
+
     const removeListener = addHistorialChangedListener(() => {
       fetchDetalle();
     });
@@ -361,7 +371,7 @@ export default function HistorialInteraccion() {
     return () => {
       removeListener();
     };
-  }, [fetchDetalle, fetchOportunidadesRelacionadas]);
+  }, [fetchDetalle, fetchVecinos]);
 
   if (loading) {
     return (
@@ -411,7 +421,7 @@ export default function HistorialInteraccion() {
   const fechaCreacion = oportunidadData.fechaCreacion || "-";
   const estado = historialActualData?.estadoReferencia?.nombre || "Desconocido";
   const marcaciones = Number(
-    historialActualData?.cantidadLlamadasNoContestadas ?? 0
+    historialActualData?.cantidadLlamadasNoContestadas ?? 0,
   );
 
   const personalAsignadaNombre = (
@@ -440,30 +450,20 @@ export default function HistorialInteraccion() {
     });
   };
 
-  // Funciones de navegación
   const handleAnterior = () => {
-    if (currentIndex > 0 && oportunidadesRelacionadas.length > 0) {
-      const anteriorId = oportunidadesRelacionadas[currentIndex - 1];
-      navigate(`/leads/oportunidades/${anteriorId}`);
+    if (vecinos.anteriorId) {
+      navigate(`/leads/oportunidades/${vecinos.anteriorId}`);
     }
   };
 
   const handleSiguiente = () => {
-    if (
-      currentIndex >= 0 &&
-      currentIndex < oportunidadesRelacionadas.length - 1 &&
-      oportunidadesRelacionadas.length > 0
-    ) {
-      const siguienteId = oportunidadesRelacionadas[currentIndex + 1];
-      navigate(`/leads/oportunidades/${siguienteId}`);
+    if (vecinos.siguienteId) {
+      navigate(`/leads/oportunidades/${vecinos.siguienteId}`);
     }
   };
 
-  const tieneAnterior = currentIndex > 0 && oportunidadesRelacionadas.length > 0;
-  const tieneSiguiente =
-    currentIndex >= 0 &&
-    currentIndex < oportunidadesRelacionadas.length - 1 &&
-    oportunidadesRelacionadas.length > 0;
+  const tieneAnterior = !!vecinos.anteriorId;
+  const tieneSiguiente = !!vecinos.siguienteId;
 
   return (
     <div
@@ -520,8 +520,12 @@ export default function HistorialInteraccion() {
             </Space>
 
             <Space size={4}>
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Código Linkedin:</Text>
-              <Text style={{ color: "#0D0C11", fontSize: 14 }}>{codigoLinkedin}</Text>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
+                Código Linkedin:
+              </Text>
+              <Text style={{ color: "#0D0C11", fontSize: 14 }}>
+                {codigoLinkedin}
+              </Text>
             </Space>
 
             <Space size={4}>
@@ -817,7 +821,10 @@ export default function HistorialInteraccion() {
       {/* === Sección de Reasignación === Solo visible para roles superiores (no asesores) */}
       {userRole !== 1 && (
         <>
-          <Title level={5} style={{ margin: "16px 0 12px 0", color: "#252C35" }}>
+          <Title
+            level={5}
+            style={{ margin: "16px 0 12px 0", color: "#252C35" }}
+          >
             Reasignación de Oportunidad
           </Title>
 
