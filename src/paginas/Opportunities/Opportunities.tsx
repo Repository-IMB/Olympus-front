@@ -89,19 +89,10 @@ const getReminderColor = (fechaRecordatorio: string): string => {
 };
 
 export default function OpportunitiesInterface() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [isSelectClientModalVisible, setIsSelectClientModalVisible] = useState(false);
   const navigate = useNavigate();
   const token = getCookie("token");
 
-  const [currentPage, setCurrentPage] = useState<number>(() => {
-    const pageParam = searchParams.get("page");
-    return pageParam ? Number(pageParam) : 1;
-  });
-  const [pageSize, setPageSize] = useState<number>(() => {
-    const sizeParam = searchParams.get("pageSize");
-    return sizeParam ? Number(sizeParam) : 10;
-  });
   //const [totalRecords, setTotalRecords] = useState<number>(0);
   //const [totalPages, setTotalPages] = useState<number>(0);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
