@@ -45,6 +45,13 @@ import DetalleProducto from "./paginas/Productos/DetalleProducto";
 import DetalleModulo from "./paginas/Modulos/DetalleModulo";
 import DetalleAlumno from "./paginas/Alumnos/DetalleAlumno";
 
+// RRHH
+import Personal from "./paginas/Personal/Personal";
+import Contratos from "./paginas/Contratos/Contratos";
+import Permisos from "./paginas/Permisos/Permisos";
+import Vacaciones from "./paginas/Vacaciones/Vacaciones";
+import Asistencia from "./paginas/Asistencia/Asistencia";
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -188,6 +195,22 @@ function App() {
               </ProtectedContent>
             }
           />
+
+          {/* ======================= RRHH (BLOQUE) ======================= */}
+          <Route
+            path="/rrhh/*"
+            element={
+              <ProtectedContent permiso="recursosHumanos">
+                <Outlet />
+              </ProtectedContent>
+            }
+          >
+            <Route path="personal" element={<Personal />} />
+            <Route path="contratos" element={<Contratos />} />
+            <Route path="permisos" element={<Permisos />} />
+            <Route path="vacaciones" element={<Vacaciones />} />
+            <Route path="asistencia" element={<Asistencia />} />
+          </Route>
         </Route>
       </Route>
 
