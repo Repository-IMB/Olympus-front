@@ -96,7 +96,10 @@ export default function OpportunitiesInterface() {
   //const [totalRecords, setTotalRecords] = useState<number>(0);
   //const [totalPages, setTotalPages] = useState<number>(0);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
-  
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [filterPais, setFilterPais] = useState<string>(searchParams.get("pais") || "Todos");
+  const [listaPaisesCompleta, setListaPaisesCompleta] = useState<string[]>([]);
+
   // DATA
   const [allData, setAllData] = useState<Opportunity[]>([]); 
   const [loading, setLoading] = useState(true);
@@ -130,6 +133,8 @@ export default function OpportunitiesInterface() {
   const [loadingCodigosLinkedin, setLoadingCodigosLinkedin] = useState(false);
 
   useEffect(() => {
+    const lastId = sessionStorage.getItem("lastViewedLeadId");
+    if (lastId) setHighlightedId(lastId);
     setSearchParams({
       page: currentPage.toString(),
       pageSize: pageSize.toString(),
@@ -137,10 +142,7 @@ export default function OpportunitiesInterface() {
       estado: filterEstado !== "Todos" ? filterEstado : "",
     });
   }, [currentPage, pageSize, searchText, filterEstado]);
-    const lastId = sessionStorage.getItem("lastViewedLeadId");
-    if (lastId) setHighlightedId(lastId);
-  }, []);
-
+    
   // Lógica de Filtrado en Frontend
   const filteredData = useMemo(() => {
     return allData.filter((item) => {
