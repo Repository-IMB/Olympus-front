@@ -1128,7 +1128,7 @@ export default function Asignacion() {
                   if (value === SIN_ASESOR) {
                     setAsesorDestino(null);
                   } else {
-                    setAsesorDestino(value);
+                    setAsesorDestino(Number(value));
                   }
                 }}
                 placeholder="Selecciona un asesor"

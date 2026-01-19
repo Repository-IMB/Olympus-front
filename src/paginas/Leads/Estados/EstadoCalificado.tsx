@@ -11,6 +11,7 @@ import { getCookie } from "../../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
 
 const { Text } = Typography;
+let token = getCookie("token");
 
 type Props = {
   oportunidadId: number;
@@ -22,7 +23,7 @@ type Props = {
 const buttonStyle = (
   baseColor: string,
   hoverColor: string,
-  disabled = false
+  disabled = false,
 ): React.CSSProperties => ({
   background: baseColor,
   color: "#0D0C11",
@@ -41,27 +42,25 @@ const buttonStyle = (
   opacity: disabled ? 0.7 : 1,
 });
 
-  const getUserIdFromToken = () => {
+const getUserIdFromToken = () => {
+  token = getCookie("token");
 
-      const token = getCookie("token");
+  if (!token) return 0;
 
-        if (!token) return 0;
-    
-        try {
-          const decoded: any = jwtDecode(token);
-    
-          const id =
-            decoded[
-              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-            ];
-    
-          return id ? Number(id) : 0;
-        } catch (e) {
-          console.error("Error decodificando token", e);
-          return 0;
-        }
-      };
-  
+  try {
+    const decoded: any = jwtDecode(token);
+
+    const id =
+      decoded[
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+      ];
+
+    return id ? Number(id) : 0;
+  } catch (e) {
+    console.error("Error decodificando token", e);
+    return 0;
+  }
+};
 
 function useMountedFlag() {
   const [mounted, setMounted] = useState(true);
@@ -101,29 +100,6 @@ export default function EstadoCalificado({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oportunidadId]);
 
-  const handleSelect = async (ocId: number) => {
-    // if (creatingId || !activo) return;
-    // setCreatingId(ocId);
-    // try {
-    //   await crearHistorialConOcurrencia(oportunidadId, ocId, Number(getUserIdFromToken()));
-    //   message.success("Cambio aplicado");
-    //   emitHistorialChanged({
-    //     motivo: "crearHistorialConOcurrencia",
-    //     ocurrenciaId: ocId,
-    //   });
-    //   if (onCreado) onCreado();
-    //   const list = await getOcurrenciasPermitidas(oportunidadId);
-    //   if (mounted) setOcurrencias(Array.isArray(list) ? list : []);
-    // } catch (err: any) {
-    //   console.error("crearHistorialConOcurrencia error", err);
-    //   message.error(err?.message ?? "Error al aplicar ocurrencia");
-    // } finally {
-    //   if (mounted) setCreatingId(null);
-    // }
-
-    const decoded: any = jwtDecode(token);
-console.log("JWT completo:", decoded);
-  };
 
   const incrementarLlamada = async (tipo: "C" | "N") => {
     if (callLoading || creatingId) return;
@@ -133,12 +109,12 @@ console.log("JWT completo:", decoded);
       const payload = { tipo, usuario };
       await api.post(
         `/api/VTAModVentaHistorialEstado/${oportunidadId}/IncrementarLlamadas`,
-        payload
+        payload,
       );
       message.success(
         tipo === "C"
           ? "Marcador de 'Contestadas' incrementado"
-          : "Marcador de 'No contestadas' incrementado"
+          : "Marcador de 'No contestadas' incrementado",
       );
       emitHistorialChanged({ motivo: "incrementarLlamada", tipo });
       if (onCreado) onCreado();
@@ -156,7 +132,7 @@ console.log("JWT completo:", decoded);
 
   const findByName = (name: string) => {
     return ocurrencias.find(
-      (o) => (o.nombre ?? "").toLowerCase() === name.toLowerCase()
+      (o) => (o.nombre ?? "").toLowerCase() === name.toLowerCase(),
     );
   };
 
@@ -176,8 +152,8 @@ console.log("JWT completo:", decoded);
           !oc
             ? "Ocurrencia no encontrada"
             : disabled
-            ? "No permitido"
-            : "Seleccionar"
+              ? "No permitido"
+              : "Seleccionar"
         }
         onMouseEnter={(e) => {
           if (!disabled)
@@ -202,7 +178,6 @@ console.log("JWT completo:", decoded);
         okText="Sí"
         cancelText="No"
         placement="top"
-        onConfirm={() => handleSelect(id)}
       >
         {button}
       </Popconfirm>
@@ -233,7 +208,7 @@ console.log("JWT completo:", decoded);
                 style={buttonStyle(
                   disabledYes ? "#F0F0F0" : "#BAD4FF",
                   "#9EC9FF",
-                  disabledYes
+                  disabledYes,
                 )}
                 onMouseEnter={(e) => {
                   if (!disabledYes)
@@ -270,7 +245,7 @@ console.log("JWT completo:", decoded);
                 style={buttonStyle(
                   disabledNo ? "#F0F0F0" : "#FFCDCD",
                   "#FFB2B2",
-                  disabledNo
+                  disabledNo,
                 )}
                 onMouseEnter={(e) => {
                   if (!disabledNo)
@@ -324,7 +299,12 @@ console.log("JWT completo:", decoded);
       <Row gutter={8}>
         {/* Columna Izquierda */}
         <Col span={12}>
-          <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
+          <Space
+            className="spaceCenter"
+            direction="vertical"
+            style={{ width: "100%" }}
+            size={8}
+          >
             <div
               style={{
                 background: "#FFFFFF",
@@ -364,7 +344,12 @@ console.log("JWT completo:", decoded);
 
         {/* Columna Derecha */}
         <Col span={12}>
-          <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
+          <Space
+            className="spaceCenter"
+            direction="vertical"
+            style={{ width: "100%" }}
+            size={8}
+          >
             <div
               style={{
                 background: "#FFFFFF",

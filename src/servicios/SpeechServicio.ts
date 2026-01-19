@@ -9,7 +9,7 @@ import type {
 const BASE_URL = "/api/VTAModSpeech";
 
 interface ObtenerIdPersonalResponse {
-  idAsesor: number | null;
+  idPersonal: number | null;
   codigo: string;
   mensaje: string;
 }

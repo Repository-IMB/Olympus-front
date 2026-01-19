@@ -26,7 +26,6 @@ import api from "../../servicios/api";
 import HistorialInteracciones from "./HistorialInterraciones";
 import { addHistorialChangedListener } from "../../utils/events";
 import moment, { type Moment } from "moment";
-import "moment/locale/es";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
