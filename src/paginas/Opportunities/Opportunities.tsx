@@ -149,7 +149,7 @@ export default function OpportunitiesInterface() {
     try {
       setLoadingAsesores(true);
 
-      const res = await api.get("api/CFGModUsuarios/ObtenerUsuariosPorRol/1");
+      const res = await api.get("/api/CFGModUsuarios/ObtenerUsuariosPorRol/1");
 
       if (res.data?.usuarios) {
         const lista = res.data.usuarios.map((u: any) => ({
