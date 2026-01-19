@@ -9,23 +9,18 @@ export const baseUrl: string =
 /* =========================
    OBTENER TODOS
 ========================= */
-export const obtenerProductos = async (): Promise<Producto[]> => {
-  
-  try {
-    const response = await api.get(
-      "/api/VTAModVentaProducto/ObtenerTodas"
-    );
-    
-    // Intenta diferentes estructuras posibles
-    const productos = response.data?.productos 
-      || response.data?.data 
-      || response.data 
-      || [];
-    return productos;
-  } catch (error) {
-    console.error("🔴 ProductoService: error en obtenerProductos:", error);
-    throw error;
-  }
+// En ProductoService.ts
+
+export const obtenerProductos = async (
+  search: string = "", 
+  page: number = 1, 
+  pageSize: number = 10,
+  estadoProductoId: number | null = null
+) => {
+  const response = await api.get("/api/VTAModVentaProducto/ObtenerTodas", {
+    params: { search, page, pageSize, estadoProductoId }
+  });
+  return response.data; 
 };
 
 /* =========================
@@ -125,9 +120,9 @@ export const actualizarProducto = async (
 /* =========================
    ELIMINAR
 ========================= */
-export const eliminarProducto = async (id: number): Promise<void> => {
+/* export const eliminarProducto = async (id: number): Promise<void> => {
   await api.delete(
     `/api/VTAModVentaProducto/Eliminar/${id}`
   );
-};
+}; */
 

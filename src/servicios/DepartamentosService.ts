@@ -90,7 +90,7 @@ export const actualizarDepartamento = async (
 /**
  * Elimina un departamento
  */
-export const eliminarDepartamento = async (id: number): Promise<void> => {
+/* export const eliminarDepartamento = async (id: number): Promise<void> => {
   try {
     const response = await api.delete(
       `/api/VTAModVentaDepartamento/Eliminar/${id}`
@@ -101,7 +101,7 @@ export const eliminarDepartamento = async (id: number): Promise<void> => {
     console.error("Detalles:", error.response?.data);
     throw error;
   }
-};
+}; */
 
 export const obtenerDepartamentoPorId = async (
   id: number

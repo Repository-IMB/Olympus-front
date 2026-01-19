@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Layout,
   Table,
@@ -8,9 +8,10 @@ import {
   Spin,
   Alert,
   Tooltip,
-  Input,
   Select,
+  Input,
   DatePicker,
+
 } from "antd";
 import {
   CalendarOutlined,
@@ -26,11 +27,10 @@ import { jwtDecode } from "jwt-decode";
 import api from "../../servicios/api";
 import styles from "./Opportunities.module.css";
 import type { ColumnsType } from "antd/es/table";
-import { useSearchParams } from "react-router-dom";
 
-const { RangePicker } = DatePicker;
-const { Option } = Select;
 const { Content } = Layout;
+const { Option } = Select;
+const { RangePicker } = DatePicker;
 
 interface TokenData {
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
@@ -46,8 +46,10 @@ interface Opportunity {
   fechaCreacion: string;
   personaCorreo: string;
   personalNombre: string;
+  pais: string;
   totalMarcaciones?: number;
   recordatorios: string[];
+  codigoLanzamiento?: string;
 }
 
 interface Asesor {
@@ -87,16 +89,25 @@ const getReminderColor = (fechaRecordatorio: string): string => {
 };
 
 export default function OpportunitiesInterface() {
-  const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
-    useState(false);
-
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isSelectClientModalVisible, setIsSelectClientModalVisible] = useState(false);
   const navigate = useNavigate();
-
   const token = getCookie("token");
 
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    const pageParam = searchParams.get("page");
+    return pageParam ? Number(pageParam) : 1;
+  });
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const sizeParam = searchParams.get("pageSize");
+    return sizeParam ? Number(sizeParam) : 10;
+  });
+  //const [totalRecords, setTotalRecords] = useState<number>(0);
+  //const [totalPages, setTotalPages] = useState<number>(0);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
-  const [data, setData] = useState<Opportunity[]>([]);
-  const [total, setTotal] = useState(0);
+  
+  // DATA
+  const [allData, setAllData] = useState<Opportunity[]>([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -135,6 +146,63 @@ export default function OpportunitiesInterface() {
       estado: filterEstado !== "Todos" ? filterEstado : "",
     });
   }, [currentPage, pageSize, searchText, filterEstado]);
+    const lastId = sessionStorage.getItem("lastViewedLeadId");
+    if (lastId) setHighlightedId(lastId);
+  }, []);
+
+  // Lógica de Filtrado en Frontend
+  const filteredData = useMemo(() => {
+    return allData.filter((item) => {
+      // Filtro Texto
+      if (searchText) {
+        const lowerSearch = searchText.toLowerCase();
+        const match = 
+          item.personaNombre.toLowerCase().includes(lowerSearch) ||
+          item.personaCorreo.toLowerCase().includes(lowerSearch) ||
+          item.productoNombre.toLowerCase().includes(lowerSearch) ||
+          item.id.toString().includes(lowerSearch) ||
+          (item.codigoLanzamiento && item.codigoLanzamiento.toLowerCase().includes(lowerSearch));
+        if (!match) return false;
+      }
+
+      // Filtro Estado
+      if (filterEstado !== "Todos" && item.nombreEstado !== filterEstado) return false;
+
+      // Filtro Asesor
+      if (filterAsesor !== "Todos") {
+        if (filterAsesor === "SIN ASESOR") {
+           if (item.personalNombre && item.personalNombre !== "-") return false;
+        } else {
+           if (item.personalNombre !== filterAsesor) return false;
+        }
+      }
+
+      // Filtro País
+      if (filterPais !== "Todos" && item.pais !== filterPais) return false;
+
+      // Filtro Fecha
+      if (dateRange && dateRange[0] && dateRange[1]) {
+        const fechaItem = moment(item.fechaCreacion);
+        if (!fechaItem.isBetween(dateRange[0], dateRange[1], "day", "[]")) return false;
+      }
+
+      return true;
+    });
+  }, [allData, searchText, filterEstado, filterAsesor, filterPais, dateRange]);
+
+
+  // Efecto Scroll
+  useEffect(() => {
+    if (!loading && highlightedId && filteredData.length > 0) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`row-${highlightedId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, highlightedId, filteredData]); 
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -168,25 +236,20 @@ export default function OpportunitiesInterface() {
     }
   };
 
+
   useEffect(() => {
     obtenerAsesores();
   }, []);
 
   const asesoresUnicos = useMemo(() => {
     const set = new Set<string>();
-    asesores.forEach((a) => {
-      if (a.nombre) set.add(a.nombre);
-    });
+    asesores.forEach((a) => { if (a.nombre) set.add(a.nombre); });
     return Array.from(set).sort();
   }, [asesores]);
 
   const { idUsuario, idRol } = useMemo(() => {
-    let idU = 0;
-    let rNombre = "";
-    let idR = 0;
-
+    let idU = 0; let rNombre = ""; let idR = 0;
     if (!token) return { idUsuario: 0, rolNombre: "", idRol: 0 };
-
     try {
       const decoded = jwtDecode<TokenData>(token);
       idU = parseInt(
@@ -207,10 +270,7 @@ export default function OpportunitiesInterface() {
         Desarrollador: 5,
       };
       idR = rolesMap[rNombre] ?? 0;
-    } catch (e) {
-      console.error("Error al decodificar token (useMemo)", e);
-    }
-
+    } catch (e) { console.error(e); }
     return { idUsuario: idU, rolNombre: rNombre, idRol: idR };
   }, [token]);
 
@@ -235,13 +295,45 @@ export default function OpportunitiesInterface() {
     cargarCodigosLinkedin();
   }, []);
 
+  // Cargar lista COMPLETA de países (Truco Ninja)
+  useEffect(() => {
+    if (!idUsuario || !idRol) return;
+    const cargarPaises = async () => {
+        try {
+            const res = await api.get("/api/VTAModVentaOportunidad/ObtenerSalesProcess", { 
+                params: { idUsuario, idRol } 
+            });
+            const paisesSet = new Set<string>();
+            const extraer = (lista: any[]) => {
+                if(!lista) return;
+                lista.forEach(item => {
+                    if (item.nombrePais && item.nombrePais !== "Sin País" && item.nombrePais !== "-") {
+                        paisesSet.add(item.nombrePais);
+                    }
+                });
+            };
+            if (res.data?.salesData) {
+                Object.values(res.data.salesData).forEach((lista: any) => extraer(lista));
+            }
+            if (res.data?.otrosEstados) {
+                Object.values(res.data.otrosEstados).forEach((lista: any) => extraer(lista));
+            }
+            setListaPaisesCompleta(Array.from(paisesSet).sort());
+        } catch (e) {
+            console.error("Error cargando lista de países", e);
+        }
+    };
+    cargarPaises();
+  }, [idUsuario, idRol]);
+
+  // CARGA DE DATOS: Traemos TODO de una vez (PageSize grande)
   useEffect(() => {
     if (!idUsuario || !idRol) return;
 
     const fetchData = async () => {
       try {
         setLoading(true);
-
+        // Pedimos una página gigante para simular "Traer Todo" y filtrar en Front
         const res = await api.get(
           "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
           {
@@ -273,7 +365,8 @@ export default function OpportunitiesInterface() {
             personaCorreo: op.personaCorreo ?? "",
             personalNombre: op.personalNombre ?? "",
             totalMarcaciones: op.totalOportunidadesPersona ?? 0,
-
+            pais: op.personaPaisNombre || "Sin país",
+            codigoLanzamiento: op.codigoLanzamiento ?? "",
             recordatorios: op.recordatoriosJson
               ? JSON.parse(op.recordatoriosJson).map(
                   (r: any) => r.FechaRecordatorio,
@@ -282,8 +375,7 @@ export default function OpportunitiesInterface() {
           }),
         );
 
-        setData(mapped);
-        setTotal(res.data.total ?? 0);
+        setAllData(mapped); 
       } catch (e: any) {
         setError(
           e?.response?.data?.mensaje ??
@@ -309,7 +401,7 @@ export default function OpportunitiesInterface() {
   ]);
 
   const handleClick = (id: number) => {
-    console.log(id);
+    sessionStorage.setItem("lastViewedLeadId", id.toString());
     navigate(`/leads/oportunidades/${id}`);
   };
 
@@ -317,28 +409,19 @@ export default function OpportunitiesInterface() {
     setSearchText("");
     setFilterEstado("Todos");
     setFilterAsesor("Todos");
+    setFilterPais("Todos");
     setDateRange(null);
+    setCurrentPage(1); // Volver a la página 1 al limpiar
   };
 
-  const estadosUnicos = [
-    "Registrado",
-    "Calificado",
-    "Potencial",
-    "Promesa",
-    "Perdido",
-    "Convertido",
-    "Cobranza",
-    "No Calificado",
-  ];
+  const estadosUnicos = ["Registrado", "Calificado", "Potencial", "Promesa", "Perdido", "Convertido", "Cobranza", "No Calificado"];
 
   const columns: ColumnsType<Opportunity> = [
     {
       title: "Fecha y Hora",
       dataIndex: "fechaCreacion",
       key: "fechaCreacion",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        new Date(a.fechaCreacion).getTime() -
-        new Date(b.fechaCreacion).getTime(),
+      sorter: (a, b) => new Date(a.fechaCreacion).getTime() - new Date(b.fechaCreacion).getTime(),
       render: (fechaCreacion: string) => (
         <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
           <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
@@ -346,20 +429,9 @@ export default function OpportunitiesInterface() {
             <div style={{ color: "#000000", fontSize: "14px" }}>
               {new Date(fechaCreacion).toLocaleDateString()}
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                color: "#8c8c8c",
-                fontSize: "13px",
-              }}
-            >
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", color: "#8c8c8c", fontSize: "13px" }}>
               <ClockCircleOutlined style={{ fontSize: "12px" }} />
-              {new Date(fechaCreacion).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {new Date(fechaCreacion).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </div>
           </div>
         </div>
@@ -369,13 +441,25 @@ export default function OpportunitiesInterface() {
       title: "Nombre Completo",
       dataIndex: "personaNombre",
       key: "personaNombre",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        a.personaNombre.localeCompare(b.personaNombre),
+      sorter: (a, b) => a.personaNombre.localeCompare(b.personaNombre),
+    },
+    {
+      title: "País",
+      dataIndex: "pais",
+      key: "pais",
+      sorter: (a, b) => a.pais.localeCompare(b.pais),
+      render: (pais: string) => pais || "-",
     },
     {
       title: "Correo",
       dataIndex: "personaCorreo",
       key: "personaCorreo",
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
       sorter: (a: Opportunity, b: Opportunity) =>
         (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
       render: (personaCorreo: string) => personaCorreo || "-",
@@ -389,44 +473,36 @@ export default function OpportunitiesInterface() {
       render: (personaCorreo: string) => personaCorreo || "-",
     },
     {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
+      render: (personaCorreo: string) => personaCorreo || "-",
+    },
+    {
+      title: "Telefono",
+      dataIndex: "personaTelefono",
+      key: "personaTelefono",
+      render: (val: any) => val || "-", 
+    },
+    {
       title: "Estado",
       dataIndex: "nombreEstado",
       key: "nombreEstado",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        a.nombreEstado.localeCompare(b.nombreEstado),
+      sorter: (a, b) => a.nombreEstado.localeCompare(b.nombreEstado),
       render: (nombreEstado: string) => {
         let color = "green";
-
-        if (nombreEstado === "Calificado") {
-          color = "blue";
-        } else if (nombreEstado === "Registrado") {
-          color = "blue";
-        } else if (nombreEstado === "Potencial") {
-          color = "blue";
-        } else if (nombreEstado === "Promesa") {
-          color = "blue";
-        } else if (nombreEstado === "No calificado") {
-          color = "red";
-        } else if (nombreEstado === "Perdido") {
-          color = "red";
-        }
-
-        return (
-          <Tag
-            color={color}
-            style={{ borderRadius: "12px", padding: "2px 12px" }}
-          >
-            {nombreEstado}
-          </Tag>
-        );
+        if (["Calificado", "Registrado", "Potencial", "Promesa"].includes(nombreEstado)) color = "blue";
+        else if (["No calificado", "Perdido"].includes(nombreEstado)) color = "red";
+        return <Tag color={color} style={{ borderRadius: "12px", padding: "2px 12px" }}>{nombreEstado}</Tag>;
       },
     },
     {
       title: "Programa",
       dataIndex: "productoNombre",
       key: "productoNombre",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        a.productoNombre.localeCompare(b.productoNombre),
+      sorter: (a, b) => a.productoNombre.localeCompare(b.productoNombre),
     },
     {
       title: "Código LinkedIn",
@@ -443,14 +519,8 @@ export default function OpportunitiesInterface() {
       title: "Total Marcaciones",
       dataIndex: "totalMarcaciones",
       key: "totalMarcaciones",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        (a.totalMarcaciones ?? 0) - (b.totalMarcaciones ?? 0),
-      render: (totalMarcaciones: number) => (
-        <span>
-          {typeof totalMarcaciones === "number" ? totalMarcaciones : "-"}
-        </span>
-      ),
-
+      sorter: (a, b) => (a.totalMarcaciones ?? 0) - (b.totalMarcaciones ?? 0),
+      render: (val) => <span>{typeof val === "number" ? val : "-"}</span>,
       align: "center",
       width: 140,
     },
@@ -458,14 +528,10 @@ export default function OpportunitiesInterface() {
       title: "Recordatorio",
       key: "recordatorios",
       width: 240,
-      render: (_: any, record: Opportunity) =>
-        record.recordatorios.length === 0 ? (
-          "-"
-        ) : (
+      render: (_, record) =>
+        record.recordatorios.length === 0 ? "-" : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {record.recordatorios
-              .filter(Boolean)
-              .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
               .slice(0, 3)
               .map((r, i) => (
                 <div
@@ -498,23 +564,16 @@ export default function OpportunitiesInterface() {
       title: "Asesor",
       dataIndex: "personalNombre",
       key: "personalNombre",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        (a.personalNombre || "").localeCompare(b.personalNombre || ""),
-      render: (personalNombre: string) => personalNombre || "-",
+      sorter: (a, b) => (a.personalNombre || "").localeCompare(b.personalNombre || ""),
+      render: (val) => val || "-",
     },
     {
       title: "Acciones",
       key: "actions",
       align: "center",
-      render: (_: any, record: Opportunity) => (
+      render: (_, record) => (
         <Tooltip title="Ver Detalle">
-          <Button
-            type="primary"
-            icon={<EyeOutlined />}
-            size="small"
-            style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
-            onClick={() => handleClick(record.id)}
-          />
+          <Button type="primary" icon={<EyeOutlined />} size="small" style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }} onClick={() => handleClick(record.id)} />
         </Tooltip>
       ),
     },
@@ -533,92 +592,52 @@ export default function OpportunitiesInterface() {
         }}
       >
         {idRol !== 1 && (
-          <Button
-            style={{ borderRadius: "6px" }}
-            onClick={() => setIsSelectClientModalVisible(true)}
-          >
+          <Button style={{ borderRadius: "6px" }} onClick={() => setIsSelectClientModalVisible(true)}>
             Agregar Oportunidad
           </Button>
         )}
-        <Button
-          style={{ borderRadius: "6px" }}
-          onClick={() => navigate("/leads/SalesProcess")}
-        >
+        <Button style={{ borderRadius: "6px" }} onClick={() => navigate("/leads/SalesProcess")}>
           Vista de Proceso
         </Button>
-        <Button
-          type="primary"
-          style={{
-            background: "#1f1f1f",
-            borderColor: "#1f1f1f",
-            borderRadius: "6px",
-          }}
-        >
+        <Button type="primary" style={{ background: "#1f1f1f", borderColor: "#1f1f1f", borderRadius: "6px" }}>
           Vista de Tabla
         </Button>
       </div>
 
-      <SelectClient
-        visible={isSelectClientModalVisible}
-        onClose={() => setIsSelectClientModalVisible(false)}
-      />
+      <SelectClient visible={isSelectClientModalVisible} onClose={() => setIsSelectClientModalVisible(false)} />
 
       <div className={styles.card}>
         <h1 className={styles.title}>Oportunidades</h1>
 
-        {/* Filtros */}
-        <div
-          style={{
-            marginBottom: "20px",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "12px",
-            alignItems: "center",
-          }}
-        >
-          <Input
-            placeholder="Buscar por nombre, correo, programa o ID"
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            className={styles.searchInput}
-            allowClear
-          />
-          <Select
-            value={filterEstado}
-            onChange={setFilterEstado}
-            placeholder="Seleccionar estado"
-            style={{ width: "200px", borderRadius: "6px" }}
-            showSearch
-            virtual={false}
-            listHeight={220}
-            optionFilterProp="children"
-          >
+        <div style={{ marginBottom: "20px", display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
+          <Input placeholder="Buscar por nombre, correo, programa, ID o cód. lanzamiento" prefix={<SearchOutlined />} value={searchText} onChange={(e) => setSearchText(e.target.value)} className={styles.searchInput} allowClear />
+          
+          <Select value={filterEstado} onChange={setFilterEstado} placeholder="Seleccionar estado" style={{ width: "200px", borderRadius: "6px" }} showSearch virtual={false} listHeight={220} optionFilterProp="children">
             <Option value="Todos">Todos los estados</Option>
-            {estadosUnicos.map((estado) => (
-              <Option key={estado} value={estado}>
-                {estado}
-              </Option>
-            ))}
+            {estadosUnicos.map((estado) => <Option key={estado} value={estado}>{estado}</Option>)}
           </Select>
-          <Select
-            showSearch
-            value={filterAsesor}
-            onChange={setFilterAsesor}
-            placeholder="Seleccionar asesor"
-            style={{ width: "200px", borderRadius: "6px" }}
-            disabled={asesoresUnicos.length === 0}
-            virtual={false}
-            listHeight={220}
-            optionFilterProp="children"
-          >
+          
+          <Select showSearch value={filterAsesor} onChange={setFilterAsesor} placeholder="Seleccionar asesor" style={{ width: "200px", borderRadius: "6px" }} disabled={asesoresUnicos.length === 0} virtual={false} listHeight={220} optionFilterProp="children">
             <Option value="Todos">Todos los asesores</Option>
             <Option value="SIN ASESOR">SIN ASESOR</Option>
-            {asesoresUnicos.map((a) => (
-              <Option key={a} value={a}>
-                {a}
-              </Option>
-            ))}
+            {asesoresUnicos.map((a) => <Option key={a} value={a}>{a}</Option>)}
+          </Select>
+
+          <Select 
+            showSearch 
+            value={filterPais} 
+            onChange={setFilterPais} 
+            placeholder="Seleccionar país" 
+            style={{ width: "200px", borderRadius: "6px" }} 
+            virtual={false} 
+            autoClearSearchValue={false}
+            dropdownMatchSelectWidth={false}
+            dropdownStyle={{ maxHeight: 260, overflow: "auto" }}
+            filterOption={filterPaisSelect}
+            optionFilterProp="children"
+          >
+            <Option value="Todos">Todos los países</Option>
+            {listaPaisesCompleta.map((p) => <Option key={p} value={p}>{p}</Option>)}
           </Select>
           <Select
             value={filterCodigoLinkedin}
@@ -655,36 +674,30 @@ export default function OpportunitiesInterface() {
         </div>
 
         {loading ? (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              height: "50vh",
-            }}
-          >
-            <Spin size="large" />
-          </div>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "50vh" }}><Spin size="large" /></div>
         ) : error ? (
           <Alert message="Error" description={error} type="error" showIcon />
         ) : (
           <Table
             columns={columns}
-            dataSource={data}
+            dataSource={filteredData} 
             rowKey="id"
             loading={loading}
+            onRow={(record) => ({
+                id: `row-${record.id}`,
+                style: record.id.toString() === highlightedId ? {
+                    backgroundColor: "#e6f7ff", 
+                    transition: "background-color 0.5s ease"
+                } : undefined,
+                onClick: () => handleClick(record.id)
+            })}
             pagination={{
               current: currentPage,
               pageSize,
-              total,
               showSizeChanger: true,
               pageSizeOptions: ["10", "20", "50", "100"],
-              onChange: (page, size) => {
-                setCurrentPage(page);
-                if (size) setPageSize(size);
-              },
-              showTotal: (total, range) =>
-                `${range[0]}-${range[1]} de ${total}`,
+              onChange: (page, size) => { setCurrentPage(page); if (size) setPageSize(size); },
+              showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
             }}
           />
         )}

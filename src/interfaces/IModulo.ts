@@ -10,6 +10,7 @@ export interface ISesion {
   estado: boolean;
   idMigracion?: number | null;
   fechaCreacion: string;
+  fechaInicio?: string;
   usuarioCreacion: string;
   fechaModificacion?: string | null;
   usuarioModificacion?: string | null;
@@ -50,8 +51,6 @@ export interface IModulo {
   fechaPresentacion?: string;
   horaInicioSync?: string;
   horaFinSync?: string;
-  horaInicioAsync?: string;
-  horaFinAsync?: string;
   numeroSesiones?: number;
   numeroSesionesAsincronicas?: number;
   diasClase?: string;
@@ -68,7 +67,7 @@ export interface IModulo {
   estructuraCurricularDescripcion?: string;
   estructuraCurricularModuloId?: number;
   orden?: number;
-  sesiones?: ISesion[]; // ⬅️ CAMBIADO: era number, ahora es array de sesiones
+  sesiones?: ISesion[];
   observaciones?: string;
   
   // Campos de docente
@@ -86,7 +85,7 @@ export interface IModulo {
   moduloDescripcion?: string;
   moduloDuracionHoras?: number;
   
-  // ⬅️ AGREGADO: Relaciones con sesiones y horarios
+  // Relaciones con sesiones y horarios
   sesionesHorarios?: ISesionHorario[];
   horasAsincronicas?: number;
   horasSincronicas?: number;
