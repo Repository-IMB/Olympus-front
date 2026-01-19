@@ -19,11 +19,10 @@ export const obtenerIdPersonal = async (): Promise<number | null> => {
     const response = await api.get<ObtenerIdPersonalResponse>(
       `${BASE_URL}/ObtenerIdPersonal`
     );
-
-    const { codigo, idAsesor, mensaje } = response.data;
+    const { codigo, idPersonal, mensaje } = response.data;
 
     if (codigo === "SIN ERROR") {
-      return idAsesor!;
+      return idPersonal!;
     }
 
     if (codigo === "ERROR CONTROLADO") {
@@ -54,7 +53,7 @@ export const obtenerSpeechPorAsesorYProducto = async (
 ): Promise<SpeechDTO | null> => {
   try {
     const response = await api.get<SpeechDTO>(
-      `${BASE_URL}/ObtenerPorAsesorYProducto/${IdPersonal}/${idProducto}`
+      `${BASE_URL}/ObtenerPorPersonalYProducto/${IdPersonal}/${idProducto}`
     );
     return response.data;
   } catch (error: any) {
