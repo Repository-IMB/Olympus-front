@@ -100,6 +100,8 @@ export default function OpportunitiesInterface() {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [filterPais, setFilterPais] = useState<string>(searchParams.get("pais") || "Todos");
   const [listaPaisesCompleta, setListaPaisesCompleta] = useState<string[]>([]);
+const [data, setData] = useState<Opportunity[]>([]);
+const [total, setTotal] = useState<number>(0);
 
   // DATA
   const [allData, setAllData] = useState<Opportunity[]>([]); 
@@ -151,50 +153,10 @@ export default function OpportunitiesInterface() {
     });
   }, [currentPage, pageSize, searchText, filterEstado]);
     
-  // Lógica de Filtrado en Frontend
-  const filteredData = useMemo(() => {
-    return allData.filter((item) => {
-      // Filtro Texto
-      if (searchText) {
-        const lowerSearch = searchText.toLowerCase();
-        const match = 
-          item.personaNombre.toLowerCase().includes(lowerSearch) ||
-          item.personaCorreo.toLowerCase().includes(lowerSearch) ||
-          item.productoNombre.toLowerCase().includes(lowerSearch) ||
-          item.id.toString().includes(lowerSearch) ||
-          (item.codigoLanzamiento && item.codigoLanzamiento.toLowerCase().includes(lowerSearch));
-        if (!match) return false;
-      }
-
-      // Filtro Estado
-      if (filterEstado !== "Todos" && item.nombreEstado !== filterEstado) return false;
-
-      // Filtro Asesor
-      if (filterAsesor !== "Todos") {
-        if (filterAsesor === "SIN ASESOR") {
-           if (item.personalNombre && item.personalNombre !== "-") return false;
-        } else {
-           if (item.personalNombre !== filterAsesor) return false;
-        }
-      }
-
-      // Filtro País
-      if (filterPais !== "Todos" && item.pais !== filterPais) return false;
-
-      // Filtro Fecha
-      if (dateRange && dateRange[0] && dateRange[1]) {
-        const fechaItem = moment(item.fechaCreacion);
-        if (!fechaItem.isBetween(dateRange[0], dateRange[1], "day", "[]")) return false;
-      }
-
-      return true;
-    });
-  }, [allData, searchText, filterEstado, filterAsesor, filterPais, dateRange]);
-
 
   // Efecto Scroll
   useEffect(() => {
-    if (!loading && highlightedId && filteredData.length > 0) {
+    if (!loading && highlightedId) {
       const timer = setTimeout(() => {
         const element = document.getElementById(`row-${highlightedId}`);
         if (element) {
@@ -203,7 +165,7 @@ export default function OpportunitiesInterface() {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [loading, highlightedId, filteredData]); 
+  }, [loading, highlightedId]); 
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -377,6 +339,8 @@ export default function OpportunitiesInterface() {
         );
 
         setAllData(mapped); 
+        setTotal(res.data.total ?? 0);
+
       } catch (e: any) {
         setError(
           e?.response?.data?.mensaje ??
@@ -659,7 +623,7 @@ export default function OpportunitiesInterface() {
         ) : (
           <Table
             columns={columns}
-            dataSource={filteredData} 
+            dataSource={allData} 
             rowKey="id"
             loading={loading}
             onRow={(record) => ({
@@ -673,6 +637,7 @@ export default function OpportunitiesInterface() {
             pagination={{
               current: currentPage,
               pageSize,
+              total,
               showSizeChanger: true,
               pageSizeOptions: ["10", "20", "50", "100"],
               onChange: (page, size) => { setCurrentPage(page); if (size) setPageSize(size); },
