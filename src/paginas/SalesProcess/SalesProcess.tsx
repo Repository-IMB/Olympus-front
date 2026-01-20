@@ -309,7 +309,7 @@ useEffect(() => {
               productoNombre: row.productoNombre,
               fechaCreacion: row.fechaCreacion,
               nombrePais: row.nombrePais,
-              recordatorios: [],
+              recordatorios: row.recordatorios,
             });
             recordatoriosSet.set(opportunityId, new Set());
           }
