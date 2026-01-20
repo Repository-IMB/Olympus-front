@@ -165,11 +165,23 @@ export interface Lanzamiento {
   codigoLanzamiento: string;
 }
 
-export async function obtenerLanzamientos(): Promise<Lanzamiento[]> {
+export async function obtenerLanzamientos(
+  search: string | null = null,
+  page: number = 1,
+  pageSize: number = 10,
+  estadoProductoId: number | null = null
+): Promise<Lanzamiento[]> {
   try {
-    const res = await api.get('/api/VTAModVentaProducto/ObtenerTodas');
+    const res = await api.get('/api/VTAModVentaProducto/ObtenerTodas', {
+      params: {
+        search,
+        page,
+        pageSize,
+        estadoProductoId
+      }
+    });
 
-    // La API devuelve un objeto con la propiedad "productos" que contiene el array
+    // La API devuelve un objeto con la propiedad "productos"
     const productos = res.data?.productos ?? [];
 
     if (!Array.isArray(productos)) {
@@ -191,12 +203,9 @@ export async function obtenerLanzamientos(): Promise<Lanzamiento[]> {
       }
     });
 
-    const lanzamientos = Array.from(lanzamientosUnicos.values());
-    return lanzamientos;
+    return Array.from(lanzamientosUnicos.values());
   } catch (err: any) {
-    // console.error("obtenerLanzamientos axios error", err?.response?.status, err?.response?.data);
     throw err;
   }
 }
-
 export default baseUrl;
