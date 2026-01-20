@@ -5,10 +5,34 @@ export type { IModulo };
 
 export const baseUrl: string = (import.meta.env.VITE_API_URL as string) || "http://localhost:7020";
 
-/** 🔹 Obtener todos los módulos */
-export const obtenerModulos = async (): Promise<IModulo[]> => {
-  const response = await api.get("/api/VTAModVentaModulo/ObtenerTodas");
-  return response.data;
+/** 🔹 Obtener todos los módulos con Paginación */
+export const obtenerModulos = async (
+  search: string = "", 
+  page: number = 1, 
+  pageSize: number = 10,
+  producto: string = "", 
+  fechaDesde: string = "", 
+  fechaHasta: string = "",
+  sortColumn: string = "Id",
+  sortOrder: string = "DESC"
+): Promise<any> => { 
+  const response = await api.get("/api/VTAModVentaModulo/ObtenerTodas", {
+    params: {
+      search,
+      page,
+      pageSize,
+      producto,
+      fechaDesde,
+      fechaHasta,
+      sortColumn,
+      sortOrder
+    }
+  });
+
+  return {
+    modulos: response.data.modulos || [],
+    total: response.data.total || 0
+  };
 };
 
 /** 🔹 Obtener módulo por ID */
@@ -40,19 +64,14 @@ export const crearModulo = async (modulo: Partial<IModulo>): Promise<IModulo> =>
 export const actualizarModulo = async (
   id: number,
   modulo: Partial<IModulo>,
-  preserveSessions: boolean = false // ⬅️ Nuevo parámetro
+  preserveSessions: boolean = false
 ): Promise<IModulo> => {
+  // ⚠️ NO duplicar campos que ya vienen en 'modulo'
   const payload = {
-    id,
-    ...modulo,
-    preserveSessions, // ⬅️ IMPORTANTE: Controla si se reemplazan las sesiones
-    fechaModificacion: new Date().toISOString(),
-    usuarioModificacion: "SYSTEM",
+    ...modulo,  // ⬅️ Esto ya incluye todo lo necesario
+    id,         // ⬅️ Asegurar que el ID esté presente
+    preserveSessions,
   };
-
-  console.log('=== PAYLOAD COMPLETO ENVIADO AL PUT ===');
-  console.log(JSON.stringify(payload, null, 2));
-  console.log('=======================================');
   
   const response = await api.put("/api/VTAModVentaModulo/Actualizar", payload);
   return response.data;

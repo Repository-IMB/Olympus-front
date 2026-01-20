@@ -119,6 +119,8 @@ const SELECT_PROPS = {
 };
 
 export default function Asignacion() {
+  const SIN_ASESOR = "__SIN_ASESOR__";
+
   const [selectedRows, setSelectedRows] = useState<Lead[]>([]);
   const [searchText, setSearchText] = useState("");
   const [filterEstado, setFilterEstado] = useState<string | string[]>("Todos");
@@ -127,7 +129,7 @@ export default function Asignacion() {
   const [dateRange, setDateRange] = useState<
     [Moment | null, Moment | null] | null
   >(null);
-  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
+  const [filterAsesor, setFilterAsesor] = useState<string>(SIN_ASESOR);
   const [modalOpen, setModalOpen] = useState(false);
   const [asesorDestino, setAsesorDestino] = useState<number | null>(null);
   const [forzarReasignacion, setForzarReasignacion] = useState(true);
@@ -171,6 +173,7 @@ export default function Asignacion() {
 
   const [paises, setPaises] = useState<Pais[]>([]);
   const [loadingPaises, setLoadingPaises] = useState(false);
+  const asesorSeleccionado = asesorDestino !== undefined;
 
   const token = getCookie("token");
 
@@ -182,7 +185,7 @@ export default function Asignacion() {
 
       const id =
         decoded[
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ];
 
       return id ? Number(id) : 0;
@@ -220,7 +223,7 @@ export default function Asignacion() {
 
 
   function agruparOportunidadesConRecordatorios(
-    data: OportunidadBackend[]
+    data: OportunidadBackend[],
   ): OportunidadBackend[] {
     const map = new Map<
       number,
@@ -247,7 +250,7 @@ export default function Asignacion() {
 
   const handleConfirmarAsignacion = async () => {
     if (
-      !asesorDestino ||
+      asesorDestino === undefined  ||
       selectedRows.length === 0 ||
       !selectedDate ||
       !selectedTime
@@ -255,20 +258,8 @@ export default function Asignacion() {
       return;
     }
 
-    const hayConAsesor = selectedRows.some(
-      (r) => (r.asesor ?? "").trim() !== ""
-    );
-
-    if (hayConAsesor && !forzarReasignacion) {
-      return;
-    }
-
     try {
       setLoading(true);
-
-      const asesor = asesores.find((a) => a.idUsuario === asesorDestino);
-      if (!asesor) throw new Error("Asesor no encontrado");
-
       // Fecha de recordatorio con hora formateada
       const fechaRecordatorioISO = selectedDate
         .hour(selectedTime.hour())
@@ -295,26 +286,28 @@ export default function Asignacion() {
         };
 
         await axios.post(
-          `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+          `${
+            import.meta.env.VITE_API_URL || "http://localhost:7020"
           }/api/VTAModVentaHistorialInteraccion/Insertar`,
           payloadInteraccion,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
       }
 
       const payload = {
         IdOportunidades: selectedRows.map((r) => r.id),
-        IdPersonal: asesor.idPersonal,
+        IdPersonal: asesorDestino,
         UsuarioModificacion: Number(getUserIdFromToken()).toString(),
         FechaRecordatorio: fechaRecordatorioISO,
         HoraRecordatorio: horaRecordatorio,
       };
 
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/VTAModVentaOportunidad/AsignarPersonalMasivo`,
         payload,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (response.data.codigo === "SIN ERROR") {
@@ -328,8 +321,8 @@ export default function Asignacion() {
     } catch (err: any) {
       message.error(
         err?.response?.data?.mensaje ||
-        err?.message ||
-        "Error al asignar asesor"
+          err?.message ||
+          "Error al asignar asesor",
       );
     } finally {
       setLoading(false);
@@ -365,8 +358,9 @@ export default function Asignacion() {
         FechaFin: fechaFinIso,
       };
 
-      const url = `${import.meta.env.VITE_API_URL || "http://localhost:7020"
-        }/api/VTAModVentaOportunidad/ImportarProcesadoLinkedin`;
+      const url = `${
+        import.meta.env.VITE_API_URL || "http://localhost:7020"
+      }/api/VTAModVentaOportunidad/ImportarProcesadoLinkedin`;
 
       const response = await axios.post(url, payload, {
         headers: { Authorization: `Bearer ${token}` },
@@ -379,9 +373,9 @@ export default function Asignacion() {
       const filasSaltadas = data?.filasSaltadas ?? data?.FilasSaltadas ?? 0;
       const filasEnRango = data?.filasEnRango ?? data?.FilasEnRango ?? 0;
       const skipped = Array.isArray(
-        data?.skippedSources ?? data?.SkippedSources
+        data?.skippedSources ?? data?.SkippedSources,
       )
-        ? data?.skippedSources ?? data?.SkippedSources
+        ? (data?.skippedSources ?? data?.SkippedSources)
         : [];
 
       const skippedMapped: SkippedSource[] = skipped.map((s: any) => ({
@@ -430,7 +424,7 @@ export default function Asignacion() {
     setFilterEstado("Todos");
     setFilterOrigen("Todos");
     setFilterPais("Todos");
-    setFilterAsesor("Todos");
+    setFilterAsesor(SIN_ASESOR);
     setFilterCodigoLanzamiento("Todos");
     setFilterCodigoLinkedin("Todos");
     setDateRange(null);
@@ -462,7 +456,7 @@ export default function Asignacion() {
                 : Array.isArray(filterPais)
                   ? filterPais.join(",")
                   : filterPais,
-            asesorFiltro: filterAsesor !== "Todos" ? filterAsesor : null,
+            asesorFiltro: filterAsesor === SIN_ASESOR ? null : filterAsesor,
             codigoLanzamientoFiltro:
               filterCodigoLanzamiento !== "Todos"
                 ? filterCodigoLanzamiento
@@ -472,11 +466,11 @@ export default function Asignacion() {
             fechaInicio: dateRange?.[0]?.format("YYYY-MM-DD") ?? null,
             fechaFin: dateRange?.[1]?.format("YYYY-MM-DD") ?? null,
           },
-        }
+        },
       );
 
       const agrupadas = agruparOportunidadesConRecordatorios(
-        response.data.oportunidad ?? []
+        response.data.oportunidad ?? [],
       );
 
       setOportunidades(agrupadas);
@@ -500,7 +494,7 @@ export default function Asignacion() {
         `${API}/api/VTAModVentaProducto/ObtenerCodigosUnicos`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       setCodigosLanzamiento(res.data.codigosLanzamiento ?? []);
@@ -519,9 +513,10 @@ export default function Asignacion() {
       if (!token) throw new Error("No se encontró el token de autenticación");
 
       const response = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       const data = response.data;
@@ -622,7 +617,7 @@ export default function Asignacion() {
         totalMarcaciones: marcacionesPorOportunidad.get(o.id) ?? 0,
         recordatorios: o.recordatorios ?? [],
       })),
-    [oportunidades, marcacionesPorOportunidad] // ✅
+    [oportunidades, marcacionesPorOportunidad], // ✅
   );
 
   const columns: ColumnsType<LeadTabla> = useMemo(
@@ -730,7 +725,7 @@ export default function Asignacion() {
                 .filter(Boolean)
                 .sort(
                   (a: string, b: string) =>
-                    new Date(a).getTime() - new Date(b).getTime()
+                    new Date(a).getTime() - new Date(b).getTime(),
                 )
                 .slice(0, 3)
                 .map((r: string, i: number) => (
@@ -861,7 +856,7 @@ export default function Asignacion() {
         ),
       },
     ],
-    []
+    [],
   );
 
   const rowSelection = {
@@ -872,11 +867,11 @@ export default function Asignacion() {
   };
 
   const hayOportunidadesConAsesor = selectedRows.some(
-    (l) => (l.asesor ?? "").trim() !== ""
+    (l) => (l.asesor ?? "").trim() !== "",
   );
 
   const botonDeshabilitado =
-    !asesorDestino ||
+    !asesorSeleccionado ||
     !selectedDate ||
     !selectedTime ||
     (!forzarReasignacion && hayOportunidadesConAsesor);
@@ -934,8 +929,7 @@ export default function Asignacion() {
             placeholder="Seleccionar asesor"
             allowClear
           >
-            <Option value="Todos">Todos los asesores</Option>
-            <Option value="__SIN_ASESOR__">Sin asesor</Option>
+            <Option value={SIN_ASESOR}>Sin asesor</Option>
 
             {asesores.map((a) => (
               <Option key={a.idUsuario} value={a.nombre}>
@@ -1129,8 +1123,14 @@ export default function Asignacion() {
             ) : (
               <Select
                 showSearch
-                value={asesorDestino ?? undefined}
-                onChange={setAsesorDestino}
+                value={asesorDestino ?? SIN_ASESOR}
+                onChange={(value) => {
+                  if (value === SIN_ASESOR) {
+                    setAsesorDestino(null);
+                  } else {
+                    setAsesorDestino(Number(value));
+                  }
+                }}
                 placeholder="Selecciona un asesor"
                 className={estilosModal.select}
                 size="large"
@@ -1142,6 +1142,10 @@ export default function Asignacion() {
                 }
                 listHeight={200}
               >
+                {/* 🔹 OPCIÓN SIN ASESOR */}
+                <Option value={SIN_ASESOR}>Sin asesor</Option>
+
+                {/* 🔹 ASESORES */}
                 {asesores.map((a) => (
                   <Option key={a.idUsuario} value={a.idUsuario}>
                     {a.nombre}
@@ -1286,7 +1290,7 @@ export default function Asignacion() {
                         {
                           hour: "2-digit",
                           minute: "2-digit",
-                        }
+                        },
                       )}
                     </div>
                   </Space>

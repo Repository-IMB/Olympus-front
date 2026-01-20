@@ -89,18 +89,15 @@ const HistorialInteracciones: React.FC = () => {
   const [nota, setNota] = useState<string>("");
 
   const [fechaRecordatorio, setFechaRecordatorio] = useState<any>(null);
-  const [horaRecordatorio, setHoraRecordatorio] = useState<Moment | null>(
-    null
-  );
+  const [horaRecordatorio, setHoraRecordatorio] = useState<Moment | null>(null);
 
   const [interacciones, setInteracciones] = useState<any[]>([]);
   const [filtrosActivos, setFiltrosActivos] = useState<string[]>([]);
   const [busqueda, setBusqueda] = useState<string>("");
   const [telefonoCliente, setTelefonoCliente] = useState<string | null>(null);
 
-  const token = getCookie("token");
-
   const getUserIdFromToken = () => {
+    const token = getCookie("token");
     if (!token) return 0;
 
     try {
@@ -108,7 +105,7 @@ const HistorialInteracciones: React.FC = () => {
 
       const id =
         decoded[
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ];
 
       return id ? Number(id) : 0;
@@ -118,11 +115,12 @@ const HistorialInteracciones: React.FC = () => {
     }
   };
 
-
   // ======================================================
   // 📌 OBTENER TELÉFONO DEL CLIENTE
   // ======================================================
-  const obtenerTelefonoCliente = useCallback(async (): Promise<string | null> => {
+  const obtenerTelefonoCliente = useCallback(async (): Promise<
+    string | null
+  > => {
     if (!id) return null;
 
     try {
@@ -131,7 +129,7 @@ const HistorialInteracciones: React.FC = () => {
         `/api/VTAModVentaOportunidad/ObtenerPotencialPorOportunidad/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       const persona = res.data?.persona;
@@ -151,20 +149,23 @@ const HistorialInteracciones: React.FC = () => {
     }
   }, [id]);
 
-  const cargarHistorial = useCallback(async (idTipo: number | null) => {
-    try {
-      const oportunidadId = id || "1";
-      const params = idTipo !== null ? `?idTipo=${idTipo}` : "?idTipo=";
+  const cargarHistorial = useCallback(
+    async (idTipo: number | null) => {
+      try {
+        const oportunidadId = id || "1";
+        const params = idTipo !== null ? `?idTipo=${idTipo}` : "?idTipo=";
 
-      const res = await api.get(
-        `/api/VTAModVentaOportunidad/ObtenerHistorialInteraccionesOportunidad/${oportunidadId}${params}`
-      );
+        const res = await api.get(
+          `/api/VTAModVentaOportunidad/ObtenerHistorialInteraccionesOportunidad/${oportunidadId}${params}`,
+        );
 
-      setInteracciones(res.data.historialInteraciones || []);
-    } catch (error) {
-      console.error("Error cargando historial:", error);
-    }
-  }, [id]);
+        setInteracciones(res.data.historialInteraciones || []);
+      } catch (error) {
+        console.error("Error cargando historial:", error);
+      }
+    },
+    [id],
+  );
 
   useEffect(() => {
     cargarHistorial(null);
@@ -184,7 +185,7 @@ const HistorialInteracciones: React.FC = () => {
       if (item?.estado === false) return;
 
       await api.post(
-        `/api/VTAModVentaOportunidad/DesactivarRecordatorio/${item.id}`
+        `/api/VTAModVentaOportunidad/DesactivarRecordatorio/${item.id}`,
       );
 
       message.success("Recordatorio desactivado");
@@ -199,7 +200,7 @@ const HistorialInteracciones: React.FC = () => {
   // ✅ CONTADOR + BANDERA (máx 3 activos)
   // ======================================================
   const recordatoriosActivosCount = interacciones.filter(
-    (i) => mapTipos[i.idTipo] === "recordatorio" && i.estado === true
+    (i) => mapTipos[i.idTipo] === "recordatorio" && i.estado === true,
   ).length;
 
   const limiteRecordatoriosAlcanzado = recordatoriosActivosCount >= 3;
@@ -236,8 +237,7 @@ const HistorialInteracciones: React.FC = () => {
         .hour(horaRecordatorio.hour())
         .minute(horaRecordatorio.minute())
         .second(0)
-        .subtract(5, "hour")
-        .toISOString();
+        .format("YYYY-MM-DDTHH:mm:ss");
 
       fechaFinal = fechaISO;
     }
@@ -322,7 +322,9 @@ const HistorialInteracciones: React.FC = () => {
 
     const urlWhatsApp = `https://web.whatsapp.com/send?phone=${numeroWhatsApp}`;
     window.open(urlWhatsApp, "_blank");
-    message.info("Se abrió WhatsApp Web. Haz clic en el botón de llamada para iniciar la llamada.");
+    message.info(
+      "Se abrió WhatsApp Web. Haz clic en el botón de llamada para iniciar la llamada.",
+    );
   };
 
   // ======================================================
@@ -376,7 +378,7 @@ const HistorialInteracciones: React.FC = () => {
               onChange={(e) => {
                 const checked = e.target.checked;
                 setFiltrosActivos((prev) =>
-                  checked ? [...prev, t.id] : prev.filter((f) => f !== t.id)
+                  checked ? [...prev, t.id] : prev.filter((f) => f !== t.id),
                 );
               }}
               style={{ margin: 0 }}
@@ -539,7 +541,7 @@ const HistorialInteracciones: React.FC = () => {
               .map((item) => {
                 const tipo = mapTipos[item.idTipo] ?? "nota";
                 const fechaCreacion = new Date(
-                  item.fechaCreacion
+                  item.fechaCreacion,
                 ).toLocaleString();
 
                 // Formateo fecha del recordatorio
@@ -693,8 +695,6 @@ const HistorialInteracciones: React.FC = () => {
         </Space>
 
         <Divider style={{ margin: "6px 0" }} />
-
-
       </Card>
     </div>
   );

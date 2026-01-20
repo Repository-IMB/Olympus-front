@@ -12,7 +12,7 @@ import {
   obtenerDepartamentos, 
   crearDepartamento, 
   actualizarDepartamento,
-  eliminarDepartamento,
+  //eliminarDepartamento,
   obtenerDepartamentoPorId,
   type Departamento 
 } from "../../servicios/DepartamentosService";
@@ -25,8 +25,8 @@ export default function Departamentos() {
   const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<Departamento | null>(null);
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [loading, setLoading] = useState(false);
-  const [modalEliminarVisible, setModalEliminarVisible] = useState(false);
-  const [departamentoAEliminar, setDepartamentoAEliminar] = useState<number | null>(null);
+  //const [modalEliminarVisible, setModalEliminarVisible] = useState(false);
+  //const [departamentoAEliminar, setDepartamentoAEliminar] = useState<number | null>(null);
 
   // Cargar departamentos al montar el componente
   useEffect(() => {
@@ -86,21 +86,29 @@ export default function Departamentos() {
 
   const abrirModalEditar = async (departamento: Departamento) => {
     try {
+      // SOLUCIÓN TEMPORAL: usar directamente el departamento clickeado
+      // ya que tiene todos los datos necesarios
       setModoModal("editar");
+      setDepartamentoSeleccionado(departamento);
       setErrorModal(null);
-
-      const departamentoCompleto = await obtenerDepartamentoPorId(departamento.id);
-
-      setDepartamentoSeleccionado(departamentoCompleto);
       setModalVisible(true);
-    } catch {
+      
+      /* CÓDIGO ORIGINAL (comentado porque el endpoint no funciona):
+      const departamentoCompleto = await obtenerDepartamentoPorId(departamento.id);
+      setModoModal("editar");
+      setDepartamentoSeleccionado(departamentoCompleto);
+      setErrorModal(null);
+      setModalVisible(true);
+      */
+    } catch (error) {
+      console.error("Error al cargar departamento:", error);
       message.error("No se pudo cargar el departamento para editar");
     }
   };
 
 
 
-  const handleEliminar = (id: number) => {
+ /* const handleEliminar = (id: number) => {
     setDepartamentoAEliminar(id);
     setModalEliminarVisible(true);
   };
@@ -124,7 +132,7 @@ export default function Departamentos() {
   const cancelarEliminacion = () => {
     setModalEliminarVisible(false);
     setDepartamentoAEliminar(null);
-  };
+  }; */
 
   const departamentosFiltrados = useMemo(() => {
     if (!Array.isArray(departamentos)) return [];
@@ -181,7 +189,7 @@ export default function Departamentos() {
           <Tooltip title="Eliminar">
             <span 
               className={estilos.actionIcon}
-              onClick={() => handleEliminar(record.id)}
+              //onClick={() => handleEliminar(record.id)}
               style={{ cursor: "pointer" }}
             >
               <DeleteOutlined />
@@ -257,9 +265,9 @@ export default function Departamentos() {
             Confirmar eliminación
           </span>
         }
-        open={modalEliminarVisible}
-        onOk={confirmarEliminacion}
-        onCancel={cancelarEliminacion}
+        //open={modalEliminarVisible}
+        //onOk={confirmarEliminacion}
+        //onCancel={cancelarEliminacion}
         okText="Sí, eliminar"
         cancelText="Cancelar"
         okButtonProps={{ danger: true }}

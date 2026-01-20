@@ -37,15 +37,25 @@
 .stages-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr); /* 4 columnas en una sola fila */
-  gap: 20px;
+  gap: 16px;
+  flex: 1;
+  min-height: 0; /* Importante para permitir que el grid se encoja */
+  width: 100%;
+  will-change: contents;
 }
 
 .stage-column {
   background-color: #f7f8fa;
   border-radius: 8px;
-  padding: 12px;
-  min-height: 160px;
+  padding: 10px;
   transition: background-color 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Importante para permitir que la columna se encoja */
+  min-width: 0; /* Permite que la columna se encoja si es necesario */
+  width: 100%;
+  box-sizing: border-box;
+  contain: layout style; /* Optimización de rendering */
 }
 
 .stage-column:hover {
@@ -56,9 +66,11 @@
   display: flex;
   align-items: center;
   gap: 6px; /* Añade un espacio entre el título y el número */
-  margin-bottom: 10px;
-  font-weight: 500;
+  margin-bottom: 6px;
+  font-weight: 600;
   color: #333;
+  flex-shrink: 0;
+  font-size: 14px;
 }
 
 .stage-title {
@@ -67,14 +79,20 @@
 
 /* Contenedor para las tarjetas con scroll */
 .card-list-container {
-  max-height: 180px; /* Altura aproximada para 2 tarjetas */
+  flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   background: #f7f8fa;
   border-radius: 6px;
   padding: 6px;
   border: 1px solid #ddd;
-  padding-right: 12px; /* Espacio para la barra de scroll */
-  margin-right: -6px; /* Compensa el padding */
+  padding-right: 6px; /* Espacio para la barra de scroll */
+  min-height: 0; /* Permite que se encoja y active el scroll */
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  transform: translateZ(0); /* Habilitar aceleración de hardware */
+  -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
 }
 
 /* Bordes azules para los estados principales: registrado, calificado, potencial, promesa */
@@ -93,18 +111,42 @@
 
 .card-list-container::-webkit-scrollbar-thumb,
 .state-content::-webkit-scrollbar-thumb {
-  background-color: #d1d1d1;
+  background-color: #c1c1c1;
+  border-radius: 10px;
+}
+
+.card-list-container::-webkit-scrollbar-thumb:hover,
+.state-content::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
+}
+
+.card-list-container::-webkit-scrollbar-track,
+.state-content::-webkit-scrollbar-track {
+  background-color: #f1f1f1;
   border-radius: 10px;
 }
 
 /* ===== Tarjetas de cliente ===== */
 .client-card {
   background: #fff;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   border-radius: 8px;
   border: none;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   transition: transform 0.25s ease, box-shadow 0.25s ease, border 0.25s ease;
+  width: 100% !important;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  contain: layout style paint; /* Máxima optimización de rendering */
+}
+
+/* Asegurar que el contenido interno del Card de Ant Design también respete el ancho */
+.client-card .ant-card-body {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px !important;
+  overflow: hidden;
 }
 
 .client-card:hover {
@@ -117,12 +159,18 @@
 .client-name {
   font-weight: 500;
   color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .client-price {
   font-size: 13px;
   color: #555;
   margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .client-date {
@@ -132,6 +180,32 @@
   font-size: 12px;
   color: #888;
   margin-top: 6px;
+  overflow: hidden;
+}
+
+/* Estilos para los recordatorios dentro de las cards */
+.reminder-badge {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.reminder-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 /* ===== Filtros ===== */
@@ -217,7 +291,7 @@
   border-radius: 8px;
   padding: 10px;
   border: 1px solid #e5e7eb;
-  min-height: 120px;
+  min-height: 80px;
   display: flex;
   flex-direction: column;
   transition: background-color 0.3s ease;
@@ -243,8 +317,8 @@
   border-radius: 6px;
   padding: 6px;
   border: 1px solid #ddd;
-  min-height: 80px;
-  max-height: 180px; /* Misma altura que el otro contenedor de tarjetas */
+  min-height: 60px;
+  max-height: 140px; /* Altura reducida para sección más compacta */
   overflow-y: auto;
   padding-right: 6px; /* Espacio para la barra de scroll */
 }
@@ -274,7 +348,7 @@
   flex: 1;
   background: #f3f4f6;
   border-radius: 6px;
-  min-height: 80px;
+  min-height: 60px;
 }
 
 /* Tarjetas dentro de "otros estados" */
@@ -317,3 +391,415 @@
   content: ")";
   margin-left: 1px;
 }
+
+/* ===== Redimensionamiento ===== */
+.resizable-section {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 0 !important;
+  padding: 10px;
+  background: #fafafa;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  will-change: height;
+  transition: none; /* Sin transición para evitar lag durante redimensionamiento */
+}
+
+/* Optimizaciones durante el redimensionamiento */
+.resizable-section.is-resizing * {
+  pointer-events: none; /* Desactivar eventos de puntero durante redimensionamiento */
+}
+
+.resizable-section.is-resizing .client-card {
+  transition: none; /* Desactivar transiciones durante redimensionamiento */
+}
+
+.resizable-section.is-resizing .stage-column:hover,
+.resizable-section.is-resizing .client-card:hover {
+  transform: none;
+  background-color: inherit;
+}
+
+/* Divisor de redimensionamiento */
+.resize-handle {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: row-resize !important;
+  user-select: none;
+  margin: 16px 0;
+  position: relative;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+  z-index: 10;
+  width: 100%;
+  padding: 8px 0;
+  touch-action: none; /* Mejorar soporte touch */
+}
+
+.resize-handle:hover {
+  background-color: #e5e7eb;
+}
+
+.resize-handle-bar {
+  width: 100px;
+  height: 5px;
+  background-color: #9ca3af;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  position: relative;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  will-change: transform, background-color;
+}
+
+.resize-handle-bar::before {
+  content: '⋮⋮⋮';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 8px;
+  letter-spacing: 2px;
+  line-height: 5px;
+}
+
+.resize-handle:hover .resize-handle-bar {
+  background-color: #6b7280;
+  height: 6px;
+  width: 120px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.resize-handle:active .resize-handle-bar {
+  background-color: #1677ff;
+  box-shadow: 0 3px 8px rgba(22, 119, 255, 0.3);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+/* Desktop grande (> 1400px) */
+@media (min-width: 1400px) {
+  .stages-grid {
+    gap: 20px;
+  }
+
+  .stage-column {
+    padding: 12px;
+  }
+}
+
+/* Laptop / Desktop pequeño (1024px - 1400px) */
+@media (max-width: 1400px) and (min-width: 1024px) {
+  .stages-grid {
+    gap: 16px;
+  }
+
+  .stage-column {
+    padding: 10px;
+  }
+
+  .client-card {
+    font-size: 13px;
+  }
+}
+
+/* Tablet horizontal (768px - 1024px) - 2 columnas */
+@media (max-width: 1024px) {
+  .stages-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .content-wrapper {
+    padding: 16px;
+  }
+
+  .resizable-section {
+    padding: 10px;
+  }
+
+  .stage-column {
+    padding: 10px;
+    width: 100%;
+  }
+
+  .card-list-container {
+    width: 100%;
+  }
+
+  .client-card {
+    width: 100% !important;
+  }
+
+  .resize-handle {
+    height: 40px;
+    margin: 12px 0;
+  }
+
+  .resize-handle-bar {
+    width: 120px;
+    height: 6px;
+  }
+}
+
+/* Tablet vertical (600px - 768px) - 1 columna */
+@media (max-width: 768px) {
+  .stages-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .content-wrapper {
+    padding: 12px;
+    height: auto;
+  }
+
+  .resizable-section {
+    padding: 8px;
+  }
+
+  .stage-column {
+    min-height: 200px;
+    width: 100%;
+  }
+
+  .card-list-container {
+    min-height: 150px;
+    width: 100%;
+  }
+
+  .client-card {
+    width: 100% !important;
+  }
+
+  /* Filtros más compactos */
+  .filters-container {
+    padding: 4px;
+  }
+
+  .filter-btn {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+}
+
+/* Mobile (< 600px) */
+@media (max-width: 600px) {
+  .content-wrapper {
+    padding: 8px;
+  }
+
+  .resizable-section {
+    padding: 6px;
+  }
+
+  .stages-grid {
+    gap: 10px;
+  }
+
+  .stage-column {
+    padding: 8px;
+    min-height: 180px;
+    width: 100%;
+  }
+
+  .stage-header {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .card-list-container {
+    padding: 4px;
+    min-height: 120px;
+    width: 100%;
+  }
+
+  .client-card {
+    font-size: 12px;
+    width: 100% !important;
+  }
+
+  .client-card .ant-card-body {
+    padding: 8px !important;
+  }
+
+  .client-name {
+    font-size: 13px;
+  }
+
+  .client-price {
+    font-size: 11px;
+  }
+
+  .client-date {
+    font-size: 10px;
+  }
+
+  .reminder-badge {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
+  .reminder-text {
+    font-size: 10px;
+  }
+
+  /* Divisor más grande en móvil para facilitar el toque */
+  .resize-handle {
+    height: 48px;
+    margin: 8px 0;
+  }
+
+  .resize-handle-bar {
+    width: 100%;
+    max-width: 200px;
+    height: 8px;
+  }
+
+  /* Botones más compactos */
+  .filters {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .filter-btn {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+
+  /* Encabezados */
+  h1 {
+    font-size: 20px !important;
+  }
+
+  .other-states-header h3 {
+    font-size: 16px;
+  }
+}
+
+/* Mobile muy pequeño (< 400px) */
+@media (max-width: 400px) {
+  .content-wrapper {
+    padding: 6px;
+  }
+
+  .stage-column {
+    padding: 6px;
+    width: 100%;
+  }
+
+  .card-list-container {
+    width: 100%;
+  }
+
+  .client-card {
+    width: 100% !important;
+    margin-bottom: 6px;
+  }
+
+  .client-card .ant-card-body {
+    padding: 6px !important;
+  }
+
+  .stages-grid {
+    gap: 8px;
+  }
+
+  h1 {
+    font-size: 18px !important;
+    margin-bottom: 12px !important;
+  }
+}
+
+/* ===== TOUCH SUPPORT (dispositivos táctiles) ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* Áreas de toque más grandes */
+  .resize-handle {
+    height: 56px;
+    padding: 12px 0;
+  }
+
+  .resize-handle-bar {
+    height: 10px;
+  }
+
+  .client-card {
+    min-height: 80px;
+    padding: 12px;
+  }
+
+  /* Botones más grandes */
+  .filter-btn {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+
+  /* Quitar hover effects en touch devices */
+  .stage-column:hover {
+    background-color: #f7f8fa;
+  }
+
+  .client-card:hover {
+    transform: none;
+  }
+}
+
+/* ===== LANDSCAPE MODE (móvil horizontal) ===== */
+@media (max-width: 900px) and (orientation: landscape) {
+  .stages-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .resizable-section {
+    max-height: 60vh;
+  }
+
+  .content-wrapper {
+    height: auto;
+  }
+}
+
+/* ===== IMPRESIÓN ===== */
+@media print {
+  .resize-handle {
+    display: none;
+  }
+
+  .resizable-section {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .card-list-container {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .filters-container,
+  button {
+    display: none !important;
+  }
+}
+
+.stages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px; /* 🔥 aire entre columnas */
+  padding: 10px 4px;
+}
+
+
+
+.card-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* 🔥 separación real */
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+

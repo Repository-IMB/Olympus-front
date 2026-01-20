@@ -32,7 +32,6 @@ type Props = {
   activo?: boolean;
 };
 
-  const token = getCookie("token");
 
 export default function EstadoNoCalificado({ oportunidadId, usuario = "SYSTEM", onCreado, activo = true }: Props) {
   const [ocurrencias, setOcurrencias] = useState<OcurrenciaDTO[]>([]);
@@ -40,6 +39,7 @@ export default function EstadoNoCalificado({ oportunidadId, usuario = "SYSTEM", 
   const [creatingId, setCreatingId] = useState<number | null>(null);
 
     const getUserIdFromToken = () => {
+      const token = getCookie("token");
       if (!token) return 0;
   
       try {
@@ -116,7 +116,7 @@ export default function EstadoNoCalificado({ oportunidadId, usuario = "SYSTEM", 
       {/* === Ocurrencia === */}
       <Row justify="space-between" align="middle">
         <Text style={{ fontSize: 14, color: "#0D0C11" }}>Ocurrencia:</Text>
-        <Space>
+        <Space className="spaceCenter">
           <div
             style={buttonStyle(ocNoCalificado ? (ocNoCalificado.allowed ? "#F7B1B1" : "#F0F0F0") : "#F7B1B1", "#F29C9C", !allowedNoCalificado)}
             onMouseEnter={(e) => { if (allowedNoCalificado) (e.currentTarget as HTMLElement).style.background = "#F29C9C"; }}
