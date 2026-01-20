@@ -129,7 +129,7 @@ export default function Asignacion() {
   const [dateRange, setDateRange] = useState<
     [Moment | null, Moment | null] | null
   >(null);
-  const [filterAsesor, setFilterAsesor] = useState<string>(SIN_ASESOR);
+  const [filterAsesor, setFilterAsesor] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [asesorDestino, setAsesorDestino] = useState<number | null>(null);
   const [forzarReasignacion, setForzarReasignacion] = useState(true);
@@ -212,15 +212,14 @@ export default function Asignacion() {
   };
 
   function optionToString(option: any) {
-  const children = option?.children ?? option?.label ?? "";
-  if (Array.isArray(children)) {
-    return children
-      .map((c) => (typeof c === "string" ? c : String(c ?? "")))
-      .join("");
+    const children = option?.children ?? option?.label ?? "";
+    if (Array.isArray(children)) {
+      return children
+        .map((c) => (typeof c === "string" ? c : String(c ?? "")))
+        .join("");
+    }
+    return String(children);
   }
-  return String(children);
-}
-
 
   function agruparOportunidadesConRecordatorios(
     data: OportunidadBackend[],
@@ -250,7 +249,7 @@ export default function Asignacion() {
 
   const handleConfirmarAsignacion = async () => {
     if (
-      asesorDestino === undefined  ||
+      asesorDestino === undefined ||
       selectedRows.length === 0 ||
       !selectedDate ||
       !selectedTime
@@ -445,10 +444,10 @@ export default function Asignacion() {
             search: searchText || null,
             estadoFiltro:
               filterEstado === "Todos"
-              ? null
-              : Array.isArray(filterEstado)
-              ? filterEstado.join(",")
-              : filterEstado,
+                ? null
+                : Array.isArray(filterEstado)
+                  ? filterEstado.join(",")
+                  : filterEstado,
             origenFiltro: filterOrigen !== "Todos" ? filterOrigen : null,
             paisFiltro:
               filterPais === "Todos"
@@ -456,7 +455,7 @@ export default function Asignacion() {
                 : Array.isArray(filterPais)
                   ? filterPais.join(",")
                   : filterPais,
-            asesorFiltro: filterAsesor === SIN_ASESOR ? null : filterAsesor,
+            asesorFiltro: filterAsesor,
             codigoLanzamientoFiltro:
               filterCodigoLanzamiento !== "Todos"
                 ? filterCodigoLanzamiento
@@ -992,7 +991,9 @@ export default function Asignacion() {
             allowClear
             maxTagCount="responsive"
             filterOption={(input, option) =>
-              (option?.children as unknown as string).toLowerCase().includes(input.toLowerCase())
+              (option?.children as unknown as string)
+                .toLowerCase()
+                .includes(input.toLowerCase())
             }
           >
             <Option value="Todos">Todos los estados</Option>
