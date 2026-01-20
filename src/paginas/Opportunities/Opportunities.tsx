@@ -92,6 +92,7 @@ export default function OpportunitiesInterface() {
   const [isSelectClientModalVisible, setIsSelectClientModalVisible] = useState(false);
   const navigate = useNavigate();
   const token = getCookie("token");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   //const [totalRecords, setTotalRecords] = useState<number>(0);
   //const [totalPages, setTotalPages] = useState<number>(0);
@@ -104,7 +105,6 @@ export default function OpportunitiesInterface() {
   const [allData, setAllData] = useState<Opportunity[]>([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchParams, setSearchParams] = useSearchParams();
   const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
   const [dateRange, setDateRange] = useState<
     [Moment | null, Moment | null] | null
