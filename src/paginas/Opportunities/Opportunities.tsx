@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo} from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Layout,
@@ -106,6 +106,14 @@ export default function OpportunitiesInterface() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
+  const filterPaisSelect = (input: string, option?: any) => {
+  if (!option?.children) return false;
+  return option.children
+    .toString()
+    .toLowerCase()
+    .includes(input.toLowerCase());
+};
+
   const [dateRange, setDateRange] = useState<
     [Moment | null, Moment | null] | null
   >(null);
