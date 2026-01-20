@@ -466,28 +466,6 @@ export default function OpportunitiesInterface() {
       render: (personaCorreo: string) => personaCorreo || "-",
     },
     {
-      title: "Telefono",
-      dataIndex: "personaTelefono",
-      key: "personaTelefono",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
-      render: (personaCorreo: string) => personaCorreo || "-",
-    },
-    {
-      title: "Telefono",
-      dataIndex: "personaTelefono",
-      key: "personaTelefono",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
-      render: (personaCorreo: string) => personaCorreo || "-",
-    },
-    {
-      title: "Telefono",
-      dataIndex: "personaTelefono",
-      key: "personaTelefono",
-      render: (val: any) => val || "-", 
-    },
-    {
       title: "Estado",
       dataIndex: "nombreEstado",
       key: "nombreEstado",
