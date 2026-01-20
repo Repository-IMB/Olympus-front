@@ -259,9 +259,9 @@ const HistorialInteracciones: React.FC = () => {
       celular: "",
       fechaRecordatorio: fechaFinal,
       estado: true,
-      fechaCreacion: moment().subtract(5, "hour").toISOString(),
+      fechaCreacion: moment().format("YYYY-MM-DDTHH:mm:ss"),
       usuarioCreacion: Number(getUserIdFromToken()).toString(),
-      fechaModificacion: moment().subtract(5, "hour").toISOString(),
+      fechaModificacion: moment().format("YYYY-MM-DDTHH:mm:ss"),
       usuarioModificacion: Number(getUserIdFromToken()).toString(),
     };
 
