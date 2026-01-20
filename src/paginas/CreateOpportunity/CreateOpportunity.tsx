@@ -13,7 +13,6 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { CloseOutlined, CalendarOutlined } from "@ant-design/icons";
 import moment, { type Moment } from "moment";
-// @ts-ignore
 import "moment/locale/es";
 import {
   insertarOportunidadHistorialRegistrado,
