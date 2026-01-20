@@ -158,7 +158,7 @@ export default function EstadoCalificado({
     } catch {
       message.error("Error al aplicar ocurrencia");
     } finally {
-      mountedRef.current && setCreatingId(null);
+      if (mounted) setCreatingId(null);
     }
   };
 
