@@ -784,3 +784,22 @@
     display: none !important;
   }
 }
+
+.stages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px; /* 🔥 aire entre columnas */
+  padding: 10px 4px;
+}
+
+
+
+.card-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* 🔥 separación real */
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+

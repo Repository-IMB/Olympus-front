@@ -52,9 +52,8 @@ function useMountedRef() {
   return mounted;
 }
 
-const token = getCookie("token");
-
 const getUserIdFromToken = () => {
+  const token = getCookie("token");
   if (!token) return 0;
 
   try {
@@ -127,7 +126,9 @@ export default function EstadoRegistrado({
 
   const findByName = (name: string) =>
     ocurrencias.find(
-      (o) => (o.nombre ?? o.Nombre ?? "").toString().toLowerCase() === name.toLowerCase()
+      (o) =>
+        (o.nombre ?? o.Nombre ?? "").toString().toLowerCase() ===
+        name.toLowerCase()
     );
 
   const renderActionBtn = (
@@ -145,7 +146,11 @@ export default function EstadoRegistrado({
         role="button"
         aria-disabled={disabled}
         style={{
-          ...buttonStyle(disabled ? "#F0F0F0" : baseColor, hoverColor, disabled),
+          ...buttonStyle(
+            disabled ? "#F0F0F0" : baseColor,
+            hoverColor,
+            disabled
+          ),
           opacity: disabled ? 0.7 : 1,
         }}
         title={
@@ -203,7 +208,9 @@ export default function EstadoRegistrado({
       // Si es NO y el SP devolvió ResultadoSP=4 → aplicar automáticamente "No Calificado"
       if (tipo === "N" && resultado === 4) {
         const ocNoCalificado = ocurrencias.find(
-          (o) => (o.nombre ?? o.Nombre ?? "").toString().toLowerCase() === "no calificado"
+          (o) =>
+            (o.nombre ?? o.Nombre ?? "").toString().toLowerCase() ===
+            "no calificado"
         );
 
         if (ocNoCalificado) {
@@ -274,7 +281,7 @@ export default function EstadoRegistrado({
 
           <Row gutter={8}>
             <Col span={12}>
-              <Space direction="vertical" style={{ width: "100%" }} size={8}>
+              <Space className="spaceCenter"direction="vertical" style={{ width: "100%" }} size={8}>
                 <div
                   style={{
                     background: "#FFFFFF",
@@ -284,7 +291,7 @@ export default function EstadoRegistrado({
                     justifyContent: "center",
                   }}
                 >
-                  <Space wrap size={10}>
+                  <Space className="spaceCenter" wrap size={10}>
                     {renderActionBtn("Registrado", "#C9C9C9", "#BEBEBE")}
                     {renderActionBtn("Calificado", "#9CBDFD", "#86ACFB")}
                     {renderActionBtn("Potencial", "#9CBDFD", "#86ACFB")}
@@ -295,7 +302,7 @@ export default function EstadoRegistrado({
             </Col>
 
             <Col span={12}>
-              <Space direction="vertical" style={{ width: "100%" }} size={8}>
+              <Space className="spaceCenter" direction="vertical" style={{ width: "100%" }} size={8}>
                 <div
                   style={{
                     background: "#FFFFFF",
@@ -305,7 +312,7 @@ export default function EstadoRegistrado({
                     justifyContent: "center",
                   }}
                 >
-                  <Space wrap size={10}>
+                  <Space className="spaceCenter"wrap size={10}>
                     {renderActionBtn("Cobranza", "#B8F3B8", "#A7E8A7")}
                     {renderActionBtn("Convertido", "#B8F3B8", "#A7E8A7")}
                   </Space>
@@ -321,7 +328,7 @@ export default function EstadoRegistrado({
                     justifyContent: "center",
                   }}
                 >
-                  <Space wrap size={10}>
+                  <Space wrap className="spaceCenter" size={10}>
                     {renderActionBtn("No Calificado", "#F7B1B1", "#F29C9C")}
                     {renderActionBtn("Perdido", "#F7B1B1", "#F29C9C")}
                   </Space>
@@ -350,7 +357,7 @@ export default function EstadoRegistrado({
                   justifyContent: "center",
                 }}
               >
-                <Space wrap size={10}>
+                <Space wrap className="spaceCenter" size={10}>
                   {renderActionBtn("No Calificado", "#F7B1B1", "#F29C9C")}
                   {renderActionBtn("Perdido", "#F7B1B1", "#F29C9C")}
                 </Space>

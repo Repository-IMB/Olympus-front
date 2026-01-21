@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo} from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Layout,
   Table,
@@ -8,9 +8,10 @@ import {
   Spin,
   Alert,
   Tooltip,
-  Input,
   Select,
+  Input,
   DatePicker,
+
 } from "antd";
 import {
   CalendarOutlined,
@@ -26,7 +27,6 @@ import { jwtDecode } from "jwt-decode";
 import api from "../../servicios/api";
 import styles from "./Opportunities.module.css";
 import type { ColumnsType } from "antd/es/table";
-import { useSearchParams } from "react-router-dom";
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -42,12 +42,15 @@ interface Opportunity {
   personaNombre: string;
   nombreEstado: string;
   productoNombre: string;
+  codigoLinkedin?: string;
   fechaCreacion: string;
   personaCorreo: string;
   personaTelefono?: string;
   personalNombre: string;
+  pais: string;
   totalMarcaciones?: number;
   recordatorios: string[];
+  codigoLanzamiento?: string;
 }
 
 interface Asesor {
@@ -57,24 +60,38 @@ interface Asesor {
 }
 
 const getReminderColor = (fechaRecordatorio: string): string => {
-  const now = new Date();
-  const reminderDate = new Date(fechaRecordatorio);
+  const now = new Date().getTime();
+  const recordatorioTime = new Date(fechaRecordatorio).getTime();
 
-  const diffMs = reminderDate.getTime() - now.getTime();
-  const hoursRemaining = diffMs / (1000 * 60 * 60);
+  const diffMs = now - recordatorioTime;
+  const diffHours = diffMs / (1000 * 60 * 60);
 
-  if (hoursRemaining <= 0) return "#bfbfbf"; // pasado
-  if (hoursRemaining <= 5) return "#ff4d4f"; // rojo
-  if (hoursRemaining < 24) return "#ffd666"; // amarillo
-  return "#1677ff"; // azul
+  // 🔵 AÚN NO SE DESACTIVA (futuro)
+  if (diffHours < 0) {
+    const hoursRemaining = Math.abs(diffHours);
+
+    if (hoursRemaining <= 5) return "#ff4d4f"; // rojo (por vencer)
+    if (hoursRemaining < 24) return "#ffd666"; // amarillo
+    return "#1677ff"; // azul
+  }
+
+  // 0 a 1 hora DESPUÉS de desactivarse
+  if (diffHours >= 0 && diffHours < 1) {
+    return "#ff4d4f"; // rojo
+  }
+
+  // 1 a 25 horas DESPUÉS de desactivarse
+  if (diffHours >= 1 && diffHours <= 25) {
+    return "#bfbfbf"; // plomo
+  }
+
+  // Más de 25 horas
+  return "#bfbfbf";
 };
 
 export default function OpportunitiesInterface() {
-  const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
-    useState(false);
-
+  const [isSelectClientModalVisible, setIsSelectClientModalVisible] = useState(false);
   const navigate = useNavigate();
-
   const token = getCookie("token");
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -89,25 +106,46 @@ export default function OpportunitiesInterface() {
   const [totalRecords, setTotalRecords] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
-  const [data, setData] = useState<Opportunity[]>([]);
-  const [total, setTotal] = useState(0);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [filterPais, setFilterPais] = useState<string>(searchParams.get("pais") || "Todos");
+  const [listaPaisesCompleta, setListaPaisesCompleta] = useState<string[]>([]);
+const [data, setData] = useState<Opportunity[]>([]);
+const [total, setTotal] = useState<number>(0);
+
+  // DATA
+  const [allData, setAllData] = useState<Opportunity[]>([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
+  const filterPaisSelect = (input: string, option?: any) => {
+  if (!option?.children) return false;
+  return option.children
+    .toString()
+    .toLowerCase()
+    .includes(input.toLowerCase());
+};
+
   const [dateRange, setDateRange] = useState<
     [Moment | null, Moment | null] | null
   >(null);
 
   const [searchText, setSearchText] = useState(
-    searchParams.get("search") || ""
+    searchParams.get("search") || "",
   );
 
   const [filterEstado, setFilterEstado] = useState(
-    searchParams.get("estado") || "Todos"
+    searchParams.get("estado") || "Todos",
   );
 
+  const [filterCodigoLinkedin, setFilterCodigoLinkedin] =
+    useState<string>("Todos");
+
+  const [codigosLinkedin, setCodigosLinkedin] = useState<string[]>([]);
+  const [loadingCodigosLinkedin, setLoadingCodigosLinkedin] = useState(false);
 
   useEffect(() => {
+    const lastId = sessionStorage.getItem("lastViewedLeadId");
+    if (lastId) setHighlightedId(lastId);
     setSearchParams({
       page: currentPage.toString(),
       pageSize: pageSize.toString(),
@@ -115,7 +153,20 @@ export default function OpportunitiesInterface() {
       estado: filterEstado !== "Todos" ? filterEstado : "",
     });
   }, [currentPage, pageSize, searchText, filterEstado]);
+    
 
+  // Efecto Scroll
+  useEffect(() => {
+    if (!loading && highlightedId) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`row-${highlightedId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, highlightedId]); 
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -156,29 +207,23 @@ export default function OpportunitiesInterface() {
 
   const asesoresUnicos = useMemo(() => {
     const set = new Set<string>();
-    asesores.forEach((a) => {
-      if (a.nombre) set.add(a.nombre);
-    });
+    asesores.forEach((a) => { if (a.nombre) set.add(a.nombre); });
     return Array.from(set).sort();
   }, [asesores]);
 
   const { idUsuario, idRol } = useMemo(() => {
-    let idU = 0;
-    let rNombre = "";
-    let idR = 0;
-
+    let idU = 0; let rNombre = ""; let idR = 0;
     if (!token) return { idUsuario: 0, rolNombre: "", idRol: 0 };
-
     try {
       const decoded = jwtDecode<TokenData>(token);
       idU = parseInt(
         decoded[
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-        ] || "0"
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ] || "0",
       );
       rNombre =
         decoded[
-        "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
         ] || "";
 
       const rolesMap: Record<string, number> = {
@@ -189,20 +234,70 @@ export default function OpportunitiesInterface() {
         Desarrollador: 5,
       };
       idR = rolesMap[rNombre] ?? 0;
-    } catch (e) {
-      console.error("Error al decodificar token (useMemo)", e);
-    }
-
+    } catch (e) { console.error(e); }
     return { idUsuario: idU, rolNombre: rNombre, idRol: idR };
   }, [token]);
 
+  const cargarCodigosLinkedin = async () => {
+    try {
+      setLoadingCodigosLinkedin(true);
+
+      const res = await api.get(
+        "/api/VTAModVentaProducto/ObtenerCodigosUnicos",
+      );
+
+      setCodigosLinkedin(res.data.codigosLinkedin ?? []);
+    } catch (e) {
+      console.error("Error cargando códigos LinkedIn", e);
+      setCodigosLinkedin([]);
+    } finally {
+      setLoadingCodigosLinkedin(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarCodigosLinkedin();
+  }, []);
+
+  // Cargar lista COMPLETA de países (Truco Ninja)
+  useEffect(() => {
+    if (!idUsuario || !idRol) return;
+    const cargarPaises = async () => {
+        try {
+            const res = await api.get("/api/VTAModVentaOportunidad/ObtenerSalesProcess", { 
+                params: { idUsuario, idRol } 
+            });
+            const paisesSet = new Set<string>();
+            const extraer = (lista: any[]) => {
+                if(!lista) return;
+                lista.forEach(item => {
+                    if (item.nombrePais && item.nombrePais !== "Sin País" && item.nombrePais !== "-") {
+                        paisesSet.add(item.nombrePais);
+                    }
+                });
+            };
+            if (res.data?.salesData) {
+                Object.values(res.data.salesData).forEach((lista: any) => extraer(lista));
+            }
+            if (res.data?.otrosEstados) {
+                Object.values(res.data.otrosEstados).forEach((lista: any) => extraer(lista));
+            }
+            setListaPaisesCompleta(Array.from(paisesSet).sort());
+        } catch (e) {
+            console.error("Error cargando lista de países", e);
+        }
+    };
+    cargarPaises();
+  }, [idUsuario, idRol]);
+
+  // CARGA DE DATOS: Traemos TODO de una vez (PageSize grande)
   useEffect(() => {
     if (!idUsuario || !idRol) return;
 
     const fetchData = async () => {
       try {
         setLoading(true);
-
+        // Pedimos una página gigante para simular "Traer Todo" y filtrar en Front
         const res = await api.get(
           "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
           {
@@ -214,10 +309,12 @@ export default function OpportunitiesInterface() {
               search: searchText || null,
               estadoFiltro: filterEstado !== "Todos" ? filterEstado : null,
               asesorFiltro: filterAsesor !== "Todos" ? filterAsesor : null,
+              codigoLinkedinFiltro:
+                filterCodigoLinkedin !== "Todos" ? filterCodigoLinkedin : null,
               fechaInicio: dateRange?.[0]?.format("YYYY-MM-DD") ?? null,
               fechaFin: dateRange?.[1]?.format("YYYY-MM-DD") ?? null,
             },
-          }
+          },
         );
 
         const mapped: Opportunity[] = (res.data.oportunidad ?? []).map(
@@ -227,26 +324,29 @@ export default function OpportunitiesInterface() {
             personaTelefono: op.personaTelefono ?? "",
             nombreEstado: op.nombreEstado ?? "",
             productoNombre: op.productoNombre ?? "",
+            codigoLinkedin: op.codigoLinkedin ?? "-",
             fechaCreacion: op.fechaCreacion,
             personaCorreo: op.personaCorreo ?? "",
             personalNombre: op.personalNombre ?? "",
             totalMarcaciones: op.totalOportunidadesPersona ?? 0,
-
+            pais: op.personaPaisNombre || "Sin país",
+            codigoLanzamiento: op.codigoLanzamiento ?? "",
             recordatorios: op.recordatoriosJson
               ? JSON.parse(op.recordatoriosJson).map(
-                (r: any) => r.FechaRecordatorio
-              )
+                  (r: any) => r.FechaRecordatorio,
+                )
               : [],
-          })
+          }),
         );
 
-        setData(mapped);
+        setAllData(mapped); 
         setTotal(res.data.total ?? 0);
+
       } catch (e: any) {
         setError(
           e?.response?.data?.mensaje ??
-          e?.message ??
-          "Error al obtener oportunidades"
+            e?.message ??
+            "Error al obtener oportunidades",
         );
       } finally {
         setLoading(false);
@@ -262,11 +362,12 @@ export default function OpportunitiesInterface() {
     searchText,
     filterEstado,
     filterAsesor,
+    filterCodigoLinkedin,
     dateRange,
   ]);
 
   const handleClick = (id: number) => {
-    console.log(id)
+    sessionStorage.setItem("lastViewedLeadId", id.toString());
     navigate(`/leads/oportunidades/${id}`);
   };
 
@@ -274,25 +375,19 @@ export default function OpportunitiesInterface() {
     setSearchText("");
     setFilterEstado("Todos");
     setFilterAsesor("Todos");
+    setFilterPais("Todos");
     setDateRange(null);
+    setCurrentPage(1); // Volver a la página 1 al limpiar
   };
 
-  const estadosUnicos = [
-    "Registrado",
-    "Calificado",
-    "Potencial",
-    "Promesa",
-    "Perdido",
-    "Convertido",
-    "Cobranza",
-    "No Calificado",
-  ];
+  const estadosUnicos = ["Registrado", "Calificado", "Potencial", "Promesa", "Perdido", "Convertido", "Cobranza", "No Calificado"];
 
   const columns: ColumnsType<Opportunity> = [
     {
       title: "Fecha y Hora",
       dataIndex: "fechaCreacion",
       key: "fechaCreacion",
+      sorter: (a, b) => new Date(a.fechaCreacion).getTime() - new Date(b.fechaCreacion).getTime(),
       render: (fechaCreacion: string) => (
         <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
           <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
@@ -300,20 +395,9 @@ export default function OpportunitiesInterface() {
             <div style={{ color: "#000000", fontSize: "14px" }}>
               {new Date(fechaCreacion).toLocaleDateString()}
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                color: "#8c8c8c",
-                fontSize: "13px",
-              }}
-            >
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", color: "#8c8c8c", fontSize: "13px" }}>
               <ClockCircleOutlined style={{ fontSize: "12px" }} />
-              {new Date(fechaCreacion).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {new Date(fechaCreacion).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </div>
           </div>
         </div>
@@ -323,6 +407,14 @@ export default function OpportunitiesInterface() {
       title: "Nombre Completo",
       dataIndex: "personaNombre",
       key: "personaNombre",
+      sorter: (a, b) => a.personaNombre.localeCompare(b.personaNombre),
+    },
+    {
+      title: "País",
+      dataIndex: "pais",
+      key: "pais",
+      sorter: (a, b) => a.pais.localeCompare(b.pais),
+      render: (pais: string) => pais || "-",
     },
     {
       title: "Correo",
@@ -342,47 +434,37 @@ export default function OpportunitiesInterface() {
       title: "Estado",
       dataIndex: "nombreEstado",
       key: "nombreEstado",
+      sorter: (a, b) => a.nombreEstado.localeCompare(b.nombreEstado),
       render: (nombreEstado: string) => {
         let color = "green";
-
-        if (nombreEstado === "Calificado") {
-          color = "blue";
-        } else if (nombreEstado === "Registrado") {
-          color = "blue";
-        } else if (nombreEstado === "Potencial") {
-          color = "blue";
-        } else if (nombreEstado === "Promesa") {
-          color = "blue";
-        } else if (nombreEstado === "No calificado") {
-          color = "red";
-        } else if (nombreEstado === "Perdido") {
-          color = "red";
-        }
-
-        return (
-          <Tag
-            color={color}
-            style={{ borderRadius: "12px", padding: "2px 12px" }}
-          >
-            {nombreEstado}
-          </Tag>
-        );
+        if (["Calificado", "Registrado", "Potencial", "Promesa"].includes(nombreEstado)) color = "blue";
+        else if (["No calificado", "Perdido"].includes(nombreEstado)) color = "red";
+        return <Tag color={color} style={{ borderRadius: "12px", padding: "2px 12px" }}>{nombreEstado}</Tag>;
       },
     },
     {
       title: "Programa",
       dataIndex: "productoNombre",
       key: "productoNombre",
+      sorter: (a, b) => a.productoNombre.localeCompare(b.productoNombre),
     },
+    {
+      title: "Código LinkedIn",
+      dataIndex: "codigoLinkedin",
+      key: "codigoLinkedin",
+      sorter: (a: Opportunity, b: Opportunity) =>
+        (a.codigoLinkedin || "").localeCompare(b.codigoLinkedin || ""),
+      render: (codigo: string) =>
+        codigo && codigo !== "-" ? <Tag color="geekblue">{codigo}</Tag> : "-",
+      width: 160,
+    },
+
     {
       title: "Total Marcaciones",
       dataIndex: "totalMarcaciones",
       key: "totalMarcaciones",
-      render: (totalMarcaciones: number) => (
-        <span>
-          {typeof totalMarcaciones === "number" ? totalMarcaciones : "-"}
-        </span>
-      ),
+      sorter: (a, b) => (a.totalMarcaciones ?? 0) - (b.totalMarcaciones ?? 0),
+      render: (val) => <span>{typeof val === "number" ? val : "-"}</span>,
       align: "center",
       width: 140,
     },
@@ -390,10 +472,8 @@ export default function OpportunitiesInterface() {
       title: "Recordatorio",
       key: "recordatorios",
       width: 240,
-      render: (_: any, record: Opportunity) =>
-        record.recordatorios.length === 0 ? (
-          "-"
-        ) : (
+      render: (_, record) =>
+        record.recordatorios.length === 0 ? "-" : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {record.recordatorios
               .slice(0, 3)
@@ -428,23 +508,16 @@ export default function OpportunitiesInterface() {
       title: "Asesor",
       dataIndex: "personalNombre",
       key: "personalNombre",
-      sorter: (a: Opportunity, b: Opportunity) =>
-        (a.personalNombre || "").localeCompare(b.personalNombre || ""),
-      render: (personalNombre: string) => personalNombre || "-",
+      sorter: (a, b) => (a.personalNombre || "").localeCompare(b.personalNombre || ""),
+      render: (val) => val || "-",
     },
     {
       title: "Acciones",
       key: "actions",
       align: "center",
-      render: (_: any, record: Opportunity) => (
+      render: (_, record) => (
         <Tooltip title="Ver Detalle">
-          <Button
-            type="primary"
-            icon={<EyeOutlined />}
-            size="small"
-            style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
-            onClick={() => handleClick(record.id)}
-          />
+          <Button type="primary" icon={<EyeOutlined />} size="small" style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }} onClick={() => handleClick(record.id)} />
         </Tooltip>
       ),
     },
@@ -457,98 +530,79 @@ export default function OpportunitiesInterface() {
         style={{
           marginBottom: "20px",
           display: "flex",
-          justifyContent: "flex-end",
+          justifyContent: "right",
+          alignContent: "right",
           gap: "10px",
         }}
       >
         {idRol !== 1 && (
-          <Button
-            style={{ borderRadius: "6px" }}
-            onClick={() => setIsSelectClientModalVisible(true)}
-          >
+          <Button style={{ borderRadius: "6px" }} onClick={() => setIsSelectClientModalVisible(true)}>
             Agregar Oportunidad
           </Button>
         )}
-        <Button
-          style={{ borderRadius: "6px" }}
-          onClick={() => navigate("/leads/SalesProcess")}
-        >
+        <Button style={{ borderRadius: "6px" }} onClick={() => navigate("/leads/SalesProcess")}>
           Vista de Proceso
         </Button>
-        <Button
-          type="primary"
-          style={{
-            background: "#1f1f1f",
-            borderColor: "#1f1f1f",
-            borderRadius: "6px",
-          }}
-        >
+        <Button type="primary" style={{ background: "#1f1f1f", borderColor: "#1f1f1f", borderRadius: "6px" }}>
           Vista de Tabla
         </Button>
       </div>
 
-      <SelectClient
-        visible={isSelectClientModalVisible}
-        onClose={() => setIsSelectClientModalVisible(false)}
-      />
+      <SelectClient visible={isSelectClientModalVisible} onClose={() => setIsSelectClientModalVisible(false)} />
 
       <div className={styles.card}>
         <h1 className={styles.title}>Oportunidades</h1>
 
-        {/* Filtros */}
-        <div
-          style={{
-            marginBottom: "20px",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "12px",
-            alignItems: "center",
-          }}
-        >
-          <Input
-            placeholder="Buscar por nombre, correo, programa o ID"
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            className={styles.searchInput}
-            allowClear
-          />
-          <Select
-            value={filterEstado}
-            onChange={setFilterEstado}
-            placeholder="Seleccionar estado"
-            style={{ width: "200px", borderRadius: "6px" }}
-            showSearch
-            virtual={false}
-            listHeight={220}
-            optionFilterProp="children"
-          >
+        <div style={{ marginBottom: "20px", display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
+          <Input placeholder="Buscar por nombre, correo, programa, ID o cód. lanzamiento" prefix={<SearchOutlined />} value={searchText} onChange={(e) => setSearchText(e.target.value)} className={styles.searchInput} allowClear />
+          
+          <Select value={filterEstado} onChange={setFilterEstado} placeholder="Seleccionar estado" style={{ width: "200px", borderRadius: "6px" }} showSearch virtual={false} listHeight={220} optionFilterProp="children">
             <Option value="Todos">Todos los estados</Option>
-            {estadosUnicos.map((estado) => (
-              <Option key={estado} value={estado}>
-                {estado}
-              </Option>
-            ))}
+            {estadosUnicos.map((estado) => <Option key={estado} value={estado}>{estado}</Option>)}
           </Select>
-          <Select
-            showSearch
-            value={filterAsesor}
-            onChange={setFilterAsesor}
-            placeholder="Seleccionar asesor"
-            style={{ width: "200px", borderRadius: "6px" }}
-            disabled={asesoresUnicos.length === 0}
-            virtual={false}
-            listHeight={220}
-            optionFilterProp="children"
-          >
+          
+          <Select showSearch value={filterAsesor} onChange={setFilterAsesor} placeholder="Seleccionar asesor" style={{ width: "200px", borderRadius: "6px" }} disabled={asesoresUnicos.length === 0} virtual={false} listHeight={220} optionFilterProp="children">
             <Option value="Todos">Todos los asesores</Option>
             <Option value="SIN ASESOR">SIN ASESOR</Option>
-            {asesoresUnicos.map((a) => (
-              <Option key={a} value={a}>
-                {a}
+            {asesoresUnicos.map((a) => <Option key={a} value={a}>{a}</Option>)}
+          </Select>
+
+          <Select 
+            showSearch 
+            value={filterPais} 
+            onChange={setFilterPais} 
+            placeholder="Seleccionar país" 
+            style={{ width: "200px", borderRadius: "6px" }} 
+            virtual={false} 
+            autoClearSearchValue={false}
+            dropdownMatchSelectWidth={false}
+            dropdownStyle={{ maxHeight: 260, overflow: "auto" }}
+            filterOption={filterPaisSelect}
+            optionFilterProp="children"
+          >
+            <Option value="Todos">Todos los países</Option>
+            {listaPaisesCompleta.map((p) => <Option key={p} value={p}>{p}</Option>)}
+          </Select>
+          <Select
+            value={filterCodigoLinkedin}
+            onChange={setFilterCodigoLinkedin}
+            placeholder="Código LinkedIn"
+            style={{ width: "200px", borderRadius: "6px" }}
+            loading={loadingCodigosLinkedin}
+            showSearch
+            virtual={false}
+            listHeight={220}
+            optionFilterProp="children"
+          >
+            <Option value="Todos">Todos códigos LinkedIn</Option>
+
+            {codigosLinkedin.map((codigo) => (
+              <Option key={codigo} value={codigo}>
+                {codigo}
               </Option>
             ))}
           </Select>
+
           <RangePicker
             value={dateRange}
             onChange={(dates) =>
@@ -564,36 +618,31 @@ export default function OpportunitiesInterface() {
         </div>
 
         {loading ? (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              height: "50vh",
-            }}
-          >
-            <Spin size="large" />
-          </div>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "50vh" }}><Spin size="large" /></div>
         ) : error ? (
           <Alert message="Error" description={error} type="error" showIcon />
         ) : (
           <Table
             columns={columns}
-            dataSource={data}
+            dataSource={allData} 
             rowKey="id"
             loading={loading}
+            onRow={(record) => ({
+                id: `row-${record.id}`,
+                style: record.id.toString() === highlightedId ? {
+                    backgroundColor: "#e6f7ff", 
+                    transition: "background-color 0.5s ease"
+                } : undefined,
+                onClick: () => handleClick(record.id)
+            })}
             pagination={{
               current: currentPage,
               pageSize,
               total,
               showSizeChanger: true,
               pageSizeOptions: ["10", "20", "50", "100"],
-              onChange: (page, size) => {
-                setCurrentPage(page);
-                if (size) setPageSize(size);
-              },
-              showTotal: (total, range) =>
-                `${range[0]}-${range[1]} de ${total}`,
+              onChange: (page, size) => { setCurrentPage(page); if (size) setPageSize(size); },
+              showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
             }}
           />
         )}

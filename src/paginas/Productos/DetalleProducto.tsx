@@ -36,7 +36,6 @@ const coloresModulos = [
   '#722ed1', // violeta
 ];
 
-
 export default function DetalleProducto() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -49,17 +48,14 @@ export default function DetalleProducto() {
   const [moduloBuscado, setModuloBuscado] = useState<number | null>(null);
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [modulos, setModulos] = useState<Modulo[]>([]);
+  
+  // Inicializamos como array vacío para evitar errores
   const [modulosDisponibles, setModulosDisponibles] = useState<any[]>([]);
 
-
   /* =========================
-     CARGAR PRODUCTO POR ID
+      CARGAR PRODUCTO POR ID
   ========================= */
   useEffect(() => {
-    console.log("🔵 DetalleProducto - useParams completo:", { id });
-    console.log("🔵 DetalleProducto - ID del parámetro:", id);
-    console.log("🔵 DetalleProducto - Tipo de ID:", typeof id);
-    console.log("🔵 DetalleProducto - ID convertido a número:", Number(id));
     const cargarDatos = async () => {
       try {
         setLoading(true);
@@ -72,9 +68,17 @@ export default function DetalleProducto() {
         const tiposData = await obtenerTiposEstadoProducto();
         setTiposEstadoProducto(tiposData);
 
-        // Cargar todos los módulos disponibles
-        const todosLosModulos = await obtenerModulos();
-        setModulosDisponibles(todosLosModulos);
+        // 🟢 CORRECCIÓN AQUÍ: Cargar todos los módulos disponibles (formato paginado)
+        // Pedimos página 1 con 1000 registros para llenar el combo
+        const responseModulos: any = await obtenerModulos("", 1, 1000);
+        
+        if (responseModulos && Array.isArray(responseModulos.modulos)) {
+            setModulosDisponibles(responseModulos.modulos);
+        } else if (Array.isArray(responseModulos)) {
+            setModulosDisponibles(responseModulos);
+        } else {
+            setModulosDisponibles([]);
+        }
 
         // Cargar producto
         if (id) {
@@ -400,7 +404,7 @@ export default function DetalleProducto() {
 
           {/* =========================
           TABLA DE MÓDULOS
-         ========================= */}
+          ========================= */}
           <Card style={{ marginBottom: 16 }}>
             <div style={{
               display: 'flex',
@@ -442,13 +446,13 @@ export default function DetalleProducto() {
 
           {/* =========================
           VISTA CALENDARIO
-         ========================= */}
+          ========================= */}
           <Card>
             <h4 className={styles.title}>Vista calendario de módulos del producto</h4>
 
             {/* =========================
             INFO DEL MODULO (OPCIONAL)
-          ========================= */}
+            ========================= */}
             {moduloSeleccionado && (
               <div style={{
                 backgroundColor: '#f5f5f5',
@@ -518,7 +522,7 @@ export default function DetalleProducto() {
 
             {/* =========================
             CALENDARIO (SIEMPRE)
-          ========================= */}
+            ========================= */}
             <Calendar
               dateCellRender={(date) => {
                 const dateStr = date.format("YYYY-MM-DD");
@@ -641,7 +645,7 @@ export default function DetalleProducto() {
 
           {/* =========================
           MODAL ASIGNAR MÓDULO
-         ========================= */}
+          ========================= */}
           <Modal
             title="Asignar módulo al producto"
             open={modalAsignarVisible}
@@ -672,14 +676,18 @@ export default function DetalleProducto() {
                 style={{ width: '100%' }}
                 value={moduloBuscado || undefined}
                 onChange={(value) => setModuloBuscado(value)}
+                // 🟢 CORRECCIÓN AQUÍ: Blindaje contra nulos en el filtro
                 filterOption={(input, option) => {
-                  const modulo = modulosDisponibles.find(m => m.id === option?.value);
-                  if (!modulo) return false;
+                  const mod = (Array.isArray(modulosDisponibles) ? modulosDisponibles : []).find(m => m.id === option?.value);
+                  if (!mod) return false;
                   const searchText = input.toLowerCase();
-                  return modulo.nombre.toLowerCase().includes(searchText);
+                  return mod.nombre.toLowerCase().includes(searchText);
                 }}
               >
-                {modulosDisponibles.filter(mod => mod.estado).map(mod => (
+                {/* 🟢 CORRECCIÓN AQUÍ: Blindaje contra nulos en el map */}
+                {(Array.isArray(modulosDisponibles) ? modulosDisponibles : [])
+                    .filter(mod => mod && mod.estado)
+                    .map(mod => (
                   <Select.Option key={mod.id} value={mod.id}>
                     {mod.nombre}
                   </Select.Option>
@@ -690,7 +698,7 @@ export default function DetalleProducto() {
 
           {/* =========================
           MODAL EDITAR PRODUCTO
-         ========================= */}
+          ========================= */}
           <ModalProducto
             visible={modalEditarVisible}
             modo="editar"

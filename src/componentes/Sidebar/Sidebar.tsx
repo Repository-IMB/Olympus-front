@@ -10,6 +10,7 @@ import {
   BookOutlined,
   ReadOutlined,
   IdcardOutlined,
+  BlockOutlined,
   TeamOutlined,
   FileTextOutlined,
   SafetyCertificateOutlined,
@@ -39,6 +40,12 @@ export default function Sidebar({
 
   const puedeVerLeads = permisos.leads || permisos.asignacion;
 
+  // ✅ Navega y CIERRA el menú lateral
+  const navigateAndClose = (path: string) => {
+    onNavigate(path);
+    onToggleMenu(null);
+  };
+
   return (
     <div className={styles.container}>
       {/* LOGO */}
@@ -48,6 +55,18 @@ export default function Sidebar({
       </div>
 
       <div className={styles.menuContainer}>
+        {/* ================= DASHBOARD ================= */}
+        <div
+          className={`${styles.menuItem} ${
+            isActive("/") || isActive("/dashboard")
+              ? styles.menuItemActive
+              : ""
+          }`}
+          onClick={() => navigateAndClose("/")}
+        >
+          <DashboardOutlined /> Dashboard
+        </div>
+
         {/* ================= LEADS ================= */}
         {puedeVerLeads && (
           <div className={styles.menuSection}>
@@ -60,7 +79,11 @@ export default function Sidebar({
               <span className={styles.menuHeaderContent}>
                 <PhoneOutlined /> Leads
               </span>
-              {openMenu === "Leads" ? <CaretUpOutlined /> : <CaretDownOutlined />}
+              {openMenu === "Leads" ? (
+                <CaretUpOutlined />
+              ) : (
+                <CaretDownOutlined />
+              )}
             </div>
 
             {openMenu === "Leads" && (
@@ -72,7 +95,9 @@ export default function Sidebar({
                         ? styles.menuItemActive
                         : ""
                     }`}
-                    onClick={() => onNavigate("/leads/SalesProcess")}
+                    onClick={() =>
+                      navigateAndClose("/leads/SalesProcess")
+                    }
                   >
                     <AppstoreOutlined /> Oportunidades
                   </div>
@@ -81,11 +106,11 @@ export default function Sidebar({
                 {permisos.asignacion && (
                   <div
                     className={`${styles.menuItem} ${
-                      isActive("/leads/asignacion")
-                        ? styles.menuItemActive
-                        : ""
+                      isActive("/leads/asignacion") ? styles.menuItemActive : ""
                     }`}
-                    onClick={() => onNavigate("/leads/asignacion")}
+                    onClick={() =>
+                      navigateAndClose("/leads/asignacion")
+                    }
                   >
                     <DashboardOutlined /> Asignación
                   </div>
@@ -101,7 +126,9 @@ export default function Sidebar({
             <div
               className={styles.menuHeader}
               onClick={() =>
-                onToggleMenu(openMenu === "Desarrollo" ? null : "Desarrollo")
+                onToggleMenu(
+                  openMenu === "Desarrollo" ? null : "Desarrollo"
+                )
               }
             >
               <span className={styles.menuHeaderContent}>
@@ -117,25 +144,54 @@ export default function Sidebar({
             {openMenu === "Desarrollo" && (
               <div className={styles.menuItems}>
                 <div
-                  className={styles.menuItem}
+                  className={`${styles.menuItem} ${
+                    isActive("/producto/departamentos")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
                   onClick={() => onNavigate("/producto/departamentos")}
                 >
                   <ContainerOutlined /> Departamentos
                 </div>
+
                 <div
-                  className={styles.menuItem}
+                  className={`${styles.menuItem} ${
+                    isActive("/producto/docentes")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
                   onClick={() => onNavigate("/producto/docentes")}
                 >
                   <BookOutlined /> Docentes
                 </div>
+
                 <div
-                  className={styles.menuItem}
+                  className={`${styles.menuItem} ${
+                    isActive("/producto/modulos")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
+                  onClick={() => onNavigate("/producto/modulos")}
+                >
+                  <BlockOutlined /> Módulos
+                </div>
+                <div
+                  className={`${styles.menuItem} ${
+                    isActive("/producto/productos")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
                   onClick={() => onNavigate("/producto/productos")}
                 >
                   <ReadOutlined /> Productos
                 </div>
+
                 <div
-                  className={styles.menuItem}
+                  className={`${styles.menuItem} ${
+                    isActive("/producto/alumnos")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
                   onClick={() => onNavigate("/producto/alumnos")}
                 >
                   <IdcardOutlined /> Alumnos
@@ -150,7 +206,9 @@ export default function Sidebar({
           <div className={styles.menuSection}>
             <div
               className={styles.menuHeader}
-              onClick={() => onNavigate("/logistica/activos")}
+              onClick={() =>
+                navigateAndClose("/logistica/activos")
+              }
             >
               <span className={styles.menuHeaderContent}>
                 <ContainerOutlined /> Gestión de activos
@@ -241,7 +299,9 @@ export default function Sidebar({
             <div
               className={styles.menuHeader}
               onClick={() =>
-                onToggleMenu(openMenu === "Usuarios" ? null : "Usuarios")
+                onToggleMenu(
+                  openMenu === "Usuarios" ? null : "Usuarios"
+                )
               }
             >
               <span className={styles.menuHeaderContent}>
@@ -258,11 +318,11 @@ export default function Sidebar({
               <div className={styles.menuItems}>
                 <div
                   className={`${styles.menuItem} ${
-                    isActive("/usuarios/usuarios")
-                      ? styles.menuItemActive
-                      : ""
+                    isActive("/usuarios/usuarios") ? styles.menuItemActive : ""
                   }`}
-                  onClick={() => onNavigate("/usuarios/usuarios")}
+                  onClick={() =>
+                    navigateAndClose("/usuarios/usuarios")
+                  }
                 >
                   <DashboardOutlined /> Mantenimiento
                 </div>

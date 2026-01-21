@@ -14,7 +14,7 @@ import {
   Col,
   Tooltip,
 } from "antd";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   SearchOutlined,
   EditOutlined,
@@ -97,10 +97,27 @@ export default function Usuarios() {
   const [total, setTotal] = useState(0);
   const navigate = useNavigate();
   const [accesoDenegado, setAccesoDenegado] = useState(false);
+  const searchInputRef = useRef<any>(null);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchText, filterRol, filterEstado]);
+
+  // Efecto con debounce para el searchText
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      cargarUsuarios();
+    }, 500); // Espera 500ms después de que el usuario deje de escribir
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchText]);
+
+  // Mantener el foco en el input de búsqueda después de cargar
+  useEffect(() => {
+    if (!loading && searchText && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [loading]);
 
   useEffect(() => {
     cargarUsuarios();
@@ -207,6 +224,11 @@ export default function Usuarios() {
         pageSize: pageSize.toString(),
       });
 
+      // AGREGAR EL PARÁMETRO DE BÚSQUEDA
+      if (searchText && searchText.trim() !== "") {
+        params.append("search", searchText.trim());
+      }
+
       if (filterRol !== null) {
         params.append("idRol", filterRol.toString());
       }
@@ -259,7 +281,7 @@ export default function Usuarios() {
       console.error(err);
       message.error("Error al cargar usuarios");
     } finally {
-      setLoading(false); // ✅ CLAVE
+      setLoading(false);
     }
   };
 
@@ -491,6 +513,7 @@ export default function Usuarios() {
         <div className={estilos.toolbar}>
           <div className={estilos.searchBar}>
             <Input
+              ref={searchInputRef}
               placeholder="Buscar por nombre, apellido, correo o usuario"
               prefix={<SearchOutlined />}
               className={estilos.searchInput}
@@ -681,7 +704,7 @@ export default function Usuarios() {
               <Form.Item label="Rol" name="idRol" rules={[{ required: true }]}>
                 <Select
                   placeholder="Seleccione rol"
-                  getPopupContainer={() => document.body} // <- importante
+                  getPopupContainer={() => document.body}
                   placement="bottomLeft"
                 >
                   {roles.map((r) => (

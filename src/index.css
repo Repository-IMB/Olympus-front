@@ -203,3 +203,8 @@ button:focus-visible { outline: 4px auto -webkit-focus-ring-color; }
 .ant-menu-dark .ant-menu-sub {
   background: transparent !important;
 }
+
+.spaceCenter {
+  width: 100%;
+  justify-content: center;
+}
