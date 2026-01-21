@@ -43,6 +43,9 @@ import DetalleProducto from "./paginas/Productos/DetalleProducto";
 import DetalleModulo from "./paginas/Modulos/DetalleModulo";
 import DetalleAlumno from "./paginas/Alumnos/DetalleAlumno";
 
+// Logística
+import Activos from "./paginas/Activos/Activos";
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -174,6 +177,16 @@ function App() {
             <Route path="modulos/detalle/:id" element={<DetalleModulo />} />
             <Route path="alumnos/detalle/:id" element={<DetalleAlumno />} />
           </Route>
+
+          {/* ======================= LOGÍSTICA ======================= */}
+          <Route
+            path="/logistica/activos"
+            element={
+              <ProtectedContent permiso="logistica">
+                <Activos />
+              </ProtectedContent>
+            }
+          />
 
           {/* ======================= USUARIOS ======================= */}
           <Route

@@ -1,0 +1,53 @@
+.modal :global(.ant-modal-header) {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 24px;
+}
+
+.modal :global(.ant-modal-title) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f1f1f;
+}
+
+.modal :global(.ant-modal-body) {
+  padding: 24px;
+}
+
+.form {
+  margin-top: 8px;
+}
+
+.form :global(.ant-form-item-label > label) {
+  font-weight: 500;
+  color: #595959;
+}
+
+.form :global(.ant-input),
+.form :global(.ant-select-selector) {
+  border-radius: 6px;
+}
+
+.submitButton {
+  height: 40px;
+  border-radius: 6px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 767px) {
+  .modal :global(.ant-modal-body) {
+    padding: 16px;
+  }
+
+  .form :global(.ant-input),
+  .form :global(.ant-select-selector) {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .submitButton {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
