@@ -261,13 +261,11 @@ export default function ModalModulo({
             payload.horaFinAsync = horarioAsync?.horaFin || "00:00:00";
 
         } else {
-            // 🟢 CASO B: REGENERAR O NUEVO (LÓGICA CORREGIDA)
+            // 🟢 CASO B: REGENERAR O NUEVO (CORREGIDO AQUI)
             
-            // 1. INPUT DEL USUARIO = TOTAL ABSOLUTO
-            const inputTotal = Number(values.nroSesiones || 0);
-            const inputAsync = Number(values.nroSesionesAsync || 0);
+            const inputSync = Number(values.nroSesiones || 0); // Lo que el usuario ve como "Sesiones" (Sincrónicas)
+            const inputAsync = Number(values.nroSesionesAsync || 0); // Asincrónicas
 
-            // 2. DETECTAR PRESENTACIÓN
             let inputPres = 0;
             if (values.fechaPresentacion && moment(values.fechaPresentacion).isValid()) {
                  inputPres = 1;
@@ -280,20 +278,27 @@ export default function ModalModulo({
                 payload.fechaInicio = moment(values.fechaInicio).format("YYYY-MM-DD");
             }
 
-            // 3. ASIGNACIÓN DIRECTA
-            // No sumamos nada. El usuario ingresó el Total y nosotros le decimos al SP cómo desglosarlo.
-            payload.numeroSesiones = inputTotal; 
+            // ⚠️ CORRECCIÓN CLAVE: Enviamos la SUMA TOTAL al backend en 'numeroSesiones'
+            // El backend usa esto como Total. Si le mandas solo Sync, restará Async y te dará menos sesiones.
+            payload.numeroSesiones = inputSync + inputAsync + inputPres; 
+            
             payload.numeroSesionesAsincronicas = inputAsync;
             payload.numeroSesionesPresentacion = inputPres;
 
             payload.duracionHoras = Number(values.duracionHoras || 0);
 
-            // 4. DATOS SÍNCRONOS
+            // DATOS SÍNCRONOS
             payload.diasClase = diasClase.join(",");
             payload.horaInicioSync = values.horaInicio ? moment(values.horaInicio).format("HH:mm:ss") : "00:00:00";
             payload.horaFinSync = values.horaFin ? moment(values.horaFin).format("HH:mm:ss") : "00:00:00";
 
-            // 5. DATOS ASÍNCRONOS
+            // DATOS SÁBADO (Si aplica)
+            if (diasClase.includes("6")) {
+                 payload.horaInicioSabado = values.horaInicioSabado ? moment(values.horaInicioSabado).format("HH:mm:ss") : "00:00:00";
+                 payload.horaFinSabado = values.horaFinSabado ? moment(values.horaFinSabado).format("HH:mm:ss") : "00:00:00";
+            }
+
+            // DATOS ASÍNCRONOS
             if (inputAsync > 0) {
                 payload.diasAsync = ""; 
                 payload.horaInicioAsync = values.horaInicioAsync ? moment(values.horaInicioAsync).format("HH:mm:ss") : "00:00:00";

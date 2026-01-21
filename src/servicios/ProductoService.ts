@@ -3,6 +3,13 @@ import type { Estadistica, Objetivo, TipoEstadoProducto, Producto } from "../int
 
 export type { Estadistica, Objetivo, TipoEstadoProducto, Producto };
 
+export interface PersonalCombo {
+  id: number;
+  nombres: string;
+  apellidos: string;
+  dni: string;
+}
+
 export const baseUrl: string =
   (import.meta.env.VITE_API_URL as string) || "http://localhost:7020";
 
@@ -21,6 +28,16 @@ export const obtenerProductos = async (
     params: { search, page, pageSize, estadoProductoId }
   });
   return response.data; 
+};
+
+export const obtenerPersonalDesarrollo = async (): Promise<PersonalCombo[]> => {
+  try {
+    const response = await api.get("/api/VTAModVentaProducto/ObtenerPersonalDesarrollo");
+    return response.data;
+  } catch (error) {
+    console.error("Error obteniendo personal:", error);
+    return [];
+  }
 };
 
 /* =========================

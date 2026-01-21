@@ -49,6 +49,8 @@ export interface Producto {
 
   frasePrograma: string;
 
+  personalCreacion?: number | null;
+
   horasAsincronicas: number;
   horasSincronicas: number;
 

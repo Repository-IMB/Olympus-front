@@ -26,30 +26,13 @@ import { useState, useEffect } from "react";
 import ModalEditarProducto from "../Productos/ModalProducto";
 import ModalModulo from "./ModalModulo";
 import { obtenerModuloPorId, actualizarModulo, type IModulo } from "../../servicios/ModuloService";
+import { obtenerDocentes, type Docente } from "../../servicios/DocenteService";
+import { asignarDocenteAModulo } from "../../servicios/EstructuraCurricularModuloService";
 
 const departamentos = [
   { id: 1, nombre: "Ventas" },
   { id: 2, nombre: "Marketing" },
   { id: 3, nombre: "Administración" },
-];
-
-const modalidad = [
-  { id: 1, nombre: "Sincrónica" },
-  { id: 2, nombre: "Asincrónica" },
-  { id: 3, nombre: "Híbrida" },
-];
-
-const estados = [
-  { id: 1, nombre: "En curso" },
-  { id: 2, nombre: "Cancelado" },
-  { id: 3, nombre: "Postergado" },
-  { id: 4, nombre: "Finalizado" },
-  { id: 5, nombre: "No llamar nuevos" },
-  { id: 6, nombre: "Piloto" },
-  { id: 7, nombre: "En curso" },
-  { id: 8, nombre: "Preventa" },
-  { id: 9, nombre: "En venta" },
-  { id: 10, nombre: "Grupo completo" },
 ];
 
 // Datos mock temporales para productos, docentes y sesiones
@@ -65,19 +48,6 @@ const productosAsociados = [
   },
 ];
 
-const docentesAsociados = [
-  {
-    id: 1,
-    nombre: "Ana Pérez",
-    apellido: "Sánchez",
-    correo: "ana.perez@email.com",
-    pais: "México",
-    alias: "Ana P.",
-    areaTematica: "Finanzas",
-    estado: "Activo",
-  },
-];
-
 const sesionesVivo = [
   {
     id: 1,
@@ -88,19 +58,6 @@ const sesionesVivo = [
     tipo: "Teórica",
   },
 ];
-
-const obtenerLetraDia = (nombreCompleto: string): string => {
-  const mapeo: Record<string, string> = {
-    "Domingo": "D",
-    "Lunes": "L",
-    "Martes": "M",
-    "Miércoles": "X",
-    "Jueves": "J",
-    "Viernes": "V",
-    "Sábado": "S",
-  };
-  return mapeo[nombreCompleto] || nombreCompleto;
-};
 
 const obtenerNombreCompletoDia = (numero: string): string => {
   const mapeo: Record<string, string> = {
@@ -121,6 +78,9 @@ export default function DetalleModulo() {
 
   const [modulo, setModulo] = useState<IModulo | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [listaDocentes, setListaDocentes] = useState<Docente[]>([]);
+  const [loadingDocentes, setLoadingDocentes] = useState(false);
 
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [modalAsociarProductoVisible, setModalAsociarProductoVisible] = useState(false);
@@ -158,9 +118,13 @@ export default function DetalleModulo() {
   const handleSubmitModalEditar = async (values: any) => {
     try {
       if (modulo) {
-        await actualizarModulo(modulo.id!, values, true);
+        
+        const preserveSessions = values.preserveSessions === true;
+        
+        await actualizarModulo(modulo.id!, values, preserveSessions);
+        
         message.success("Módulo actualizado correctamente");
-        await cargarModulo(); // Recargar datos
+        await cargarModulo(); 
       }
       setModalEditarVisible(false);
     } catch (error: any) {
@@ -189,18 +153,66 @@ export default function DetalleModulo() {
       });
   };
 
-  const abrirModalAsignarDocente = () => {
+  const abrirModalAsignarDocente = async () => {
     formAsignarDocente.resetFields();
     setModalAsignarDocenteVisible(true);
+    
+    // Si aún no tenemos la lista de docentes, la cargamos
+    if (listaDocentes.length === 0) {
+        try {
+            setLoadingDocentes(true);
+            const docentesData = await obtenerDocentes();
+            setListaDocentes(docentesData);
+        } catch (error) {
+            console.error("Error cargando docentes", error);
+            message.error("No se pudo cargar la lista de docentes");
+        } finally {
+            setLoadingDocentes(false);
+        }
+    }
+    
+    // Si el módulo ya tiene un docente asignado (idDocente), pre-llenamos el select
+    if (modulo?.idDocente) {
+        formAsignarDocente.setFieldsValue({ docenteId: modulo.idDocente });
+    }
   };
 
   const asignarDocenteAlModulo = () => {
     formAsignarDocente
       .validateFields()
-      .then((values) => {
-        console.log("Docente asignado al módulo:", values);
-        // POST / PUT al backend
-        setModalAsignarDocenteVisible(false);
+      .then(async (values) => {
+        try {
+            // 🟢 CORRECCIÓN: Usamos 'estructuraCurricularModuloId' Y si no existe, usamos 'id'.
+            // Como estás en el detalle de un módulo específico, 'modulo.id' suele ser la clave primaria que necesitamos.
+            const idParaAsignar = modulo?.estructuraCurricularModuloId || modulo?.id;
+
+            if (!idParaAsignar) {
+                message.error("Error de datos: Falta ID de estructura curricular");
+                return;
+            }
+
+            setLoading(true); 
+            
+            const resp = await asignarDocenteAModulo(
+                idParaAsignar,  // <--- Usamos la variable corregida
+                values.docenteId
+            );
+
+            if (resp.codigo === "SIN_ERROR" || resp.codigo === "200") {
+                message.success("Docente asignado correctamente");
+                setModalAsignarDocenteVisible(false);
+                await cargarModulo(); 
+            } else {
+                message.error(resp.mensaje || "Error al asignar");
+            }
+
+        } catch (error: any) {
+            console.error(error);
+            const msg = error?.response?.data?.mensaje || "Error al conectar con el servidor";
+            message.error(msg);
+        } finally {
+            setLoading(false);
+        }
       });
   };
 
@@ -273,10 +285,17 @@ export default function DetalleModulo() {
     },
   ];
 
+
+  const datosDocenteTabla = modulo?.idDocente ? [{
+      id: modulo.idDocente,
+      nombre: modulo.docenteNombre || 'Docente', // Asegúrate que tu SP devuelva 'DocenteNombre' o similar
+      // Si tu SP no devuelve apellidos/correo, solo mostrarás el nombre completo que venga
+      estado: 'Activo' 
+  }] : [];
   // Columnas para docentes asociados
   const columnasDocentes: ColumnsType<any> = [
     {
-      title: 'Nombre',
+      title: 'DocenteAsignado',
       dataIndex: 'nombre',
       key: 'nombre',
       sorter: (a, b) => a.nombre.localeCompare(b.nombre),
@@ -317,7 +336,7 @@ export default function DetalleModulo() {
       key: 'estado',
       sorter: (a, b) => a.estado.localeCompare(b.estado),
       render: (estado: string) => (
-        <Tag color={estado === 'Activo' ? 'green' : 'red'}>{estado}</Tag>
+        <Tag color={estado === 'Asignado' ? 'green' : 'red'}>{estado}</Tag>
       ),
     },
   ];
@@ -458,7 +477,7 @@ export default function DetalleModulo() {
           <Item label="Fecha de presentación" value={modulo.fechaPresentacion || '-'} />
           <Item label="Fecha final" value={modulo.fechaFinPorSesiones || '-'} />
           <Item label="Horas sincrónicas" value={modulo.horasSincronicas || 0} />
-          <Item label="Horas asincrónicas" value={modulo.horasAsincronicas || 0} />
+          {/* <Item label="Horas asincrónicas" value={modulo.horasAsincronicas || 0} /> */}
           <Item label="Días de clase" value={diasClaseNombres} />
           <Item label="Código de producto relacionado" value={modulo.productosCodigoLanzamiento || '-'} />
           <Item
@@ -544,7 +563,7 @@ export default function DetalleModulo() {
           marginBottom: 16
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
-            Docentes asociados al módulo
+            Docente responsable
           </h4>
           <Button
             type="primary"
@@ -555,16 +574,17 @@ export default function DetalleModulo() {
             }}
             onClick={abrirModalAsignarDocente}
           >
-            Cambiar docente asignado al módulo
+            {modulo?.idDocente ? "Cambiar docente" : "Asignar docente"}
           </Button>
         </div>
 
         <Table
-          dataSource={docentesAsociados}
+          dataSource={datosDocenteTabla}
           columns={columnasDocentes}
           rowKey="id"
           pagination={false}
           size="small"
+          locale={{ emptyText: "No hay docente asignado a este módulo" }}
         />
       </Card>
 
@@ -669,7 +689,7 @@ export default function DetalleModulo() {
         </Form>
       </Modal>
 
-      {/* MODAL ASIGNAR DOCENTE */}
+      {/* MODAL ASIGNAR DOCENTE (ACTUALIZADO CON SELECT REAL) */}
       <Modal
         open={modalAsignarDocenteVisible}
         title="Asignar Docente al módulo"
@@ -688,32 +708,31 @@ export default function DetalleModulo() {
             rules={[{ required: true, message: "Seleccione un docente" }]}
           >
             <Select
-              placeholder="Seleccione un docente"
+              placeholder="Busque y seleccione un docente"
               showSearch
-              optionFilterProp="label"
-            >
-              <Select.Option value={1} label="Ana Pérez">
-                Ana Pérez
-              </Select.Option>
-              <Select.Option value={2} label="Juan Gómez">
-                Juan Gómez
-              </Select.Option>
-              <Select.Option value={3} label="Brookelyn Price">
-                Brookelyn Price
-              </Select.Option>
-            </Select>
+              loading={loadingDocentes}
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={listaDocentes.map(doc => ({
+                value: doc.id,
+                label: `${doc.nombres} ${doc.apellidos} ${doc.tituloProfesional ? `(${doc.tituloProfesional})` : ''}`
+              }))}
+            />
           </Form.Item>
 
           <Button
             type="primary"
             htmlType="submit"
             block
+            loading={loading}
             style={{
               backgroundColor: "#1677ff",
               borderColor: "#1677ff",
             }}
           >
-            Asignar docente
+            Confirmar Asignación
           </Button>
         </Form>
       </Modal>

@@ -12,14 +12,18 @@ import {
   Modal,
   message,
   Spin,
+  List,
+  Popconfirm,
+  Typography
 } from "antd";
 import {
   ArrowLeftOutlined,
   EditOutlined,
   CalendarOutlined,
   EyeOutlined,
+  CloseOutlined
 } from "@ant-design/icons";
-import moment, { type Moment } from "moment";
+import moment from "moment"; // Nota: quitamos { type Moment } si da error, o lo dejamos si usas TS estricto
 import styles from "./DetalleProducto.module.css";
 import { obtenerProductoPorId, obtenerTiposEstadoProducto, actualizarProducto } from "../../servicios/ProductoService";
 import type { Producto, TipoEstadoProducto } from "../../interfaces/IProducto";
@@ -27,6 +31,7 @@ import { obtenerDepartamentos } from "../../servicios/DepartamentosService";
 import ModalProducto from "./ModalProducto";
 import { obtenerModulosPorProducto, obtenerModulos } from "../../servicios/ModuloService";
 import type { IModulo as Modulo } from "../../interfaces/IModulo";
+import { asignarModuloAProducto, desasignarModuloDeProducto } from "../../servicios/EstructuraCurricularModuloService";
 
 const coloresModulos = [
   '#1890ff', // azul
@@ -52,26 +57,96 @@ export default function DetalleProducto() {
   // Inicializamos como array vacío para evitar errores
   const [modulosDisponibles, setModulosDisponibles] = useState<any[]>([]);
 
+  /* =========================================================
+     1. ZONA DE FUNCIONES AUXILIARES (LÓGICA MATEMÁTICA Y FECHAS)
+     ========================================================= */
+
+  const parsearDiasClase = (diasStr: string | undefined | null): number[] => {
+    if (!diasStr) return [];
+    return diasStr.split(',').map(d => parseInt(d.trim()));
+  };
+
+  const obtenerCantidadSesiones = (sesiones: any): number => {
+    if (typeof sesiones === 'number') return sesiones;
+    if (Array.isArray(sesiones)) return sesiones.length;
+    return 0;
+  };
+
+  const obtenerLimiteSesiones = (modulo: any): number => {
+    // Prioridad: Usar el contador de sincrónicas (nuevo campo SQL)
+    if (typeof modulo.sesionesSincronicas === 'number' && modulo.sesionesSincronicas > 0) {
+        return modulo.sesionesSincronicas;
+    }
+    // Fallback al total
+    if (typeof modulo.sesiones === 'number') return modulo.sesiones;
+    return 0;
+  };
+
+  // 🟢 LÓGICA DE CALENDARIO SEGURA (TIMEZONE SAFE)
+  const calcularCronograma = (modulo: Modulo) => {
+    if (!modulo || !modulo.fechaInicio || !modulo.diasClase) return { fechas: [], fechaFin: null };
+
+    // 1. TRUCO DE FECHA SEGURA:
+    // Convertimos la fecha a String "YYYY-MM-DD" puro, ignorando la hora que venga de la BD.
+    const fechaString = moment(modulo.fechaInicio).utc().format('YYYY-MM-DD');
+    
+    // 2. Creamos la fecha local a las 12:00 del mediodía.
+    // Al ser mediodía, aunque Argentina reste 3 horas, caerá a las 9:00 AM del MISMO día.
+    // Nunca retrocederá al día anterior.
+    const fechaInicio = moment(`${fechaString}T12:00:00`);
+
+    const diasPermitidos = parsearDiasClase(modulo.diasClase);
+    const limiteSesiones = obtenerLimiteSesiones(modulo); 
+
+    if (diasPermitidos.length === 0 || limiteSesiones === 0) return { fechas: [], fechaFin: null };
+
+    const listaFechas: { fecha: string; nroSesion: number }[] = [];
+    let sesionesContadas = 0;
+    const fechaActual = fechaInicio.clone();
+    let seguridad = 0;
+
+    while (sesionesContadas < limiteSesiones && seguridad < 365) {
+      const diaSemana = fechaActual.day(); // 0=Dom, 1=Lun...
+
+      // 🟢 DOBLE FILTRO:
+      // 1. Debe estar en la lista de días permitidos.
+      // 2. NO puede ser Domingo (0), por si acaso la BD tenga basura.
+      if (diasPermitidos.includes(diaSemana) && diaSemana !== 0) {
+        sesionesContadas++;
+        listaFechas.push({
+            fecha: fechaActual.format("YYYY-MM-DD"),
+            nroSesion: sesionesContadas
+        });
+      }
+
+      // Si aún no terminamos, avanzamos al día siguiente.
+      if (sesionesContadas < limiteSesiones) {
+          fechaActual.add(1, 'days');
+      }
+      seguridad++;
+    }
+
+    return { 
+        fechas: listaFechas, 
+        fechaFin: listaFechas.length > 0 ? moment(listaFechas[listaFechas.length - 1].fecha) : null 
+    };
+  };
+
   /* =========================
-      CARGAR PRODUCTO POR ID
+      CARGAR DATOS
   ========================= */
   useEffect(() => {
     const cargarDatos = async () => {
       try {
         setLoading(true);
-        // Cargar departamentos
         const deptData = await obtenerDepartamentos();
         const deptFormateados = deptData.map((d: any) => ({ id: d.id, nombre: d.nombre }));
         setDepartamentos(deptFormateados);
 
-        // Cargar tipos de estado
         const tiposData = await obtenerTiposEstadoProducto();
         setTiposEstadoProducto(tiposData);
 
-        // 🟢 CORRECCIÓN AQUÍ: Cargar todos los módulos disponibles (formato paginado)
-        // Pedimos página 1 con 1000 registros para llenar el combo
         const responseModulos: any = await obtenerModulos("", 1, 1000);
-        
         if (responseModulos && Array.isArray(responseModulos.modulos)) {
             setModulosDisponibles(responseModulos.modulos);
         } else if (Array.isArray(responseModulos)) {
@@ -80,7 +155,6 @@ export default function DetalleProducto() {
             setModulosDisponibles([]);
         }
 
-        // Cargar producto
         if (id) {
           const productoData = await obtenerProductoPorId(Number(id));
           setProducto(productoData);
@@ -99,11 +173,70 @@ export default function DetalleProducto() {
     cargarDatos();
   }, [id]);
 
-  const handleAsignarModulo = () => {
-    // Aquí iría la lógica para asignar el módulo seleccionado
-    console.log("Asignando módulo:", moduloBuscado);
-    setModalAsignarVisible(false);
-    setModuloBuscado(null);
+  /* =========================
+      HANDLERS
+  ========================= */
+  const handleAsignarModulo = async () => {
+    if (!moduloBuscado || !producto?.id) {
+      message.error("Debe seleccionar un módulo");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await asignarModuloAProducto(producto.id, moduloBuscado);
+
+      if (response.codigo === "SIN_ERROR") {
+        message.success("Módulo asignado correctamente");
+        setModalAsignarVisible(false);
+        setModuloBuscado(null);
+        
+        const modulosData = await obtenerModulosPorProducto(producto.id);
+        setModulos(modulosData);
+      } else {
+        message.error(response.mensaje || "Error al asignar el módulo");
+      }
+    } catch (error: any) {
+      console.error("Error al asignar módulo:", error);
+      message.error(
+        error?.response?.data?.mensaje || "Error al asignar el módulo"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDesasignarModulo = async (record: Modulo) => {
+    if (!record.estructuraCurricularModuloId) {
+      message.error("No se puede desasignar este módulo (Falta ID)");
+      return;
+    }
+  
+    try {
+      setLoading(true);
+      const response = await desasignarModuloDeProducto(
+        record.estructuraCurricularModuloId
+      );
+  
+      if (response.codigo === "SIN ERROR" || response.codigo === "SIN_ERROR") {
+        message.success("Módulo desasignado correctamente");
+        
+        if (producto?.id) {
+          const modulosData = await obtenerModulosPorProducto(producto.id);
+          setModulos(modulosData);
+        }
+
+      } else {
+        message.error(response.mensaje || "Error al desasignar el módulo");
+      }
+    } catch (error: any) {
+      console.error("Error al desasignar módulo:", error);
+      message.error(
+        error?.response?.data?.mensaje || "Error al desasignar el módulo"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEditarProducto = () => {
@@ -115,7 +248,6 @@ export default function DetalleProducto() {
       if (producto?.id) {
         await actualizarProducto(producto.id, productoData, producto);
         message.success("Producto actualizado exitosamente");
-        // Recargar el producto
         const productoActualizado = await obtenerProductoPorId(producto.id);
         setProducto(productoActualizado);
       }
@@ -131,28 +263,10 @@ export default function DetalleProducto() {
     setModalEditarVisible(false);
   };
 
-  // Función para obtener los días que hay clase
-  const obtenerDiasConClase = (modulo: Modulo) => {
-    if (!modulo || !modulo.fechaInicio || !modulo.fechaFinPorSesiones) return [];
 
-    const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-    const fechaInicio = moment(modulo.fechaInicio);
-    const fechaFin = moment(modulo.fechaFinPorSesiones);
-    const diasConClase: string[] = [];
-
-    let fechaActual = fechaInicio;
-    while (fechaActual.isBefore(fechaFin) || fechaActual.isSame(fechaFin, 'day')) {
-      const diaSemana = diasSemana[fechaActual.day()];
-      if (modulo.diasClase?.includes(diaSemana)) {
-        diasConClase.push(fechaActual.format("YYYY-MM-DD"));
-      }
-      fechaActual = fechaActual.add(1, 'day');
-    }
-
-    return diasConClase;
-  };
-
-  // Columnas para la tabla de módulos
+  /* =========================
+      DEFINICIÓN DE COLUMNAS
+  ========================= */
   const columns = [
     {
       title: 'Orden',
@@ -184,28 +298,34 @@ export default function DetalleProducto() {
       render: (text: string) => text || '-'
     },
     {
-      title: 'Fecha de Inicio',
-      dataIndex: 'fechaInicio',
-      key: 'fechaInicio',
-      sorter: (a: Modulo, b: Modulo) => {
-        if (!a.fechaInicio || !b.fechaInicio) return 0;
-        const dateA = new Date(a.fechaInicio).getTime();
-        const dateB = new Date(b.fechaInicio).getTime();
-        return dateA - dateB;
-      },
-      render: (fecha: string) => fecha ? moment(fecha).format('DD/MM/YYYY') : '-'
+        title: 'Fecha de Inicio',
+        dataIndex: 'fechaInicio',
+        key: 'fechaInicio',
+        sorter: (a: Modulo, b: Modulo) => {
+          if (!a.fechaInicio || !b.fechaInicio) return 0;
+          return new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime();
+        },
+        render: (fecha: string) => {
+            // Renderizamos también con formato seguro para que coincida visualmente
+            if (!fecha) return '-';
+            const f = moment(fecha).utc(); // Leemos como UTC para evitar resta de horas
+            return f.format('DD/MM/YYYY');
+        }
     },
     {
       title: 'Fecha de Fin',
-      dataIndex: 'fechaFinPorSesiones',
-      key: 'fechaFinPorSesiones',
-      sorter: (a: Modulo, b: Modulo) => {
-        if (!a.fechaFinPorSesiones || !b.fechaFinPorSesiones) return 0;
-        const dateA = new Date(a.fechaFinPorSesiones).getTime();
-        const dateB = new Date(b.fechaFinPorSesiones).getTime();
-        return dateA - dateB;
-      },
-      render: (fecha: string) => fecha ? moment(fecha).format('DD/MM/YYYY') : '-'
+      key: 'fechaFinCalculada', 
+      render: (_: any, record: Modulo) => {
+        const { fechaFin } = calcularCronograma(record);
+
+        if (fechaFin) {
+            return <Tag color="blue">{fechaFin.format('DD/MM/YYYY')}</Tag>;
+        }
+
+        return record.fechaFinPorSesiones 
+            ? moment(record.fechaFinPorSesiones).format('DD/MM/YYYY') 
+            : '-';
+      }
     },
     {
       title: 'Estado',
@@ -223,40 +343,72 @@ export default function DetalleProducto() {
     {
       title: 'Acciones',
       key: 'acciones',
-      width: 100,
+      width: 120,
       align: 'center' as const,
       render: (_: unknown, record: Modulo) => (
-        <Tooltip title="Ver Detalle">
-          <Button
-            type="primary"
-            icon={<EyeOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!record.moduloId) return;
-              navigate(`/producto/modulos/detalle/${record.moduloId}`);
+        <Space>
+          <Tooltip title="Ver Detalle">
+            <Button
+              type="primary"
+              icon={<EyeOutlined />}
+              onClick={(e) => {
+                e.stopPropagation(); 
+                if (!record.moduloId) return;
+                navigate(`/producto/modulos/detalle/${record.moduloId}`);
+              }}
+              style={{
+                backgroundColor: '#1f1f1f',
+                borderColor: '#1f1f1f'
+              }}
+            />
+          </Tooltip>
+
+          <Popconfirm
+            title={`¿Estás seguro de quitar "${record.moduloNombre}"?`}
+            onConfirm={(e) => {
+                e?.stopPropagation(); 
+                handleDesasignarModulo(record);
             }}
-            style={{
-              backgroundColor: '#1f1f1f',
-              borderColor: '#1f1f1f'
-            }}
-          />
-        </Tooltip>
+            onCancel={(e) => e?.stopPropagation()}
+            okText="Sí"
+            cancelText="No"
+            okButtonProps={{ danger: true }}
+          >
+            <Tooltip title="Desasignar del producto">
+              <Button
+                danger
+                icon={<CloseOutlined />}
+                onClick={(e) => e.stopPropagation()} 
+              />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
 
+  /* =========================
+      PREPARACIÓN DATOS CALENDARIO
+  ========================= */
   const diasClasesPorFecha: Record<
     string,
-    { moduloId: number; nombre: string; color: string }[]
+    { moduloId: number; nombre: string; color: string; nroSesion: number; totalSesiones: number }[]
   > = {};
 
   modulos.forEach((modulo, index) => {
     if (!modulo.moduloId || typeof modulo.moduloId !== 'number') return;
 
     const color = coloresModulos[index % coloresModulos.length];
-    const dias = obtenerDiasConClase(modulo);
+    
+    // Calculamos los días
+    const { fechas } = calcularCronograma(modulo);
 
-    dias.forEach((fecha) => {
+    // Obtenemos el total real (sincrónicas) para la etiqueta
+    const totalReal = obtenerLimiteSesiones(modulo);
+
+    fechas.forEach((info) => {
+      const fecha = info.fecha;
+      
       if (!diasClasesPorFecha[fecha]) {
         diasClasesPorFecha[fecha] = [];
       }
@@ -265,16 +417,19 @@ export default function DetalleProducto() {
         moduloId: modulo.moduloId!,
         nombre: modulo.moduloNombre || 'Sin nombre',
         color,
+        nroSesion: info.nroSesion,
+        totalSesiones: totalReal 
       });
     });
   });
 
 
+  /* =========================
+      RENDER
+  ========================= */
   return (
     <div className={styles.container}>
-      {/* =========================
-          HEADER / VOLVER
-         ========================= */}
+      {/* HEADER / VOLVER */}
       <Button
         icon={<ArrowLeftOutlined />}
         style={{ marginBottom: 16 }}
@@ -289,14 +444,12 @@ export default function DetalleProducto() {
         </div>
       ) : producto ? (
         <>
-          {/* =========================
-              DETALLE DEL PRODUCTO
-             ========================= */}
+          {/* DETALLE DEL PRODUCTO */}
           <Card className={styles.productCard} style={{ marginBottom: 16 }}>
             <h3 className={styles.title}>{producto.nombre}</h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-              {/* COLUMNA IZQUIERDA - Información del producto */}
+              {/* COLUMNA IZQUIERDA */}
               <div>
                 <div className={styles.infoList}>
                   <Item label="Departamento" value={producto.departamentoNombre || "-"} />
@@ -317,7 +470,7 @@ export default function DetalleProducto() {
                 </div>
               </div>
 
-              {/* COLUMNA DERECHA - Estadísticas y Objetivos */}
+              {/* COLUMNA DERECHA */}
               <div>
                 {/* Estadísticas */}
                 <div style={{ marginBottom: 24 }}>
@@ -402,9 +555,7 @@ export default function DetalleProducto() {
             </div>
           </Card>
 
-          {/* =========================
-          TABLA DE MÓDULOS
-          ========================= */}
+          {/* TABLA DE MÓDULOS */}
           <Card style={{ marginBottom: 16 }}>
             <div style={{
               display: 'flex',
@@ -444,15 +595,11 @@ export default function DetalleProducto() {
             />
           </Card>
 
-          {/* =========================
-          VISTA CALENDARIO
-          ========================= */}
+          {/* VISTA CALENDARIO */}
           <Card>
             <h4 className={styles.title}>Vista calendario de módulos del producto</h4>
 
-            {/* =========================
-            INFO DEL MODULO (OPCIONAL)
-            ========================= */}
+            {/* INFO DEL MODULO SELECCIONADO */}
             {moduloSeleccionado && (
               <div style={{
                 backgroundColor: '#f5f5f5',
@@ -476,20 +623,32 @@ export default function DetalleProducto() {
                 </div>
 
                 <div style={{ marginBottom: 8 }}>
-                  <span style={{ color: '#8c8c8c' }}>Sesiones:</span>{" "}
+                  <span style={{ color: '#8c8c8c' }}>Sesiones Asincrónicas:</span>{" "}
                   <span style={{ color: '#262626', fontWeight: 500 }}>
-                    {typeof moduloSeleccionado.sesiones === 'number' ? moduloSeleccionado.sesiones : "-"}
+                    {typeof moduloSeleccionado.sesiones === 'number' ? moduloSeleccionado.numeroSesionesAsincronicas : "-"}
                   </span>
                 </div>
+                {moduloSeleccionado.sesionesSincronicas && (
+                    <div style={{ marginBottom: 8 }}>
+                    <span style={{ color: '#8c8c8c' }}>Sesiones Sincrónicas:</span>{" "}
+                    <span style={{ color: '#262626', fontWeight: 500 }}>
+                        {moduloSeleccionado.sesionesSincronicas}
+                    </span>
+                    </div>
+                )}
 
                 <div style={{ marginBottom: 8 }}>
                   <span style={{ color: '#8c8c8c' }}>Fecha de Inicio:</span>{" "}
                   <span style={{ color: '#262626', fontWeight: 500 }}>
-                    {moduloSeleccionado.fechaInicio ? moment(moduloSeleccionado.fechaInicio).format('DD/MM/YYYY') : '-'}
+                    {moduloSeleccionado.fechaInicio ? moment(moduloSeleccionado.fechaInicio).utc().format('DD/MM/YYYY') : '-'}
                   </span>
                   <span style={{ color: '#8c8c8c', marginLeft: 24 }}>Fecha Final:</span>{" "}
                   <span style={{ color: '#262626', fontWeight: 500 }}>
-                    {moduloSeleccionado.fechaFinPorSesiones ? moment(moduloSeleccionado.fechaFinPorSesiones).format('DD/MM/YYYY') : '-'}
+                    {/* También calculamos aquí la fecha fin visual para info */}
+                    {(() => {
+                        const { fechaFin } = calcularCronograma(moduloSeleccionado);
+                        return fechaFin ? fechaFin.format('DD/MM/YYYY') : '-';
+                    })()}
                   </span>
                 </div>
 
@@ -520,9 +679,7 @@ export default function DetalleProducto() {
               </div>
             )}
 
-            {/* =========================
-            CALENDARIO (SIEMPRE)
-            ========================= */}
+            {/* CALENDARIO */}
             <Calendar
               dateCellRender={(date) => {
                 const dateStr = date.format("YYYY-MM-DD");
@@ -533,9 +690,6 @@ export default function DetalleProducto() {
                 return (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {sesiones.map((s, idx) => {
-                      const modulo = modulos.find(m => m.moduloId === s.moduloId);
-                      if (!modulo) return null;
-
                       return (
                         <div
                           key={idx}
@@ -547,18 +701,12 @@ export default function DetalleProducto() {
                             fontSize: 12,
                           }}
                         >
-                          {/* Nombre del módulo */}
                           <div style={{ fontWeight: 600 }}>
-                            {modulo.moduloNombre || 'Sin nombre'}
+                            {s.nombre}
                           </div>
 
                           <div>
-                            {typeof modulo.sesiones === 'number' ? `Sesión ${modulo.sesiones}` : 'Sin sesión'}
-                          </div>
-
-                          {/* Horas */}
-                          <div style={{ fontSize: 11, color: "#8c8c8c" }}>
-                            {modulo.duracionHoras ?? '-'} hs totales
+                            Sesión {s.nroSesion} / {s.totalSesiones}
                           </div>
                         </div>
                       );
@@ -573,8 +721,6 @@ export default function DetalleProducto() {
                   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
                 ];
-
-                // Generar lista de años (desde 2020 hasta 2030)
                 const years = Array.from({ length: 11 }, (_, i) => 2020 + i);
 
                 return (
@@ -585,57 +731,23 @@ export default function DetalleProducto() {
                     <Space>
                       <Select
                         value={year}
-                        onChange={(newYear) => {
-                          const newValue = value.clone().year(newYear);
-                          onChange(newValue);
-                        }}
+                        onChange={(newYear) => onChange(value.clone().year(newYear))}
                         style={{ width: 100 }}
                         size="small"
                       >
-                        {years.map(y => (
-                          <Select.Option key={y} value={y}>{y}</Select.Option>
-                        ))}
+                        {years.map(y => <Select.Option key={y} value={y}>{y}</Select.Option>)}
                       </Select>
                       <Select
                         value={month}
-                        onChange={(newMonth) => {
-                          const newValue = value.clone().month(newMonth);
-                          onChange(newValue);
-                        }}
+                        onChange={(newMonth) => onChange(value.clone().month(newMonth))}
                         style={{ width: 120 }}
                         size="small"
                       >
-                        {months.map((m, idx) => (
-                          <Select.Option key={idx} value={idx}>{m}</Select.Option>
-                        ))}
+                        {months.map((m, idx) => <Select.Option key={idx} value={idx}>{m}</Select.Option>)}
                       </Select>
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          const newValue = value.clone().subtract(1, 'month');
-                          onChange(newValue);
-                        }}
-                      >
-                        &lt;
-                      </Button>
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          const newValue = moment();
-                          onChange(newValue);
-                        }}
-                      >
-                        Hoy
-                      </Button>
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          const newValue = value.clone().add(1, 'month');
-                          onChange(newValue);
-                        }}
-                      >
-                        &gt;
-                      </Button>
+                      <Button size="small" onClick={() => onChange(value.clone().subtract(1, 'month'))}>&lt;</Button>
+                      <Button size="small" onClick={() => onChange(moment())}>Hoy</Button>
+                      <Button size="small" onClick={() => onChange(value.clone().add(1, 'month'))}>&gt;</Button>
                     </Space>
                   </div>
                 );
@@ -643,32 +755,32 @@ export default function DetalleProducto() {
             />
           </Card>
 
-          {/* =========================
-          MODAL ASIGNAR MÓDULO
-          ========================= */}
+          {/* MODAL GESTIONAR */}
           <Modal
-            title="Asignar módulo al producto"
+            title="Gestionar módulos del producto"
             open={modalAsignarVisible}
             onCancel={() => {
               setModalAsignarVisible(false);
               setModuloBuscado(null);
             }}
             footer={[
+              <Button key="cerrar" onClick={() => setModalAsignarVisible(false)}>
+                Cerrar
+              </Button>,
               <Button
                 key="asignar"
                 type="primary"
-                block
                 onClick={handleAsignarModulo}
                 disabled={!moduloBuscado}
               >
-                Asignar módulo
+                Asignar módulo seleccionado
               </Button>
             ]}
-            width={500}
+            width={600}
           >
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', marginBottom: 8 }}>
-                Módulo <span style={{ color: 'red' }}>*</span>
+            <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid #f0f0f0' }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>
+                Agregar nuevo módulo <span style={{ color: 'red' }}>*</span>
               </label>
               <Select
                 showSearch
@@ -676,29 +788,65 @@ export default function DetalleProducto() {
                 style={{ width: '100%' }}
                 value={moduloBuscado || undefined}
                 onChange={(value) => setModuloBuscado(value)}
-                // 🟢 CORRECCIÓN AQUÍ: Blindaje contra nulos en el filtro
                 filterOption={(input, option) => {
                   const mod = (Array.isArray(modulosDisponibles) ? modulosDisponibles : []).find(m => m.id === option?.value);
                   if (!mod) return false;
-                  const searchText = input.toLowerCase();
-                  return mod.nombre.toLowerCase().includes(searchText);
+                  return mod.nombre.toLowerCase().includes(input.toLowerCase());
                 }}
               >
-                {/* 🟢 CORRECCIÓN AQUÍ: Blindaje contra nulos en el map */}
                 {(Array.isArray(modulosDisponibles) ? modulosDisponibles : [])
-                    .filter(mod => mod && mod.estado)
-                    .map(mod => (
-                  <Select.Option key={mod.id} value={mod.id}>
-                    {mod.nombre}
-                  </Select.Option>
-                ))}
+                  .filter(mod => mod && mod.estado)
+                  .map(mod => (
+                    <Select.Option key={mod.id} value={mod.id}>
+                      {mod.nombre}
+                    </Select.Option>
+                  ))}
               </Select>
             </div>
+            
+             <div>
+                <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                  Módulos actualmente asignados:
+                </Typography.Text>
+                
+                <List
+                  size="small"
+                  bordered
+                  dataSource={modulos} 
+                  locale={{ emptyText: 'No hay módulos asignados aún' }}
+                  renderItem={(item: Modulo) => (
+                    <List.Item
+                      actions={[
+                        <Popconfirm
+                          key="delete"
+                          title={`¿Estás seguro de quitar "${item.moduloNombre}"?`}
+                          onConfirm={() => handleDesasignarModulo(item)} 
+                          okText="Sí, desasignar"
+                          cancelText="Cancelar"
+                          okButtonProps={{ danger: true }}
+                        >
+                          <Tooltip title="Desasignar Módulo">
+                            <Button 
+                              type="text" 
+                              danger 
+                              icon={<CloseOutlined />} 
+                              shape="circle"
+                            />
+                          </Tooltip>
+                        </Popconfirm>
+                      ]}
+                    >
+                      <List.Item.Meta
+                        title={item.moduloNombre}
+                      />
+                    </List.Item>
+                  )}
+                  style={{ maxHeight: '250px', overflowY: 'auto' }}
+                />
+              </div>
           </Modal>
 
-          {/* =========================
-          MODAL EDITAR PRODUCTO
-          ========================= */}
+          {/* MODAL EDITAR PRODUCTO */}
           <ModalProducto
             visible={modalEditarVisible}
             modo="editar"
@@ -718,9 +866,6 @@ export default function DetalleProducto() {
   );
 }
 
-/* =========================
-   COMPONENTE AUXILIAR
-   ========================= */
 function Item({
   label,
   value,

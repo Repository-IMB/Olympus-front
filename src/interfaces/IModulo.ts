@@ -69,6 +69,7 @@ export interface IModulo {
   orden?: number;
   sesiones?: ISesion[];
   observaciones?: string;
+  sesionesSincronicas?: number;
   
   // Campos de docente
   idDocente?: number;
