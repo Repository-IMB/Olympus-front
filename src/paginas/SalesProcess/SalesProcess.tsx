@@ -25,7 +25,7 @@ interface Opportunity {
   productoNombre: string;
   fechaCreacion: string;
   // ✅ El dato ahora viene directo del Backend (DTO modificado)
-  nombrePais?: string; 
+  nombrePais?: string;
   recordatorios: Recordatorio[];
 }
 
@@ -52,7 +52,7 @@ const getReminderColor = (fechaRecordatorio: string): string => {
 
 const SalesCard = memo(({ sale, highlightedId }: { sale: Opportunity; highlightedId: string | null }) => {
   const navigate = useNavigate();
-  
+
   const isHighlighted = highlightedId === sale.id.toString();
 
   const handleClick = () => {
@@ -75,7 +75,7 @@ const SalesCard = memo(({ sale, highlightedId }: { sale: Opportunity; highlighte
       size="small"
       className="client-card"
       onClick={handleClick}
-      style={{ 
+      style={{
         cursor: "pointer",
         border: isHighlighted ? "2px solid #1677ff" : "1px solid #f0f0f0",
         backgroundColor: isHighlighted ? "#e6f7ff" : "#ffffff",
@@ -91,16 +91,16 @@ const SalesCard = memo(({ sale, highlightedId }: { sale: Opportunity; highlighte
       <div className="client-price">{sale.productoNombre}</div>
 
       {/* ✅ RENDERING DIRECTO SIN PETICIONES EXTRA */}
-      <div 
-        className="client-country" 
-        style={{ 
-            display: "flex", 
-            alignItems: "center", 
-            gap: "6px", 
-            color: "#64748b", 
-            fontSize: "12px",
-            marginTop: "4px",
-            marginBottom: "4px"
+      <div
+        className="client-country"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          color: "#64748b",
+          fontSize: "12px",
+          marginTop: "4px",
+          marginBottom: "4px"
         }}
       >
         <MapPin size={12} />
@@ -201,9 +201,8 @@ export default function SalesProcess() {
     cobranza: [],
     convertido: [],
   }); */
-  
+
   // Estado para las oportunidades
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("");
@@ -224,10 +223,10 @@ export default function SalesProcess() {
         if (element) {
           element.scrollIntoView({ behavior: "smooth", block: "center" });
         }
-      }, 500); 
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [loading, highlightedId, activeFilter]); 
+  }, [loading, highlightedId, activeFilter]);
 
   const { idUsuario, idRol } = useMemo(() => {
     let idU = 0;
@@ -266,38 +265,38 @@ export default function SalesProcess() {
   // =========================
   // FETCH + AGRUPAR RECORDATORIOS (OPTIMIZADO)
   // =========================
-useEffect(() => {
-  if (!idUsuario || !idRol) {
-    setLoading(false);
-    return;
-  }
+  useEffect(() => {
+    if (!idUsuario || !idRol) {
+      setLoading(false);
+      return;
+    }
 
-  const fetchSalesProcess = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    const fetchSalesProcess = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      console.log("🔍 SalesProcess - Parámetros:", { idUsuario, idRol });
+        console.log("🔍 SalesProcess - Parámetros:", { idUsuario, idRol });
 
-      const res = await api.get(
-        "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
-        {
-          params: {
-            idUsuario,
-            idRol,
-            page: 1,
-            pageSize: 1000, // Traer muchos registros para vista de proceso
-            search: null,
-            estadoFiltro: null,
-            asesorFiltro: null,
-            fechaInicio: null,
-            fechaFin: null
+        const res = await api.get(
+          "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
+          {
+            params: {
+              idUsuario,
+              idRol,
+              page: 1,
+              pageSize: 1000, // Traer muchos registros para vista de proceso
+              search: null,
+              estadoFiltro: null,
+              asesorFiltro: null,
+              fechaInicio: null,
+              fechaFin: null
+            }
           }
-        }
-      );
+        );
 
-      console.log("✅ SalesProcess - Respuesta completa:", res.data);
-      console.log("📊 SalesProcess - Oportunidades recibidas:", res.data?.oportunidad);
+        console.log("✅ SalesProcess - Respuesta completa:", res.data);
+        console.log("📊 SalesProcess - Oportunidades recibidas:", res.data?.oportunidad);
 
         const raw = res.data?.oportunidad || [];
 
@@ -358,11 +357,11 @@ useEffect(() => {
         setError(
           e?.response?.data?.message ??
           "Error al obtener SalesProcess"
-      );
-    } finally {
-      setLoading(false);
+        );
+      } finally {
+        setLoading(false);
+      }
     }
-  }
 
     fetchSalesProcess();
     fetchSalesProcess();
@@ -575,19 +574,19 @@ useEffect(() => {
       if (targetArray && targetKey && counts[targetKey] < MAX_PER_CATEGORY) {
         targetArray.push(op);
         counts[targetKey]++;
-    } else {
+      } else {
         // 🔴 AQUÍ ES DONDE SE RE-ASIGNA LA VARIABLE
-        sinClasificar++; 
-        
+        sinClasificar++;
+
         // Log solo del primero para no llenar la consola
         if (sinClasificar === 1) {
-             console.log("⚠️ PRIMER ITEM SIN CLASIFICAR:", { 
-                Estado: op.nombreEstado, 
-                Ocurrencia: op.nombreOcurrencia, 
-                Nombre: op.personaNombre 
-             });
+          console.log("⚠️ PRIMER ITEM SIN CLASIFICAR:", {
+            Estado: op.nombreEstado,
+            Ocurrencia: op.nombreOcurrencia,
+            Nombre: op.personaNombre
+          });
         }
-    }
+      }
     }
 
     // ✅ Ordenar y limitar solo las categorías que tienen datos
@@ -615,15 +614,15 @@ useEffect(() => {
   const { salesData, otrosEstados } = categorizedData;
 
   const filters = useMemo(() => [
-      { key: "todos", label: "Todos", count: Object.values(otrosEstados).flat().length },
-      { key: "coorporativo", label: "Coorporativo", count: otrosEstados.coorporativo.length },
-      { key: "ventaCruzada", label: "Venta Cruzada", count: otrosEstados.ventaCruzada.length },
-      { key: "seguimiento", label: "Seguimiento", count: otrosEstados.seguimiento.length },
-      { key: "perdido", label: "Perdido", count: otrosEstados.perdido.length },
-      { key: "noCalificado", label: "No Calificado", count: otrosEstados.noCalificado.length },
-      { key: "cobranza", label: "Cobranza", count: otrosEstados.cobranza.length },
-      { key: "convertido", label: "Convertido", count: otrosEstados.convertido.length },
-    ], [otrosEstados]);
+    { key: "todos", label: "Todos", count: Object.values(otrosEstados).flat().length },
+    { key: "coorporativo", label: "Coorporativo", count: otrosEstados.coorporativo.length },
+    { key: "ventaCruzada", label: "Venta Cruzada", count: otrosEstados.ventaCruzada.length },
+    { key: "seguimiento", label: "Seguimiento", count: otrosEstados.seguimiento.length },
+    { key: "perdido", label: "Perdido", count: otrosEstados.perdido.length },
+    { key: "noCalificado", label: "No Calificado", count: otrosEstados.noCalificado.length },
+    { key: "cobranza", label: "Cobranza", count: otrosEstados.cobranza.length },
+    { key: "convertido", label: "Convertido", count: otrosEstados.convertido.length },
+  ], [otrosEstados]);
 
   // ✅ Memorizar función de filtrado
   const getFilteredData = useCallback(() => {
