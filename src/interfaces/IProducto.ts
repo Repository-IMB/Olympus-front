@@ -62,3 +62,17 @@ export interface Producto {
   estadisticas?: Estadistica[];
   objetivos?: Objetivo[];
 }
+
+export interface ProductoOption {
+  idProducto: number;
+  nombre: string;
+  codigoLanzamiento: string;
+}
+
+export interface ProductoOptionsResponse {
+  productos: ProductoOption[];
+}
+
+export interface ProductoFiltros {
+  search?: string;
+}

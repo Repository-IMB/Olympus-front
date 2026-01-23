@@ -1,5 +1,5 @@
 import api from "./api";
-import type { Estadistica, Objetivo, TipoEstadoProducto, Producto } from "../interfaces/IProducto";
+import type { Estadistica, Objetivo, TipoEstadoProducto, Producto, ProductoFiltros, ProductoOptionsResponse } from "../interfaces/IProducto";
 
 export type { Estadistica, Objetivo, TipoEstadoProducto, Producto };
 
@@ -12,16 +12,24 @@ export const baseUrl: string =
 // En ProductoService.ts
 
 export const obtenerProductos = async (
-  search: string = "", 
-  page: number = 1, 
+  search: string = "",
+  page: number = 1,
   pageSize: number = 10,
   estadoProductoId: number | null = null
 ) => {
   const response = await api.get("/api/VTAModVentaProducto/ObtenerTodas", {
     params: { search, page, pageSize, estadoProductoId }
   });
-  return response.data; 
+  return response.data;
 };
+
+export const fetchProductOptions = async (
+): Promise<ProductoOptionsResponse> => {
+
+  const response = await api.get("/api/PRODModProducto/ObtenerProductoOpciones");
+  return response.data;
+};
+
 
 /* =========================
    OBTENER TIPOS ESTADO PRODUCTO
@@ -48,22 +56,22 @@ export const obtenerTiposEstadoProducto = async (): Promise<TipoEstadoProducto[]
 export const obtenerProductoPorId = async (
   id: number
 ): Promise<Producto> => {
-  
+
   try {
     const response = await api.get(
       `/api/VTAModVentaProducto/ObtenerPorId/${id}`
     );
-    
+
     // Intenta diferentes estructuras posibles
-    const producto = response.data?.producto 
-      || response.data?.data 
+    const producto = response.data?.producto
+      || response.data?.data
       || response.data;
-    
+
     // Verifica si el producto existe (id mayor a 0)
     if (!producto || producto.id === 0 || !producto.id) {
       throw new Error(`No se encontró el producto con ID ${id}. El backend devolvió un producto vacío.`);
     }
-    
+
     return producto;
   } catch (error: any) {
     console.error("🔴 ProductoService: error en obtenerProductoPorId:", error);

@@ -26,7 +26,7 @@ import { obtenerPaises, type Pais } from "../../config/rutasApi";
 import { useNavigate } from "react-router-dom";
 import ModalAlumno from "./ModalAlumno";
 import { obtenerAlumnosPaginados, eliminarAlumno, type IAlumno } from "../../servicios/AlumnoService";
-import { obtenerProductos } from "../../servicios/ProductoService";
+import { fetchProductOptions } from "../../servicios/ProductoService";
 import { obtenerModulos } from "../../servicios/ModuloService";
 
 const { Option } = Select;
@@ -173,9 +173,9 @@ export default function Alumnos() {
   useEffect(() => {
     const cargarProductos = async () => {
       try {
-        const response = await obtenerProductos("", 1, 100);
+        const response = await fetchProductOptions();
         const productosData = response?.productos || [];
-        setProductos(productosData.map((p: any) => ({ id: p.id, nombre: p.nombre || p.codigoLanzamiento })));
+        setProductos(productosData.map((p) => ({ id: p.idProducto, nombre: p.nombre })));
       } catch (error) {
         console.error("Error al cargar productos:", error);
       }

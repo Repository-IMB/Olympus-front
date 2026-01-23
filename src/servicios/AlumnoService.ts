@@ -20,6 +20,9 @@ export const obtenerAlumnosPaginados = async (
     if (filtros.search) body.search = filtros.search;
     if (filtros.fechaInicio) body.fechaInicio = filtros.fechaInicio;
 
+    console.log("🔍 Filtros recibidos:", filtros);
+    console.log("📤 Body enviado a API:", body);
+
     const response = await api.post("/api/ALMModAlumno/ObtenerAlumnosPaginados", body);
 
     return response.data;
