@@ -9,11 +9,14 @@ import {
   Input,
   Select,
   DatePicker,
+  message,
 } from "antd";
 import {
   SearchOutlined,
   DownloadOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import moment, { type Moment } from "moment";
 import { getCookie } from "../../utils/cookies";
 import api from "../../servicios/api";
@@ -21,6 +24,8 @@ import styles from "./Activos.module.css";
 import type { ColumnsType } from "antd/es/table";
 import { useSearchParams } from "react-router-dom";
 import ModalActivo from "./ModalActivo";
+import * as QRCode from "qrcode";
+import jsPDF from "jspdf";
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -58,6 +63,7 @@ const getEstadoColor = (estado: string): string => {
 };
 
 export default function Activos() {
+  const navigate = useNavigate();
   const token = getCookie("token");
 
   const [data, setData] = useState<Activo[]>([]);
@@ -292,6 +298,91 @@ export default function Activos() {
     setFilterFecha(null);
   };
 
+  const handleDescargarCodigos = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning("Seleccione al menos un activo");
+      return;
+    }
+
+    try {
+      message.loading({ content: "Generando códigos QR...", key: "qr" });
+
+      // Obtener los activos seleccionados
+      const activosSeleccionados = data.filter((activo) =>
+        selectedRowKeys.includes((activo as any).uniqueKey || activo.idActivo)
+      );
+
+      // Crear PDF
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const qrSize = 60;
+      const spacing = 20;
+
+      let yPosition = margin;
+      let xPosition = margin;
+      let itemsPerRow = 0;
+      const maxItemsPerRow = 3;
+
+      for (let i = 0; i < activosSeleccionados.length; i++) {
+        const activo = activosSeleccionados[i];
+        const uniqueId = (activo as any).uniqueKey || `${activo.idActivo}-${activo.ubicacionSede}-${activo.estacion}`;
+        
+        // URL pública para el QR
+        const publicUrl = `${window.location.origin}/activos/public/${uniqueId}`;
+
+        // Generar QR usando la librería qrcode
+        const qrDataUrl = await QRCode.default.toDataURL(publicUrl, {
+          width: qrSize * 4,
+          margin: 1,
+        });
+
+        // Agregar QR al PDF
+        if (xPosition + qrSize + margin > pageWidth) {
+          xPosition = margin;
+          yPosition += qrSize + spacing + 30;
+          itemsPerRow = 0;
+        }
+
+        // Verificar si necesitamos una nueva página
+        if (yPosition + qrSize + 40 > pageHeight) {
+          pdf.addPage();
+          yPosition = margin;
+          xPosition = margin;
+          itemsPerRow = 0;
+        }
+
+        // Agregar imagen QR
+        pdf.addImage(qrDataUrl, "PNG", xPosition, yPosition, qrSize, qrSize);
+
+        // Agregar información del activo debajo del QR
+        pdf.setFontSize(10);
+        pdf.text(activo.nombre, xPosition, yPosition + qrSize + 5);
+        pdf.setFontSize(8);
+        pdf.text(`ID: ${activo.idActivo}`, xPosition, yPosition + qrSize + 10);
+        pdf.text(`${activo.ubicacionSede} - Estación ${activo.estacion}`, xPosition, yPosition + qrSize + 15);
+
+        // Mover posición para el siguiente QR
+        xPosition += qrSize + spacing;
+        itemsPerRow++;
+
+        if (itemsPerRow >= maxItemsPerRow) {
+          xPosition = margin;
+          yPosition += qrSize + spacing + 30;
+          itemsPerRow = 0;
+        }
+      }
+
+      // Guardar PDF
+      pdf.save(`codigos-activos-${new Date().getTime()}.pdf`);
+      message.success({ content: "Códigos QR generados exitosamente", key: "qr" });
+    } catch (error: any) {
+      console.error("Error generando códigos QR:", error);
+      message.error({ content: "Error al generar los códigos QR", key: "qr" });
+    }
+  };
+
   const tiposUnicos = useMemo(() => {
     const set = new Set<string>();
     data.forEach((a) => {
@@ -453,6 +544,25 @@ export default function Activos() {
         );
       },
     },
+    {
+      title: "Acciones",
+      key: "actions",
+      align: "center",
+      width: 100,
+      render: (_: any, record: Activo) => {
+        // Usar uniqueKey si existe, sino usar idActivo con índice para garantizar unicidad
+        const uniqueId = (record as any).uniqueKey || `${record.idActivo}-${record.ubicacionSede}-${record.estacion}`;
+        return (
+          <Button
+            type="primary"
+            icon={<EyeOutlined />}
+            size="small"
+            style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+            onClick={() => navigate(`/logistica/activos/${uniqueId}`)}
+          />
+        );
+      },
+    },
   ];
 
   return (
@@ -497,10 +607,8 @@ export default function Activos() {
             <Button
               className={styles.secondaryButton}
               icon={<DownloadOutlined />}
-              onClick={() => {
-                // TODO: Implementar descarga de códigos
-                console.log("Descargar códigos");
-              }}
+              disabled={selectedRowKeys.length === 0}
+              onClick={handleDescargarCodigos}
             >
               Descargar códigos de activos
             </Button>

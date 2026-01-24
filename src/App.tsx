@@ -45,6 +45,7 @@ import DetalleAlumno from "./paginas/Alumnos/DetalleAlumno";
 
 // Logística
 import Activos from "./paginas/Activos/Activos";
+import DetalleActivo from "./paginas/Activos/DetalleActivo";
 
 function App() {
   const navigate = useNavigate();
@@ -65,7 +66,7 @@ function App() {
       }
     };
 
-    const publicRoutes = ["/login", "/forgot-password", "/reset-password"];
+    const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/activos/public"];
 
     const logout = () => {
       document.cookie =
@@ -122,6 +123,12 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/403" element={<Forbidden />} />
+      
+      {/* Ruta pública para QR de activos (sin autenticación ni layout) */}
+      <Route
+        path="/activos/public/:id"
+        element={<DetalleActivo />}
+      />
 
       {/* Privadas */}
       <Route element={<PrivateRoute />}>
@@ -184,6 +191,14 @@ function App() {
             element={
               <ProtectedContent permiso="logistica">
                 <Activos />
+              </ProtectedContent>
+            }
+          />
+          <Route
+            path="/logistica/activos/:id"
+            element={
+              <ProtectedContent permiso="logistica">
+                <DetalleActivo />
               </ProtectedContent>
             }
           />

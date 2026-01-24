@@ -1,0 +1,93 @@
+.timelineContainer {
+  position: relative;
+  padding-left: 40px;
+}
+
+.timelineItem {
+  position: relative;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.timelineLine {
+  position: absolute;
+  left: -40px;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.circleIcon {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px #fff, 0 0 0 4px currentColor;
+}
+
+.iconContainer {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  flex-shrink: 0;
+}
+
+.timelineConnector {
+  width: 2px;
+  flex: 1;
+  background: #e8e8e8;
+  margin-top: 4px;
+  min-height: 20px;
+}
+
+.timelineContent {
+  flex: 1;
+  padding-left: 16px;
+}
+
+.timelineDate {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.timelineDetail {
+  font-size: 14px;
+  color: #1f1f1f;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.emptyTimeline {
+  text-align: center;
+  padding: 40px 20px;
+  color: #8c8c8c;
+  font-size: 14px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 767px) {
+  .timelineContainer {
+    padding-left: 32px;
+  }
+
+  .timelineLine {
+    left: -32px;
+  }
+
+  .timelineContent {
+    padding-left: 12px;
+  }
+
+  .timelineDetail {
+    font-size: 13px;
+  }
+}
