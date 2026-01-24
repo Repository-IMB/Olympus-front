@@ -13,19 +13,26 @@ export interface PersonalCombo {
 export const baseUrl: string =
   (import.meta.env.VITE_API_URL as string) || "http://localhost:7020";
 
-/* =========================
-   OBTENER TODOS
-========================= */
-// En ProductoService.ts
-
 export const obtenerProductos = async (
-  search: string = "", 
-  page: number = 1, 
+  search: string = "",
+  page: number = 1,
   pageSize: number = 10,
-  estadoProductoId: number | null = null
+  estadoProductoId: number | null = null,
+  sortField: string = "Nombre",
+  sortOrder: string = "ASC"
 ) => {
-  const response = await api.get("/api/VTAModVentaProducto/ObtenerTodas", {
-    params: { search, page, pageSize, estadoProductoId }
+  
+  const endpoint = "/api/VTAModVentaProducto/ObtenerTodas";
+
+  const response = await api.get(endpoint, {
+    params: {
+      search,
+      page,
+      pageSize,
+      estadoProductoId: estadoProductoId, 
+      sortField,
+      sortOrder
+    },
   });
   return response.data; 
 };

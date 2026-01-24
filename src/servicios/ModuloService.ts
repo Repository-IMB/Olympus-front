@@ -13,7 +13,7 @@ export const obtenerModulos = async (
   producto: string = "", 
   fechaDesde: string = "", 
   fechaHasta: string = "",
-  sortColumn: string = "Id",
+  sortField: string = "Id",
   sortOrder: string = "DESC"
 ): Promise<any> => { 
   const response = await api.get("/api/VTAModVentaModulo/ObtenerTodas", {
@@ -24,15 +24,12 @@ export const obtenerModulos = async (
       producto,
       fechaDesde,
       fechaHasta,
-      sortColumn,
+      sortField,
       sortOrder
     }
   });
 
-  return {
-    modulos: response.data.modulos || [],
-    total: response.data.total || 0
-  };
+  return response.data;
 };
 
 /** 🔹 Obtener módulo por ID */
@@ -77,9 +74,54 @@ export const actualizarModulo = async (
   return response.data;
 };
 
+// Definimos la interfaz
+export interface ProductoAsociadoModulo {
+  idProducto: number;
+  nombre: string;
+  codigoEdicion: string;
+  edicionSesion: string;
+  estadoProducto: string;
+  orden: number;
+}
+
+// Función del servicio
+export const obtenerProductosPorModulo = async (idModulo: number): Promise<ProductoAsociadoModulo[]> => {
+  const response = await api.get(`/api/VTAModVentaModulo/ObtenerProductosAsociados/${idModulo}`);
+  return response.data;
+};
+
+export const obtenerCodigosFiltroModulo = async (): Promise<string[]> => {
+  try {
+    const response = await api.get("/api/VTAModVentaModulo/ObtenerCodigosFiltro");
+    return response.data;
+  } catch (error) {
+    console.error("Error obteniendo códigos de filtro:", error);
+    return [];
+  }
+};
+
 /** 🔹 Eliminar módulo */
 /* Todavía no se usa
 export const eliminarModulo = async (id: number): Promise<void> => {
   await api.delete(`/api/VTAModVentaModulo/Eliminar/${id}`);
 };
 */
+
+/** 🔹 Asignar docente a módulo */
+export const asignarDocenteAModulo = async (
+  idModulo: number,
+  idDocente: number | null // 🟢 CAMBIO 1: Permitir null para desasignar
+): Promise<{ codigo: string; mensaje: string }> => {
+  
+  const payload = {
+    IdModulo: idModulo,   // 🟢 CAMBIO 2: Mayúscula inicial (Igual al DTO C#)
+    IdDocente: idDocente  // 🟢 Mayúscula inicial
+  };
+
+  const response = await api.post(
+    "/api/VTAModVentaModulo/AsignarDocente",
+    payload
+  );
+
+  return response.data;
+};

@@ -42,6 +42,8 @@ export interface Producto {
   idDepartamento: number | null;
   departamentoNombre: string;
 
+  personalNombre?: string;
+
   modalidad: string;
 
   linkExcel: string;

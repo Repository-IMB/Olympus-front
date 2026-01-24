@@ -25,27 +25,23 @@ import styles from "./DetalleModulo.module.css";
 import { useState, useEffect } from "react";
 import ModalEditarProducto from "../Productos/ModalProducto";
 import ModalModulo from "./ModalModulo";
-import { obtenerModuloPorId, actualizarModulo, type IModulo } from "../../servicios/ModuloService";
+import { 
+  obtenerModuloPorId, 
+  actualizarModulo, 
+  asignarDocenteAModulo, 
+  obtenerProductosPorModulo, 
+  type IModulo, 
+  type ProductoAsociadoModulo 
+} from "../../servicios/ModuloService";
 import { obtenerDocentes, type Docente } from "../../servicios/DocenteService";
-import { asignarDocenteAModulo } from "../../servicios/EstructuraCurricularModuloService";
+import { obtenerProductos, type Producto } from "../../servicios/ProductoService";
+import api from "../../servicios/api";
 
+// --- DATOS MOCKEADOS O CONSTANTES ---
 const departamentos = [
   { id: 1, nombre: "Ventas" },
   { id: 2, nombre: "Marketing" },
   { id: 3, nombre: "Administración" },
-];
-
-// Datos mock temporales para productos, docentes y sesiones
-const productosAsociados = [
-  {
-    id: 1,
-    nombre: "Auditoría Financiera",
-    codigoEdicion: "IMP02052G1",
-    edicionSesion: "Setiembre G1",
-    estadoProducto: "Activo",
-    idProducto: 1,
-    orden: 1,
-  },
 ];
 
 const sesionesVivo = [
@@ -72,44 +68,100 @@ const obtenerNombreCompletoDia = (numero: string): string => {
   return mapeo[numero] || numero;
 };
 
+// --- COMPONENTE PRINCIPAL ---
 export default function DetalleModulo() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
+  // Estados de datos
   const [modulo, setModulo] = useState<IModulo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingAsignacion, setLoadingAsignacion] = useState(false);
 
+  // Estados de listas auxiliares
   const [listaDocentes, setListaDocentes] = useState<Docente[]>([]);
   const [loadingDocentes, setLoadingDocentes] = useState(false);
+  const [productosData, setProductosData] = useState<ProductoAsociadoModulo[]>([]);
+  const [loadingProductos, setLoadingProductos] = useState(false);
+  const [listaProductosDisponibles, setListaProductosDisponibles] = useState<Producto[]>([]);
+  const [loadingProductosSelect, setLoadingProductosSelect] = useState(false);
 
+
+  // Estados de Modales
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [modalAsociarProductoVisible, setModalAsociarProductoVisible] = useState(false);
   const [formAsociarProducto] = Form.useForm();
+  
   const [modalAsignarDocenteVisible, setModalAsignarDocenteVisible] = useState(false);
   const [formAsignarDocente] = Form.useForm();
+  
   const [modalEditarProductoVisible, setModalEditarProductoVisible] = useState(false);
   const [productoEditando, setProductoEditando] = useState<any | null>(null);
 
-  // Cargar datos del módulo
+  // --- EFECTOS ---
+
+  // 1. Cargar módulo al iniciar
   useEffect(() => {
     if (id) {
       cargarModulo();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // 2. Si el módulo tiene docente, asegurarnos de tener la lista para mostrar detalles
+  useEffect(() => {
+    if (modulo?.idDocente && listaDocentes.length === 0) {
+       cargarListaDocentes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modulo]);
+
+  // --- FUNCIONES DE CARGA ---
+
+  const cargarListaDocentes = async () => {
+    try {
+      setLoadingDocentes(true);
+      const docentesData = await obtenerDocentes();
+      setListaDocentes(docentesData);
+    } catch (error) {
+      console.error("Error cargando docentes", error);
+      // No mostramos error al usuario para no interrumpir la experiencia visual si falla algo secundario
+    } finally {
+      setLoadingDocentes(false);
+    }
+  };
 
   const cargarModulo = async () => {
     try {
-      setLoading(true);
+      setLoading(true); 
+      
       const data = await obtenerModuloPorId(Number(id));
       setModulo(data);
+
+      // Cargar productos asociados si el módulo existe
+      if (data.id) {
+        try {
+            setLoadingProductos(true); 
+            const prods = await obtenerProductosPorModulo(data.id);
+            setProductosData(prods);
+        } catch (errorProductos) {
+            console.error("Error al cargar productos asociados:", errorProductos);
+            message.warning("No se pudieron cargar los productos asociados");
+        } finally {
+            setLoadingProductos(false);
+        }
+      }
+
     } catch (error) {
       message.error("Error al cargar el módulo");
       console.error("Error:", error);
-      navigate(-1); // Volver si hay error
+      navigate(-1); 
     } finally {
-      setLoading(false);
+      setLoading(false); 
     }
   };
+
+  // --- HANDLERS DE MODALES ---
 
   const abrirModalEditar = () => {
     setModalEditarVisible(true);
@@ -118,11 +170,8 @@ export default function DetalleModulo() {
   const handleSubmitModalEditar = async (values: any) => {
     try {
       if (modulo) {
-        
         const preserveSessions = values.preserveSessions === true;
-        
         await actualizarModulo(modulo.id!, values, preserveSessions);
-        
         message.success("Módulo actualizado correctamente");
         await cargarModulo(); 
       }
@@ -138,18 +187,47 @@ export default function DetalleModulo() {
     setModalEditarVisible(false);
   };
 
-  const abrirModalAsociarProducto = () => {
+  const abrirModalAsociarProducto = async () => {
     formAsociarProducto.resetFields();
     setModalAsociarProductoVisible(true);
+
+    if (listaProductosDisponibles.length === 0) {
+      try {
+        setLoadingProductosSelect(true);
+        const data = await obtenerProductos("", 1, 1000); 
+        if (data && data.productos) {
+            setListaProductosDisponibles(data.productos);
+        }
+      } catch (error) {
+        console.error("Error al cargar productos para el select:", error);
+        message.error("No se pudieron cargar los productos disponibles");
+      } finally {
+        setLoadingProductosSelect(false);
+      }
+    }
   };
 
   const asignarProductoAlModulo = () => {
     formAsociarProducto
       .validateFields()
-      .then((values) => {
-        console.log("Producto asignado al módulo:", values);
-        // Acá iría el POST al backend
-        setModalAsociarProductoVisible(false);
+      .then(async (values) => {
+        try {
+            setLoading(true); 
+            await api.post('/api/VTAModVentaModulo/VincularModuloAProducto', {
+                idProducto: values.productoId,
+                idModulo: Number(id)
+            });
+
+            message.success("Producto asignado correctamente");
+            setModalAsociarProductoVisible(false);
+            cargarModulo();
+
+        } catch (error) {
+            console.error(error);
+            message.error("Error al asignar producto");
+        } finally {
+            setLoading(false);
+        }
       });
   };
 
@@ -157,21 +235,12 @@ export default function DetalleModulo() {
     formAsignarDocente.resetFields();
     setModalAsignarDocenteVisible(true);
     
-    // Si aún no tenemos la lista de docentes, la cargamos
+    // Si la lista está vacía, cargarla ahora
     if (listaDocentes.length === 0) {
-        try {
-            setLoadingDocentes(true);
-            const docentesData = await obtenerDocentes();
-            setListaDocentes(docentesData);
-        } catch (error) {
-            console.error("Error cargando docentes", error);
-            message.error("No se pudo cargar la lista de docentes");
-        } finally {
-            setLoadingDocentes(false);
-        }
+        await cargarListaDocentes();
     }
     
-    // Si el módulo ya tiene un docente asignado (idDocente), pre-llenamos el select
+    // Pre-seleccionar valor
     if (modulo?.idDocente) {
         formAsignarDocente.setFieldsValue({ docenteId: modulo.idDocente });
     }
@@ -182,41 +251,69 @@ export default function DetalleModulo() {
       .validateFields()
       .then(async (values) => {
         try {
-            // 🟢 CORRECCIÓN: Usamos 'estructuraCurricularModuloId' Y si no existe, usamos 'id'.
-            // Como estás en el detalle de un módulo específico, 'modulo.id' suele ser la clave primaria que necesitamos.
-            const idParaAsignar = modulo?.estructuraCurricularModuloId || modulo?.id;
+            const idModulo = modulo?.id;
+            if (!idModulo) return;
 
-            if (!idParaAsignar) {
-                message.error("Error de datos: Falta ID de estructura curricular");
-                return;
-            }
-
-            setLoading(true); 
+            setLoadingAsignacion(true); // Bloqueamos solo el botón
             
-            const resp = await asignarDocenteAModulo(
-                idParaAsignar,  // <--- Usamos la variable corregida
-                values.docenteId
-            );
+            const resp = await asignarDocenteAModulo(idModulo, values.docenteId);
+            
+            // Validación robusta
+            const codigoStr = String(resp.codigo).toUpperCase();
+            const mensajeStr = String(resp.mensaje || "").toLowerCase();
+            
+            const esExito = 
+                codigoStr === "0" || 
+                codigoStr === "SIN_ERROR" || 
+                codigoStr === "200" || 
+                codigoStr === "OK" ||
+                mensajeStr.includes("correctamente");
 
-            if (resp.codigo === "SIN_ERROR" || resp.codigo === "200") {
+            if (esExito) {
                 message.success("Docente asignado correctamente");
                 setModalAsignarDocenteVisible(false);
+                
+                // 🟢 CORRECCIÓN: Solo recargamos el módulo (silenciosamente)
+                // NO borramos la lista de docentes (setListaDocentes([]) <- BORRADO)
                 await cargarModulo(); 
+                
             } else {
                 message.error(resp.mensaje || "Error al asignar");
             }
 
         } catch (error: any) {
             console.error(error);
-            const msg = error?.response?.data?.mensaje || "Error al conectar con el servidor";
-            message.error(msg);
+            const msgError = error?.response?.data?.mensaje || "";
+            if (msgError.toLowerCase().includes("correctamente")) {
+                 message.success("Docente asignado correctamente");
+                 setModalAsignarDocenteVisible(false);
+                 await cargarModulo();
+            } else {
+                 message.error(msgError || "Error de conexión");
+            }
         } finally {
-            setLoading(false);
+            setLoadingAsignacion(false); // Desbloqueamos botón
         }
       });
   };
+  const obtenerColorEstado = (estadoNombre: string | undefined): string => {
+    if (!estadoNombre) return "default";
+    const estadoLower = estadoNombre.toLowerCase();
+    
+    if (estadoLower === "en curso") return "blue";
+    if (estadoLower === "en venta") return "green";
+    if (estadoLower === "finalizado") return "red";
+    if (estadoLower === "grupo completo") return "orange";
+    if (estadoLower === "piloto") return "purple";
+    if (estadoLower === "postergado") return "volcano";
+    if (estadoLower === "cancelado") return "default";
+    if (estadoLower === "no llamar nuevos") return "magenta";
+    
+    return "default";
+  };
 
-  // Columnas para productos asociados
+  // --- COLUMNAS DE TABLAS ---
+
   const columnasProductos: ColumnsType<any> = [
     {
       title: 'Nombre del producto',
@@ -237,13 +334,14 @@ export default function DetalleModulo() {
       sorter: (a, b) => a.orden - b.orden,
     },
     {
-      title: 'Estado del producto',
+      title: 'Estado de producto',
       dataIndex: 'estadoProducto',
       key: 'estadoProducto',
       sorter: (a, b) => a.estadoProducto.localeCompare(b.estadoProducto),
-      render: (estado: string) => (
-        <Tag color={estado === 'Activo' ? 'green' : 'red'}>{estado}</Tag>
-      ),
+      render: (estadoNombre: string | undefined) => {
+        if (!estadoNombre) return <Tag>-</Tag>;
+        return <Tag color={obtenerColorEstado(estadoNombre)}>{estadoNombre}</Tag>;
+      },
     },
     {
       title: 'Acciones',
@@ -285,14 +383,38 @@ export default function DetalleModulo() {
     },
   ];
 
+  // 🟢 LOGICA DE DATOS DOCENTE
+  let datosDocenteTabla: any[] = [];
+  if (modulo?.idDocente) {
+      // Cruzar datos con la lista completa
+      const docenteCompleto = listaDocentes.find(d => d.id === modulo.idDocente);
+      
+      if (docenteCompleto) {
+          datosDocenteTabla = [{
+              id: docenteCompleto.id,
+              nombre: docenteCompleto.nombres,
+              apellido: docenteCompleto.apellidos,
+              correo: docenteCompleto.correo,
+              pais: docenteCompleto.pais,
+              alias: docenteCompleto.alias,
+              areaTematica: docenteCompleto.areaTematica,
+              estado: 'Asignado'
+          }];
+      } else {
+          // Fallback por si la lista falla o no carga
+          datosDocenteTabla = [{
+              id: modulo.idDocente,
+              nombre: modulo.docenteNombre || 'Cargando...',
+              apellido: '-',
+              correo: '-',
+              pais: '-',
+              alias: '-',
+              areaTematica: '-',
+              estado: 'Asignado'
+          }];
+      }
+  }
 
-  const datosDocenteTabla = modulo?.idDocente ? [{
-      id: modulo.idDocente,
-      nombre: modulo.docenteNombre || 'Docente', // Asegúrate que tu SP devuelva 'DocenteNombre' o similar
-      // Si tu SP no devuelve apellidos/correo, solo mostrarás el nombre completo que venga
-      estado: 'Activo' 
-  }] : [];
-  // Columnas para docentes asociados
   const columnasDocentes: ColumnsType<any> = [
     {
       title: 'DocenteAsignado',
@@ -341,7 +463,6 @@ export default function DetalleModulo() {
     },
   ];
 
-  // Columnas para sesiones en vivo
   const columnasSesiones: ColumnsType<any> = [
     {
       title: 'Evento',
@@ -442,18 +563,16 @@ export default function DetalleModulo() {
     );
   }
 
-  // Convertir días de semana de números a nombres
   const diasClaseNombres = modulo.diasSemana
     ? modulo.diasSemana.split(',').map(d => obtenerNombreCompletoDia(d.trim())).join(', ')
     : '-';
 
-  // Preparar el módulo para editar
   const moduloParaEditar = {
     ...modulo,
     modulo: modulo.nombre,
-    // diasClase: modulo.diasSemana ? modulo.diasSemana.split(',').map(d => d.trim()) : []
   };
 
+  // --- RENDERIZADO PRINCIPAL ---
   return (
     <div className={styles.container}>
       {/* HEADER / VOLVER */}
@@ -477,7 +596,6 @@ export default function DetalleModulo() {
           <Item label="Fecha de presentación" value={modulo.fechaPresentacion || '-'} />
           <Item label="Fecha final" value={modulo.fechaFinPorSesiones || '-'} />
           <Item label="Horas sincrónicas" value={modulo.horasSincronicas || 0} />
-          {/* <Item label="Horas asincrónicas" value={modulo.horasAsincronicas || 0} /> */}
           <Item label="Días de clase" value={diasClaseNombres} />
           <Item label="Código de producto relacionado" value={modulo.productosCodigoLanzamiento || '-'} />
           <Item
@@ -530,7 +648,7 @@ export default function DetalleModulo() {
           marginBottom: 16
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
-            Productos asociados al módulo ({productosAsociados.length})
+            Productos asociados al módulo ({productosData.length})
           </h4>
           <Button
             type="primary"
@@ -546,11 +664,13 @@ export default function DetalleModulo() {
         </div>
 
         <Table
-          dataSource={productosAsociados}
+          dataSource={productosData}
           columns={columnasProductos}
           rowKey="id"
           pagination={false}
           size="small"
+          loading={loadingProductos}
+          locale={{ emptyText: "Este módulo no está asociado a ningún producto aún." }}
         />
       </Card>
 
@@ -584,6 +704,7 @@ export default function DetalleModulo() {
           rowKey="id"
           pagination={false}
           size="small"
+          loading={loadingDocentes}
           locale={{ emptyText: "No hay docente asignado a este módulo" }}
         />
       </Card>
@@ -631,7 +752,8 @@ export default function DetalleModulo() {
         />
       </Card>
 
-      {/* MODAL EDITAR MÓDULO - REUTILIZABLE */}
+      {/* --- MODALES --- */}
+
       <ModalModulo
         visible={modalEditarVisible}
         onCancel={handleCancelModalEditar}
@@ -659,20 +781,18 @@ export default function DetalleModulo() {
             rules={[{ required: true, message: "Seleccione un producto" }]}
           >
             <Select
-              placeholder="Seleccione un producto"
+              placeholder="Busque y seleccione un producto"
               showSearch
-              optionFilterProp="label"
-            >
-              <Select.Option value={1} label="Auditoría Financiera">
-                Auditoría Financiera
-              </Select.Option>
-              <Select.Option value={2} label="PET Contabilidad Financiera">
-                PET Contabilidad Financiera
-              </Select.Option>
-              <Select.Option value={3} label="PET Auditoría">
-                PET Auditoría
-              </Select.Option>
-            </Select>
+              loading={loadingProductosSelect}
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={listaProductosDisponibles.map(prod => ({
+                value: prod.id,
+                label: `${prod.nombre} ${prod.codigoLanzamiento ? `(${prod.codigoLanzamiento})` : ''}` 
+              }))}
+            />
           </Form.Item>
 
           <Button
@@ -689,7 +809,7 @@ export default function DetalleModulo() {
         </Form>
       </Modal>
 
-      {/* MODAL ASIGNAR DOCENTE (ACTUALIZADO CON SELECT REAL) */}
+      {/* MODAL ASIGNAR DOCENTE */}
       <Modal
         open={modalAsignarDocenteVisible}
         title="Asignar Docente al módulo"
@@ -750,7 +870,6 @@ export default function DetalleModulo() {
         }}
         onSave={async (productoEditado) => {
           console.log("Producto editado:", productoEditado);
-          // await ProductoService.editarProducto(productoEditado);
           setModalEditarProductoVisible(false);
           setProductoEditando(null);
         }}

@@ -56,21 +56,3 @@ export const desasignarModuloDeProducto = async (
 
   return response.data;
 };
-
-export const asignarDocenteAModulo = async (
-  idEstructuraCurricularModulo: number,
-  idDocente: number
-): Promise<{ codigo: string; mensaje: string }> => {
-  const payload = {
-    idEstructuraCurricularModulo,
-    idDocente
-  };
-
-  // Ajusta la URL si tu controlador tiene otro prefijo, pero basado en tu contexto es este:
-  const response = await api.post(
-    "/api/VTAModVentaEstructuraCurricularModulo/AsignarDocente",
-    payload
-  );
-
-  return response.data;
-};

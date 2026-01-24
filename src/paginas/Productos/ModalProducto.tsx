@@ -1,6 +1,7 @@
-import { Modal, Form, Row, Col, Input, Select, Button, Popconfirm, Collapse, Space, InputNumber } from "antd";
+import { Modal, Form, Row, Col, Input, Select, Button, Popconfirm, Collapse, Space, InputNumber, DatePicker } from "antd";
 import { PlusOutlined, DeleteOutlined, UpOutlined, DownOutlined, EditOutlined } from "@ant-design/icons";
 import { useEffect, useState } from "react";
+import moment from "moment";
 import type { Producto, TipoEstadoProducto } from "../../interfaces/IProducto";
 import { obtenerPersonalDesarrollo, type PersonalCombo } from "../../servicios/ProductoService";
 
@@ -59,6 +60,7 @@ export default function ModalProducto({
         idDepartamento: producto.idDepartamento,
         modalidad: producto.modalidad,
         estadoProductoTipoId: producto.estadoProductoTipoId,
+        fechaPresentacion: producto.fechaPresentacion ? moment(producto.fechaPresentacion) : null,
         frasePrograma: producto.frasePrograma || "",
         linkExcel: producto.linkExcel || "",
         linkPagWeb: producto.linkPagWeb || "",
@@ -115,6 +117,7 @@ export default function ModalProducto({
         idDepartamento: values.idDepartamento,
         modalidad: values.modalidad,
         estadoProductoTipoId: values.estadoProductoTipoId,
+        fechaPresentacion: values.fechaPresentacion ? moment(values.fechaPresentacion).format("YYYY-MM-DD") : null,
         frasePrograma: values.frasePrograma?.trim() || null,
         linkExcel: values.linkExcel || "",
         linkPagWeb: values.linkPagWeb || "",
@@ -266,6 +269,13 @@ export default function ModalProducto({
               rules={[{ required: true, message: "Campo requerido" }]}
             >
               <InputNumber min={0} precision={2} step={0.01} style={{ width: "100%" }} placeholder="0" />
+            </Form.Item>
+
+            <Form.Item
+              label="Fecha de presentación"
+              name="fechaPresentacion"
+            >
+              <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
             </Form.Item>
 
             <Form.Item

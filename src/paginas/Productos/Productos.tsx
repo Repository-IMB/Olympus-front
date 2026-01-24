@@ -1,6 +1,6 @@
 import { Table, Button, Input, Space, Tag, Tooltip, message, Modal, Spin, Select } from "antd";
 import { SearchOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import estilos from "./Productos.module.css";
 import type { ColumnsType } from "antd/es/table";
@@ -10,7 +10,6 @@ import {
   obtenerProductos,
   crearProducto,
   actualizarProducto,
-  // eliminarProducto,
   obtenerProductoPorId,
   obtenerTiposEstadoProducto,
 } from "../../servicios/ProductoService";
@@ -23,6 +22,8 @@ export default function Productos() {
   const [searchText, setSearchText] = useState("");
   const [filterEstadoProducto, setFilterEstadoProducto] = useState<number | null>(null);
   const searchInputRef = useRef<any>(null);
+  const [sortField, setSortField] = useState<string>("Nombre");
+  const [sortOrder, setSortOrder] = useState<string>("ascend");
   
   // Estado para la paginación del servidor
   const [pagination, setPagination] = useState({
@@ -44,40 +45,6 @@ export default function Productos() {
   
   const navigate = useNavigate();
 
-  /* =========================================================
-      EFECTO DE BÚSQUEDA EN TIEMPO REAL (DEBOUNCE)
-     ========================================================= */
-  useEffect(() => {
-    // Cuando el usuario escribe, esperamos 500ms antes de llamar a la API
-    const delayDebounceFn = setTimeout(() => {
-      // Siempre que se busca, volvemos a la página 1
-      cargarProductos(1, pagination.pageSize);
-    }, 500);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchText]); // Se ejecuta cada vez que cambia el texto
-
-  // Efecto para filtro de estado
-  useEffect(() => {
-    cargarProductos(1, pagination.pageSize);
-  }, [filterEstadoProducto]);
-
-  // Mantener el foco en el input de búsqueda después de cargar
-  useEffect(() => {
-    if (!loading && searchText && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [loading]);
-
-  // Carga de combos auxiliares solo al inicio
-  useEffect(() => {
-    const cargarAuxiliares = async () => {
-      await cargarDepartamentos();
-      await cargarTiposEstadoProducto();
-    };
-    cargarAuxiliares();
-  }, []);
-
   const cargarDepartamentos = async () => {
     try {
       const data = await obtenerDepartamentos();
@@ -98,33 +65,32 @@ export default function Productos() {
   };
 
   /* =========================================================
-      LÓGICA DE CARGA DE PRODUCTOS (PAGINADA)
+      LÓGICA DE CARGA DE PRODUCTOS (PAGINADA DESDE BACKEND)
      ========================================================= */
-  const cargarProductos = async (page: number, pageSize: number) => {
+  const cargarProductos = useCallback(async (page: number, pageSize: number) => {
     setLoading(true);
     try {
-      // Llamamos al servicio pasando búsqueda, página, tamaño y filtro de estado
+      const ordenBackend = sortOrder === 'ascend' ? 'ASC' : sortOrder === 'descend' ? 'DESC' : sortOrder;
+      
       const data: any = await obtenerProductos(
         searchText, 
         page, 
         pageSize, 
-        filterEstadoProducto
+        filterEstadoProducto,
+        sortField,
+        ordenBackend
       );
       
-      // Verificamos si viene en formato paginado { total, productos }
       if (data && Array.isArray(data.productos)) {
          setProductos(data.productos);
          setPagination({
-            current: page,
-            pageSize: pageSize,
-            total: data.total // Total real desde BD
+           current: page,
+           pageSize: pageSize,
+           total: data.total
          });
-      } else if (Array.isArray(data)) {
-         // Fallback por si la API devolviera array plano
-         setProductos(data);
-         setPagination({ ...pagination, total: data.length });
       } else {
          setProductos([]);
+         setPagination(prev => ({ ...prev, current: page, pageSize: pageSize, total: 0 }));
       }
     } catch (error) {
       console.error("Error cargando productos:", error);
@@ -133,12 +99,100 @@ export default function Productos() {
     } finally {
       setLoading(false);
     }
+  }, [searchText, filterEstadoProducto, sortField, sortOrder]);
+
+  // 🔹 Efecto 1: Filtros (Texto, Estado) -> Reset a Página 1
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      cargarProductos(1, pagination.pageSize);
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchText, filterEstadoProducto]);
+
+  // 🔹 Efecto 2: Ordenamiento -> Mantener Página Actual
+  useEffect(() => {
+    cargarProductos(pagination.current, pagination.pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortField, sortOrder]);
+
+
+  // 🔹 Manejador de la Tabla (Cambio de Página u Orden)
+  const handleTableChange = (newPagination: any, filters: any, sorter: any) => {
+    
+    // 1. Si cambió la Paginación
+    if (newPagination.current !== pagination.current || newPagination.pageSize !== pagination.pageSize) {
+       cargarProductos(newPagination.current, newPagination.pageSize);
+       return; 
+    }
+
+    // 2. Si cambió el Ordenamiento
+    if (!sorter.order) {
+        // Si el usuario quita el orden, volvemos al Default
+        setSortField("FechaCreacion");
+        setSortOrder("DESC");
+    } else {
+        // Mapeo: Frontend (dataIndex) -> Backend (SP Column Name)
+        const fieldMap: Record<string, string> = {
+            'nombre': 'Nombre',
+            'id': 'Id',
+            'codigoLanzamiento': 'CodigoLanzamiento',
+            'departamentoNombre': 'DepartamentoNombre',
+            'personalNombre': 'PersonalNombre',
+            'horasSincronicas': 'HorasSincronicas',
+            'horasAsincronicas': 'HorasAsincronicas',
+            'estadoProductoTipoNombre': 'EstadoProductoTipoNombre'
+        };
+        
+        const nuevoCampo = fieldMap[sorter.field] || sorter.field;
+        setSortField(nuevoCampo);
+        setSortOrder(sorter.order === 'ascend' ? 'ASC' : 'DESC');
+    }
+    // No llamamos a cargarProductos aquí, el useEffect lo hará al detectar el cambio de estado.
   };
 
-  const handleTableChange = (newPagination: any) => {
-    // Al cambiar de página, mantenemos el texto de búsqueda actual
-    cargarProductos(newPagination.current, newPagination.pageSize);
-  };
+  /* =========================================================
+      EFECTO DE BÚSQUEDA EN TIEMPO REAL (DEBOUNCE)
+     ========================================================= */
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      // Volver a página 1 cuando se busca
+      cargarProductos(1, pagination.pageSize);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchText]);
+
+  // Efecto para filtro de estado - volver a página 1
+  useEffect(() => {
+    cargarProductos(1, pagination.pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterEstadoProducto]);
+
+  // Efecto para ordenamiento - mantener página actual
+  useEffect(() => {
+    cargarProductos(pagination.current, pagination.pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortField, sortOrder]);
+
+  // Mantener el foco en el input de búsqueda después de cargar
+  useEffect(() => {
+    if (!loading && searchText && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [loading, searchText]);
+
+  // Carga inicial de productos y combos auxiliares
+  useEffect(() => {
+    const cargarInicial = async () => {
+      await cargarDepartamentos();
+      await cargarTiposEstadoProducto();
+      await cargarProductos(1, pagination.pageSize);
+    };
+    cargarInicial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* =========================
       GUARDAR (CREAR / EDITAR)
@@ -161,7 +215,7 @@ export default function Productos() {
       setModalVisible(false);
       setErrorModal(null);
       setProductoSeleccionado(null);
-      // Recargar manteniendo búsqueda y página actual
+      // Recargar manteniendo página actual
       cargarProductos(pagination.current, pagination.pageSize);
     } catch (error: any) {
       const mensajeError = error?.response?.data?.message || "Error al guardar";
@@ -201,28 +255,15 @@ export default function Productos() {
   };
 
   const confirmarEliminacion = async () => {
-    /* if (!productoAEliminar) return;
-    try {
-      await eliminarProducto(productoAEliminar);
-      message.success("Producto eliminado");
-      cargarProductos(pagination.current, pagination.pageSize);
-      setModalEliminarVisible(false);
-      setProductoAEliminar(null);
-    } catch (error: any) {
-      message.error("Error al eliminar");
-    } 
-    */
     setModalEliminarVisible(false);
     message.info("Eliminación pendiente de habilitar en servicio");
+    setProductoAEliminar(null);
   };
 
   const cancelarEliminacion = () => {
     setModalEliminarVisible(false);
     setProductoAEliminar(null);
   };
-
-  // Filtrar productos en el frontend después de cargar
-  const productosFiltrados = productos;
 
   // Función para obtener el color del tag según el estado
   const obtenerColorEstado = (estadoNombre: string | undefined): string => {
@@ -243,29 +284,62 @@ export default function Productos() {
   };
 
   /* =========================
-      COLUMNAS
+      COLUMNAS - SIN SORTER LOCAL
      ========================= */
   const columnas: ColumnsType<Producto> = [
-    { title: "Id", dataIndex: "id", key: "id", width: 80, sorter: (a, b) => a.id - b.id },
-    { title: "Producto", dataIndex: "nombre", key: "nombre", sorter: (a, b) => a.nombre.localeCompare(b.nombre) },
-    { title: "Código", dataIndex: "codigoLanzamiento", key: "codigoLanzamiento" },
-    { title: "Departamento", dataIndex: "departamentoNombre", key: "departamentoNombre" },
+    { 
+      title: "Id", 
+      dataIndex: "id", 
+      key: "id", 
+      width: 80, 
+      sorter: true // Ordenamiento desde backend
+    },
+    { 
+      title: "Producto", 
+      dataIndex: "nombre", 
+      key: "nombre", 
+      sorter: true // Ordenamiento desde backend
+    },
+    { 
+      title: "Código", 
+      dataIndex: "codigoLanzamiento", 
+      key: "codigoLanzamiento",
+      sorter: true
+    },
+    { 
+      title: "Departamento", 
+      dataIndex: "departamentoNombre", 
+      key: "departamentoNombre",
+      sorter: true
+    },
+    { 
+      title: "Responsable", 
+      dataIndex: "personalNombre",
+      key: "personalNombre", 
+      sorter: true,
+      render: (v: string | undefined) => v ?? "-" 
+    },
     { 
       title: "Horas en vivo", 
-      dataIndex: "horasSincronicas", 
-      align: "center", 
+      dataIndex: "horasSincronicas",
+      key: "horasSincronicas",
+      align: "center",
+      sorter: true,
       render: (v: number | undefined) => v ?? "-" 
     },
     { 
       title: "Horas asincrónicas", 
-      dataIndex: "horasAsincronicas", 
-      align: "center", 
+      dataIndex: "horasAsincronicas",
+      key: "horasAsincronicas",
+      align: "center",
+      sorter: true,
       render: (v: number | undefined) => v ?? "-" 
     },
     {
       title: "Estado de producto",
       dataIndex: "estadoProductoTipoNombre",
       key: "estadoProductoTipoNombre",
+      sorter: true,
       render: (estadoNombre: string | undefined) => {
         if (!estadoNombre) return <Tag>-</Tag>;
         return <Tag color={obtenerColorEstado(estadoNombre)}>{estadoNombre}</Tag>;
@@ -274,6 +348,7 @@ export default function Productos() {
     {
       title: "Acciones",
       key: "acciones",
+      width: 180,
       render: (_, record) => (
         <Space size="middle">
           <Tooltip title="Ver detalle">
@@ -308,7 +383,6 @@ export default function Productos() {
 
         <div className={estilos.toolbar}>
           <div className={estilos.searchBar}>
-            {/* Input de búsqueda automática */}
             <Input
               ref={searchInputRef}
               placeholder="Buscar producto, código o departamento"
@@ -350,13 +424,14 @@ export default function Productos() {
           <Spin spinning={loading}>
             <Table
               columns={columnas}
-              dataSource={productosFiltrados}
+              dataSource={productos}
               rowKey="id"
               pagination={{
                 current: pagination.current,
                 pageSize: pagination.pageSize,
                 total: pagination.total,
-                showSizeChanger: true
+                showSizeChanger: true,
+                showTotal: (total, range) => `${range[0]}-${range[1]} de ${total} productos`
               }}
               loading={loading}
               onChange={handleTableChange}

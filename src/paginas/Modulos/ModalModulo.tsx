@@ -46,39 +46,108 @@ export default function ModalModulo({
   const [form] = Form.useForm();
   const [diasClase, setDiasClase] = useState<string[]>([]);
 
-  // Observamos los valores para cálculos y lógica de visualización
+  // Observamos los valores para cálculos
+  const fechaInicio = Form.useWatch("fechaInicio", form); // Fundamental para saber qué días caen
   const horaInicio = Form.useWatch("horaInicio", form);
   const horaFin = Form.useWatch("horaFin", form);
+  const horaInicioSabado = Form.useWatch("horaInicioSabado", form);
+  const horaFinSabado = Form.useWatch("horaFinSabado", form);
   const nroSesiones = Form.useWatch("nroSesiones", form);
   const gestionSesiones = Form.useWatch("gestionSesiones", form);
 
-  // Lógica para mostrar/ocultar campos
-  // Se muestran si: NO es edición (creación) O si es edición y eligió "regenerar"
   const mostrarProgramacion = !modoEdicion || gestionSesiones === "regenerar";
 
-  // Efecto para calcular horas sincrónicas automáticamente
+  // ==============================================================================
+  // 🟢 CÁLCULO DE HORAS (Soporte para sábados con horario diferente)
+  // ==============================================================================
   useEffect(() => {
-    if (horaInicio && horaFin && nroSesiones) {
-      // 1. Clonamos y limpiamos segundos/milisegundos para precisión exacta
-      const inicio = moment(horaInicio).second(0).millisecond(0);
-      const fin = moment(horaFin).second(0).millisecond(0);
+    // Si no se muestran los campos, no recalculamos para no pisar datos ocultos
+    if (!mostrarProgramacion) return;
 
-      // 2. Calculamos diferencia en minutos y pasamos a horas
-      const diffHoras = fin.diff(inicio, "minute") / 60;
-      
-      // 3. Calculamos total
-      const total = diffHoras > 0 ? diffHoras * Number(nroSesiones) : 0;
+    // Validación mínima: Horarios semana y Nro sesiones son obligatorios para empezar
+    if (!horaInicio || !horaFin || !nroSesiones) {
+      form.setFieldsValue({ duracionHoras: 0 });
+      return;
+    }
 
-      form.setFieldsValue({
-        duracionHoras: Number(total.toFixed(2)),
-      });
-    } else {
-      // Solo resetear si estamos viendo los campos, para evitar sobrescribir datos ocultos innecesariamente
-      if (mostrarProgramacion) {
-          form.setFieldsValue({ duracionHoras: 0 });
+    // 1. Calcular duración de una sesión "Semana" (L-V + D)
+    const inicioSemana = moment(horaInicio).second(0).millisecond(0);
+    const finSemana = moment(horaFin).second(0).millisecond(0);
+    const duracionSemana = Math.max(0, finSemana.diff(inicioSemana, "minute") / 60);
+
+    // 2. Calcular duración de sesión "Sábado"
+    let duracionSabado = duracionSemana; // Por defecto igual
+    const tieneSabado = diasClase.includes("6");
+
+    if (tieneSabado && horaInicioSabado && horaFinSabado) {
+      const inicioSab = moment(horaInicioSabado).second(0).millisecond(0);
+      const finSab = moment(horaFinSabado).second(0).millisecond(0);
+      duracionSabado = Math.max(0, finSab.diff(inicioSab, "minute") / 60);
+    }
+
+    // 3. Lógica de conteo
+    let totalHoras = 0;
+    const duracionesSonIguales = Math.abs(duracionSemana - duracionSabado) < 0.01;
+
+    // CASO A: Cálculo simple
+    // Si NO hay sábados O si los sábados duran lo mismo que la semana, multiplicamos directo.
+    if (!tieneSabado || duracionesSonIguales) {
+      totalHoras = duracionSemana * Number(nroSesiones);
+    } 
+    // CASO B: Cálculo complejo (Calendario simulado)
+    // Si hay sábados con horario distinto, necesitamos iterar fecha por fecha.
+    else {
+      if (fechaInicio) {
+        let sesionesContadas = 0;
+        let sabadosContados = 0;
+        
+        // Clonamos fecha inicio para no alterar el valor del form
+        const fechaIteracion = moment(fechaInicio);
+
+        // Convertimos tus keys ("1","2"...) a enteros de Moment (1=Lun...6=Sab, 0=Dom)
+        // Nota: Tu array DIAS usa "7" para Domingo, Moment usa 0.
+        const diasValidosMoment = diasClase.map(d => d === "7" ? 0 : parseInt(d));
+
+        // Bucle de seguridad (max 1000 iteraciones) para evitar colgar el navegador
+        let seguridad = 0;
+        while (sesionesContadas < Number(nroSesiones) && seguridad < 1000) {
+          const diaSemanaActual = fechaIteracion.day(); // 0-6
+
+          if (diasValidosMoment.includes(diaSemanaActual)) {
+            sesionesContadas++;
+            if (diaSemanaActual === 6) {
+              sabadosContados++; // Encontré un sábado
+            }
+          }
+          // Avanzar al día siguiente
+          fechaIteracion.add(1, 'days');
+          seguridad++;
+        }
+
+        // Fórmula final: (Total - Sábados) * DuracionSemana + Sábados * DuracionSábado
+        const sesionesSemana = Number(nroSesiones) - sabadosContados;
+        totalHoras = (sesionesSemana * duracionSemana) + (sabadosContados * duracionSabado);
+      } else {
+        // Fallback: Si el usuario aun no puso fecha inicio, usamos el cálculo simple temporalmente
+        totalHoras = duracionSemana * Number(nroSesiones);
       }
     }
-  }, [horaInicio, horaFin, nroSesiones, form, mostrarProgramacion]);
+
+    form.setFieldsValue({
+      duracionHoras: Number(totalHoras.toFixed(2)),
+    });
+
+  }, [
+    horaInicio, 
+    horaFin, 
+    horaInicioSabado, 
+    horaFinSabado, 
+    nroSesiones, 
+    fechaInicio, // Dependencia clave nueva
+    diasClase,   // Dependencia clave nueva
+    form, 
+    mostrarProgramacion
+  ]);
 
   // Efecto para cargar datos cuando se edita
   useEffect(() => {
@@ -127,9 +196,6 @@ export default function ModalModulo({
         descripcion: moduloEditar.descripcion || "",
         // Default a mantener cuando se abre editar
         gestionSesiones: "mantener", 
-        fechaPresentacion: moduloEditar.fechaPresentacion
-          ? moment(moduloEditar.fechaPresentacion)
-          : null,
         fechaInicio: moduloEditar.fechaInicio ? moment(moduloEditar.fechaInicio) : null,
         horaInicio: primeraHoraInicio
           ? moment(primeraHoraInicio, "HH:mm:ss")
@@ -216,10 +282,7 @@ export default function ModalModulo({
             console.log("🔒 MODO MANTENER");
 
             payload.duracionHoras = moduloEditar.duracionHoras || 0;
-            payload.fechaPresentacion = moduloEditar.fechaPresentacion 
-                ? moment(moduloEditar.fechaPresentacion).format("YYYY-MM-DD") 
-                : null;
-              payload.fechaInicio = moduloEditar.fechaInicio 
+            payload.fechaInicio = moduloEditar.fechaInicio 
                 ? moment(moduloEditar.fechaInicio).format("YYYY-MM-DD") 
                 : null;
 
@@ -267,12 +330,6 @@ export default function ModalModulo({
             const inputAsync = Number(values.nroSesionesAsync || 0); // Asincrónicas
 
             let inputPres = 0;
-            if (values.fechaPresentacion && moment(values.fechaPresentacion).isValid()) {
-                 inputPres = 1;
-                 payload.fechaPresentacion = moment(values.fechaPresentacion).format("YYYY-MM-DD");
-            } else {
-                 payload.fechaPresentacion = null;
-            }
 
             if (values.fechaInicio && moment(values.fechaInicio).isValid()) {
                 payload.fechaInicio = moment(values.fechaInicio).format("YYYY-MM-DD");
@@ -474,15 +531,6 @@ export default function ModalModulo({
           <>
             {/* 4to renglón */}
             <Row gutter={16}>
-              <Col span={8}>
-                <Form.Item
-                  label="Fecha de presentación"
-                  name="fechaPresentacion"
-                >
-                  <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
-                </Form.Item>
-              </Col>
-
               <Col span={6}>
                 <Form.Item 
                     label="Fecha de Inicio" 
