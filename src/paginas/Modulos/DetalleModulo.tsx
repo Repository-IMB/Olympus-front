@@ -383,31 +383,38 @@ export default function DetalleModulo() {
     },
   ];
 
-  // 🟢 LOGICA DE DATOS DOCENTE
-  let datosDocenteTabla: any[] = [];
+  // 🟢 LOGICA DE DATOS DOCENTE (CORREGIDA Y SIN ERRORES)
+  // Usamos un tipo genérico para evitar el error de "Unexpected any"
+  let datosDocenteTabla: Record<string, any>[] = []; 
+  
   if (modulo?.idDocente) {
-      // Cruzar datos con la lista completa
+      // 1. Buscamos al docente en la lista (para tener email, etc.)
       const docenteCompleto = listaDocentes.find(d => d.id === modulo.idDocente);
       
+      // Truco: Casteamos a 'any' para que TypeScript no se queje si faltan campos en la interfaz
+      const docenteAny = docenteCompleto as any;
+      const moduloAny = modulo as any;
+
       if (docenteCompleto) {
           datosDocenteTabla = [{
               id: docenteCompleto.id,
               nombre: docenteCompleto.nombres,
               apellido: docenteCompleto.apellidos,
               correo: docenteCompleto.correo,
-              pais: docenteCompleto.pais,
-              alias: docenteCompleto.alias,
-              areaTematica: docenteCompleto.areaTematica,
+              pais: docenteAny.pais || moduloAny.docentePais || '-',
+              
+              alias: docenteAny.alias || '-',
+              areaTematica: docenteAny.areaTematica || '-',
               estado: 'Asignado'
           }];
       } else {
-          // Fallback por si la lista falla o no carga
+          // 2. FALLBACK: Usamos puramente los datos del módulo
           datosDocenteTabla = [{
               id: modulo.idDocente,
               nombre: modulo.docenteNombre || 'Cargando...',
-              apellido: '-',
-              correo: '-',
-              pais: '-',
+              apellido: moduloAny.docenteApellido || '-', 
+              correo: '-', 
+              pais: moduloAny.docentePais || '-', // <--- Aquí mostramos el país del SP
               alias: '-',
               areaTematica: '-',
               estado: 'Asignado'
@@ -563,14 +570,39 @@ export default function DetalleModulo() {
     );
   }
 
-  const diasClaseNombres = modulo.diasSemana
-    ? modulo.diasSemana.split(',').map(d => obtenerNombreCompletoDia(d.trim())).join(', ')
-    : '-';
-
   const moduloParaEditar = {
     ...modulo,
     modulo: modulo.nombre,
   };
+
+  // Función para formatear fechas de forma amigable (Ej: Lunes, 25 de octubre de 2025)
+const formatearFechaAmigable = (fecha: string | Date | undefined) => {
+  if (!fecha) return '-';
+  
+  const fechaObj = new Date(fecha);
+  // Validar que sea una fecha válida
+  if (isNaN(fechaObj.getTime())) return '-';
+
+  // Opciones de formato
+  const opciones: Intl.DateTimeFormatOptions = { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    timeZone: 'UTC' // Importante para que no reste un día por la zona horaria si viene solo fecha
+  };
+
+  const fechaFormateada = new Intl.DateTimeFormat('es-ES', opciones).format(fechaObj);
+  
+  // Capitalizar la primera letra (Lunes... en vez de lunes...)
+  return fechaFormateada.charAt(0).toUpperCase() + fechaFormateada.slice(1);
+};
+
+  const rawDias = modulo.diasSemana || (modulo as any).diasClase || '';
+  
+  const diasClaseNombres = rawDias
+    ? rawDias.toString().split(',').map((d: string) => obtenerNombreCompletoDia(d.trim())).join(', ')
+    : '-';
 
   // --- RENDERIZADO PRINCIPAL ---
   return (
@@ -593,11 +625,20 @@ export default function DetalleModulo() {
           <Item label="Código del módulo" value={modulo.codigo || '-'} />
           <Item label="Título del certificado" value={modulo.tituloCertificado || '-'} />
           <Item label="Descripción" value={modulo.descripcion || '-'} />
-          <Item label="Fecha de presentación" value={modulo.fechaPresentacion || '-'} />
-          <Item label="Fecha final" value={modulo.fechaFinPorSesiones || '-'} />
+          <Item 
+            label="Fecha de inicio" 
+            value={formatearFechaAmigable(modulo.fechaInicio)} 
+          />
+          <Item 
+             label="Fecha final (estimada)" 
+             value={formatearFechaAmigable(modulo.fechaFinPorSesiones || (modulo as any).fechaFin)} 
+          />
           <Item label="Horas sincrónicas" value={modulo.horasSincronicas || 0} />
           <Item label="Días de clase" value={diasClaseNombres} />
-          <Item label="Código de producto relacionado" value={modulo.productosCodigoLanzamiento || '-'} />
+          <Item 
+            label="Código de producto relacionado" 
+            value={modulo.productosCodigoLanzamiento || (modulo as any).codigoProducto || '-'} 
+          />
           <Item
             label="Estado"
             value={<Tag color={modulo.estado ? 'green' : 'red'}>

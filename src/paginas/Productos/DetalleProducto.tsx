@@ -66,11 +66,15 @@ export default function DetalleProducto() {
     return diasStr.split(',').map(d => parseInt(d.trim()));
   };
 
-  const obtenerCantidadSesiones = (sesiones: any): number => {
-    if (typeof sesiones === 'number') return sesiones;
-    if (Array.isArray(sesiones)) return sesiones.length;
-    return 0;
-  };
+const formatearHora = (hora: string | undefined | null): string => {
+  if (!hora) return '';
+  // Si viene fecha completa ISO (2025-01-01T09:00:00)
+  if (hora.includes('T')) {
+    return moment(hora).format('HH:mm');
+  }
+  // Si viene HH:mm:ss o HH:mm
+  return hora.substring(0, 5);
+};
 
   const obtenerLimiteSesiones = (modulo: any): number => {
     // Prioridad: Usar el contador de sincrónicas (nuevo campo SQL)
@@ -386,39 +390,87 @@ export default function DetalleProducto() {
       ),
     },
   ];
+/* =========================
+     PREPARACIÓN DATOS CALENDARIO (LOGICA MULTI-HORARIO)
+     ========================= */
+  
+  // 1. Helper para limpiar horas
+  const limpiarHora = (h: any): string => {
+    if (!h) return '';
+    const str = h.toString();
+    if (str.includes('T')) return moment(str).format('HH:mm');
+    return str.substring(0, 5);
+  };
 
-  /* =========================
-      PREPARACIÓN DATOS CALENDARIO
-  ========================= */
+  // 2. Helper para parsear el string raro del SQL: "1@19:00@22:00|6@09:00@13:00"
+  const parsearDetalleHorarios = (cadena: string | undefined | null) => {
+      const mapa: Record<number, { inicio: string; fin: string }> = {};
+      if (!cadena) return mapa;
+
+      // Separamos por palito "|" (diferentes configuraciones)
+      const partes = cadena.split('|');
+      
+      partes.forEach(parte => {
+          // Separamos por arroba "@" (dia, inicio, fin)
+          const [diaStr, inicio, fin] = parte.split('@');
+          const dia = parseInt(diaStr);
+          if (!isNaN(dia)) {
+              mapa[dia] = { inicio, fin };
+          }
+      });
+      return mapa;
+  };
+
   const diasClasesPorFecha: Record<
     string,
-    { moduloId: number; nombre: string; color: string; nroSesion: number; totalSesiones: number }[]
+    { moduloId: number; nombre: string; color: string; nroSesion: number; totalSesiones: number; horario: string }[]
   > = {};
 
   modulos.forEach((modulo, index) => {
-    if (!modulo.moduloId || typeof modulo.moduloId !== 'number') return;
-
+    if (!modulo || (!modulo.moduloId && !modulo.id)) return;
+    
+    const modId = modulo.moduloId || modulo.id || 0;
+    const modNombre = modulo.moduloNombre || modulo.nombre || 'Sin nombre';
     const color = coloresModulos[index % coloresModulos.length];
     
-    // Calculamos los días
     const { fechas } = calcularCronograma(modulo);
-
-    // Obtenemos el total real (sincrónicas) para la etiqueta
     const totalReal = obtenerLimiteSesiones(modulo);
 
+    // 🟢 AQUI ESTA LA CLAVE: Obtenemos el mapa de horarios por día
+    // (modulo as any).detalleHorarios viene del DTO nuevo que agregamos
+    const mapaHorarios = parsearDetalleHorarios((modulo as any).detalleHorarios);
+
     fechas.forEach((info) => {
-      const fecha = info.fecha;
-      
-      if (!diasClasesPorFecha[fecha]) {
-        diasClasesPorFecha[fecha] = [];
+      const fechaStr = info.fecha;
+      const diaSemana = moment(fechaStr).day(); // 0=Dom, 1=Lun...
+
+      let hInicio = '';
+      let hFin = '';
+
+      // A. ¿Existe horario específico para ESTE día de la semana?
+      if (mapaHorarios[diaSemana]) {
+          hInicio = mapaHorarios[diaSemana].inicio;
+          hFin = mapaHorarios[diaSemana].fin;
+      } 
+      // B. Si no, usamos el general (Plan B)
+      else {
+          hInicio = limpiarHora(modulo.horaInicioSync || (modulo as any).horaInicio);
+          hFin = limpiarHora(modulo.horaFinSync || (modulo as any).horaFin);
       }
 
-      diasClasesPorFecha[fecha].push({
-        moduloId: modulo.moduloId!,
-        nombre: modulo.moduloNombre || 'Sin nombre',
+      const textoHorario = (hInicio && hFin) ? `${hInicio} - ${hFin}` : '';
+
+      if (!diasClasesPorFecha[fechaStr]) {
+        diasClasesPorFecha[fechaStr] = [];
+      }
+
+      diasClasesPorFecha[fechaStr].push({
+        moduloId: modId,
+        nombre: modNombre,
         color,
         nroSesion: info.nroSesion,
-        totalSesiones: totalReal 
+        totalSesiones: totalReal,
+        horario: textoHorario // ¡Ahora sí será diferente para el sábado!
       });
     });
   });
@@ -701,11 +753,19 @@ export default function DetalleProducto() {
                             fontSize: 12,
                           }}
                         >
-                          <div style={{ fontWeight: 600 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 2 }}>
                             {s.nombre}
                           </div>
 
-                          <div>
+                          {/* 🟢 AQUI SE MUESTRA EL HORARIO */}
+                          {s.horario && (
+                            <div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>
+                              <CalendarOutlined style={{ marginRight: 4 }} />
+                              {s.horario}
+                            </div>
+                          )}
+
+                          <div style={{ color: '#8c8c8c', fontSize: 11 }}>
                             Sesión {s.nroSesion} / {s.totalSesiones}
                           </div>
                         </div>

@@ -151,30 +151,7 @@ export default function Productos() {
     // No llamamos a cargarProductos aquí, el useEffect lo hará al detectar el cambio de estado.
   };
 
-  /* =========================================================
-      EFECTO DE BÚSQUEDA EN TIEMPO REAL (DEBOUNCE)
-     ========================================================= */
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      // Volver a página 1 cuando se busca
-      cargarProductos(1, pagination.pageSize);
-    }, 500);
 
-    return () => clearTimeout(delayDebounceFn);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchText]);
-
-  // Efecto para filtro de estado - volver a página 1
-  useEffect(() => {
-    cargarProductos(1, pagination.pageSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEstadoProducto]);
-
-  // Efecto para ordenamiento - mantener página actual
-  useEffect(() => {
-    cargarProductos(pagination.current, pagination.pageSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortField, sortOrder]);
 
   // Mantener el foco en el input de búsqueda después de cargar
   useEffect(() => {
