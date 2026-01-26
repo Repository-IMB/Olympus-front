@@ -1,0 +1,95 @@
+.modal :global(.ant-modal-header) {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 24px;
+}
+
+.modal :global(.ant-modal-title) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f1f1f;
+}
+
+.modal :global(.ant-modal-body) {
+  padding: 24px;
+}
+
+.form {
+  margin-top: 8px;
+}
+
+.form :global(.ant-form-item-label > label) {
+  font-weight: 500;
+  color: #595959;
+  font-size: 14px;
+}
+
+.form :global(.ant-input),
+.form :global(.ant-select-selector) {
+  border-radius: 6px;
+  border-color: #d9d9d9;
+}
+
+.form :global(.ant-select-selector) {
+  min-height: 40px;
+}
+
+.form :global(.ant-select-selection-placeholder) {
+  color: #bfbfbf;
+}
+
+.previewSection {
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.previewLabel {
+  display: block;
+  font-size: 13px;
+  color: #8c8c8c;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.previewBox {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.previewItem {
+  font-size: 14px;
+  color: #1f1f1f;
+  line-height: 1.5;
+}
+
+.submitContainer {
+  margin-top: 24px;
+}
+
+.submitButton {
+  height: 40px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+/* Mobile adjustments */
+@media (max-width: 767px) {
+  .modal :global(.ant-modal-body) {
+    padding: 16px;
+  }
+
+  .form :global(.ant-input),
+  .form :global(.ant-select-selector) {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .submitButton {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
