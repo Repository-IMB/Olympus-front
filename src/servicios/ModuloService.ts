@@ -1,7 +1,9 @@
 import api from "./api";
 import type { IModulo } from "../interfaces/IModulo";
+import type { ISesion } from "../interfaces/ISesion";
 
 export type { IModulo };
+export type { ISesion };
 
 export const baseUrl: string = (import.meta.env.VITE_API_URL as string) || "http://localhost:7020";
 
@@ -124,4 +126,27 @@ export const asignarDocenteAModulo = async (
   );
 
   return response.data;
+};
+
+/** 🔹 Obtener sesiones de un módulo */
+export const obtenerSesionesPorModulo = async (idModulo: number): Promise<ISesion[]> => {
+  try {
+    const response = await api.get(`/api/VTAModVentaModulo/ObtenerSesiones/${idModulo}`);
+    
+    // Validar que la respuesta tenga estructura correcta
+    if (response.data && response.data.sesiones && Array.isArray(response.data.sesiones)) {
+      return response.data.sesiones;
+    }
+    
+    // Si no tiene la estructura esperada, retornar array vacío
+    console.warn("Respuesta inesperada del endpoint de sesiones:", response.data);
+    return [];
+    
+  } catch (error: any) {
+    // Manejar errores 400 y otros
+    if (error.response?.status === 400 && error.response?.data?.mensaje) {
+      console.error("Error al obtener sesiones:", error.response.data.mensaje);
+    }
+    throw error;
+  }
 };

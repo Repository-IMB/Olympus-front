@@ -30,8 +30,10 @@ import {
   actualizarModulo, 
   asignarDocenteAModulo, 
   obtenerProductosPorModulo, 
+  obtenerSesionesPorModulo,
   type IModulo, 
-  type ProductoAsociadoModulo 
+  type ProductoAsociadoModulo,
+  type ISesion
 } from "../../servicios/ModuloService";
 import { obtenerDocentes, type Docente } from "../../servicios/DocenteService";
 import { obtenerProductos, type Producto } from "../../servicios/ProductoService";
@@ -42,17 +44,6 @@ const departamentos = [
   { id: 1, nombre: "Ventas" },
   { id: 2, nombre: "Marketing" },
   { id: 3, nombre: "Administración" },
-];
-
-const sesionesVivo = [
-  {
-    id: 1,
-    evento: "Presentación",
-    fecha: "lunes, 27 de octubre",
-    horaInicio: "9:00 AM",
-    horaFin: "10:30 AM",
-    tipo: "Teórica",
-  },
 ];
 
 const obtenerNombreCompletoDia = (numero: string): string => {
@@ -85,6 +76,8 @@ export default function DetalleModulo() {
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [listaProductosDisponibles, setListaProductosDisponibles] = useState<Producto[]>([]);
   const [loadingProductosSelect, setLoadingProductosSelect] = useState(false);
+  const [sesionesData, setSessionesData] = useState<ISesion[]>([]);
+  const [loadingSesiones, setLoadingSesiones] = useState(false);
 
 
   // Estados de Modales
@@ -149,6 +142,18 @@ export default function DetalleModulo() {
             message.warning("No se pudieron cargar los productos asociados");
         } finally {
             setLoadingProductos(false);
+        }
+
+        // Cargar sesiones asociadas
+        try {
+            setLoadingSesiones(true);
+            const sesiones = await obtenerSesionesPorModulo(data.id);
+            setSessionesData(sesiones);
+        } catch (errorSesiones) {
+            console.error("Error al cargar sesiones:", errorSesiones);
+            message.warning("No se pudieron cargar las sesiones del módulo");
+        } finally {
+            setLoadingSesiones(false);
         }
       }
 
@@ -472,34 +477,47 @@ export default function DetalleModulo() {
 
   const columnasSesiones: ColumnsType<any> = [
     {
-      title: 'Evento',
-      dataIndex: 'evento',
-      key: 'evento',
-      sorter: (a, b) => a.evento.localeCompare(b.evento),
+      title: 'Sesión',
+      dataIndex: 'nombreSesion',
+      key: 'nombreSesion',
+      sorter: (a, b) => a.nombreSesion.localeCompare(b.nombreSesion),
     },
     {
-      title: 'Fecha',
-      dataIndex: 'fecha',
-      key: 'fecha',
-      sorter: (a, b) => a.fecha.localeCompare(b.fecha),
+      title: 'Día de la semana',
+      dataIndex: 'nombreDiaSemana',
+      key: 'nombreDiaSemana',
+      sorter: (a, b) => (a.nombreDiaSemana || '').localeCompare(b.nombreDiaSemana || ''),
     },
     {
       title: 'Hora Inicio',
       dataIndex: 'horaInicio',
       key: 'horaInicio',
-      sorter: (a, b) => a.horaInicio.localeCompare(b.horaInicio),
+      render: (horaInicio: string | null | undefined) => horaInicio || '-',
+      sorter: (a, b) => (a.horaInicio || '').localeCompare(b.horaInicio || ''),
     },
     {
       title: 'Hora Fin',
       dataIndex: 'horaFin',
       key: 'horaFin',
-      sorter: (a, b) => a.horaFin.localeCompare(b.horaFin),
+      render: (horaFin: string | null | undefined) => horaFin || '-',
+      sorter: (a, b) => (a.horaFin || '').localeCompare(b.horaFin || ''),
     },
     {
       title: 'Tipo',
-      dataIndex: 'tipo',
-      key: 'tipo',
-      sorter: (a, b) => a.tipo.localeCompare(b.tipo),
+      dataIndex: 'tipoSesion',
+      key: 'tipoSesion',
+      render: (tipoSesion: string) => tipoSesion || '-',
+      sorter: (a, b) => (a.tipoSesion || '').localeCompare(b.tipoSesion || ''),
+    },
+    {
+      title: 'Modalidad',
+      dataIndex: 'esAsincronica',
+      key: 'esAsincronica',
+      render: (esAsincronica: boolean) => (
+        <Tag color={esAsincronica ? 'blue' : 'green'}>
+          {esAsincronica ? 'Asincrónica' : 'Sincrónica'}
+        </Tag>
+      ),
     },
     {
       title: 'Acciones',
@@ -759,7 +777,7 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
           marginBottom: 16
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
-            Cronograma de sesiones ({sesionesVivo.length})
+            Cronograma de sesiones ({sesionesData.length})
           </h4>
           <Space>
             <Button
@@ -785,11 +803,13 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
         </div>
 
         <Table
-          dataSource={sesionesVivo}
+          dataSource={sesionesData}
           columns={columnasSesiones}
           rowKey="id"
           pagination={false}
           size="small"
+          loading={loadingSesiones}
+          locale={{ emptyText: "Este módulo no tiene sesiones programadas aún." }}
         />
       </Card>
 
