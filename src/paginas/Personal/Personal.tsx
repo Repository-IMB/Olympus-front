@@ -6,65 +6,20 @@ import {
   Select,
   DatePicker,
   Tooltip,
+  message,
 } from "antd";
 import { SearchOutlined, EditOutlined } from "@ant-design/icons";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import moment, { type Moment } from "moment";
 import estilos from "./Personal.module.css";
 import type { ColumnsType } from "antd/es/table";
 import type { Personal } from "../../interfaces/IPersonal";
+import { obtenerPaises, type Pais } from "../../config/rutasApi";
+
+import { obtenerPersonalPaginado } from "../../servicios/PersonalService";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
-
-// Mock data - reemplazar con API real
-const personalMock: Personal[] = [
-  {
-    id: 1,
-    pais: "Panamá",
-    dni: "86391694",
-    apellidos: "Singh Alvarado",
-    nombres: "Abdiel",
-    fechaNacimiento: "",
-    correo: "abdielsingh8@gmail.com",
-    celular: "imtpaegermtto08252",
-    direccion: "imtpaegermtto08252",
-    distrito: "",
-    carrera: "",
-    sede: "",
-    estado: true,
-  },
-  {
-    id: 2,
-    pais: "Panamá",
-    dni: "881796",
-    apellidos: "Tejeira Romaña",
-    nombres: "Abdiel",
-    fechaNacimiento: "",
-    correo: "abdieltejeira@gmail.com",
-    celular: "imbcepconfin06251",
-    direccion: "imbcepconfin06251",
-    distrito: "",
-    carrera: "",
-    sede: "",
-    estado: true,
-  },
-  {
-    id: 3,
-    pais: "República Dominicana",
-    dni: "03185360873",
-    apellidos: "Jiménez",
-    nombres: "Adalberto",
-    fechaNacimiento: "",
-    correo: "dalbert490@gmail.com",
-    celular: "imbcepconfin06251",
-    direccion: "imbcepconfin06251",
-    distrito: "",
-    carrera: "",
-    sede: "",
-    estado: true,
-  },
-];
 
 export default function Personal() {
   const [searchText, setSearchText] = useState("");
@@ -76,7 +31,67 @@ export default function Personal() {
   const [filtroArea, setFiltroArea] = useState<string>();
   const [dateRange, setDateRange] = useState<[Moment | null, Moment | null] | null>(null);
 
-  const [personal] = useState<Personal[]>(personalMock);
+  // API State
+  const [personal, setPersonal] = useState<Personal[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [totalRegistros, setTotalRegistros] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // State for countries from API
+  const [paises, setPaises] = useState<Pais[]>([]);
+  const [loadingPaises, setLoadingPaises] = useState(true);
+
+  const fetchPersonal = async () => {
+    try {
+      setLoading(true);
+      const response = await obtenerPersonalPaginado({
+        page: currentPage,
+        pageSize,
+        search: searchText,
+        pais: filtroPais,
+        sede: filtroSede,
+        carrera: filtroCarrera,
+        fechaInicio: dateRange?.[0]?.toISOString(),
+        fechaFin: dateRange?.[1]?.toISOString(),
+      });
+
+      if (response.codigo === "SIN ERROR") {
+        setPersonal(response.personal);
+        setTotalRegistros(response.totalRegistros);
+      } else {
+        message.error(response.mensaje || "Error al cargar personal");
+      }
+    } catch (error) {
+      console.error("Error fetching personal:", error);
+      message.error("Error al cargar datos del personal");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load countries from API
+  useEffect(() => {
+    const cargarPaises = async () => {
+      try {
+        setLoadingPaises(true);
+        const paisesData = await obtenerPaises();
+        const paisesActivos = paisesData.filter(p => p.estado);
+        setPaises(paisesActivos);
+      } catch (error) {
+        console.error(error);
+        message.error("Error al cargar países");
+      } finally {
+        setLoadingPaises(false);
+      }
+    };
+    cargarPaises();
+  }, []);
+
+  // Fetch data on filter change
+  useEffect(() => {
+    fetchPersonal();
+  }, [currentPage, pageSize, searchText, filtroPais, filtroSede, filtroCarrera, dateRange]);
 
   const limpiarFiltros = () => {
     setSearchText("");
@@ -87,54 +102,8 @@ export default function Personal() {
     setFiltroTipoJornada(undefined);
     setFiltroArea(undefined);
     setDateRange(null);
+    setCurrentPage(1);
   };
-
-  const personalFiltrado = useMemo(() => {
-    const busqueda = searchText.toLowerCase();
-
-    return personal.filter((p) => {
-      const coincideBusqueda =
-        !busqueda ||
-        p.nombres.toLowerCase().includes(busqueda) ||
-        p.apellidos.toLowerCase().includes(busqueda) ||
-        p.dni.includes(busqueda) ||
-        p.correo.toLowerCase().includes(busqueda);
-
-      const coincidePais = !filtroPais || p.pais === filtroPais;
-      const coincideSede = !filtroSede || p.sede === filtroSede;
-      const coincideCarrera = !filtroCarrera || p.carrera === filtroCarrera;
-      const coincideTipoContrato = !filtroTipoContrato || p.tipoContrato === filtroTipoContrato;
-      const coincideTipoJornada = !filtroTipoJornada || p.tipoJornada === filtroTipoJornada;
-      const coincideArea = !filtroArea || p.area === filtroArea;
-
-      const coincideFecha =
-        !dateRange ||
-        !dateRange[0] ||
-        !dateRange[1] ||
-        (() => {
-          if (!p.fechaNacimiento) return true;
-          const [inicio, fin] = dateRange;
-          const fechaPersonal = moment(p.fechaNacimiento, "DD/MM/YYYY");
-          return (
-            (fechaPersonal.isAfter(inicio.startOf("day")) &&
-              fechaPersonal.isBefore(fin.endOf("day"))) ||
-            fechaPersonal.isSame(inicio, "day") ||
-            fechaPersonal.isSame(fin, "day")
-          );
-        })();
-
-      return (
-        coincideBusqueda &&
-        coincidePais &&
-        coincideSede &&
-        coincideCarrera &&
-        coincideTipoContrato &&
-        coincideTipoJornada &&
-        coincideArea &&
-        coincideFecha
-      );
-    });
-  }, [personal, searchText, filtroPais, filtroSede, filtroCarrera, filtroTipoContrato, filtroTipoJornada, filtroArea, dateRange]);
 
   const columnas: ColumnsType<Personal> = [
     {
@@ -399,30 +368,9 @@ export default function Personal() {
     },
     {
       title: "Sede",
-      dataIndex: "sede",
-      key: "sede",
-      sorter: (a, b) => a.sede.localeCompare(b.sede),
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
-        <div style={{ padding: 8 }}>
-          <Input
-            placeholder="Filtrar sede"
-            value={selectedKeys[0] as string}
-            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-            onPressEnter={() => confirm()}
-            style={{ width: 188, marginBottom: 8, display: "block" }}
-          />
-          <Space>
-            <Button type="primary" onClick={() => confirm()} size="small" style={{ width: 90 }}>
-              Filtrar
-            </Button>
-            <Button onClick={() => clearFilters?.()} size="small" style={{ width: 90 }}>
-              Limpiar
-            </Button>
-          </Space>
-        </div>
-      ),
-      filterIcon: (filtered) => <SearchOutlined style={{ color: filtered ? "#1890ff" : undefined }} />,
-      onFilter: (value, record) => record.sede.toLowerCase().includes((value as string).toLowerCase()),
+      dataIndex: "nombreSede",
+      key: "nombreSede",
+      sorter: (a, b) => a.nombreSede.localeCompare(b.nombreSede),
     },
     {
       title: "Acción",
@@ -442,13 +390,13 @@ export default function Personal() {
     },
   ];
 
-  // Obtener valores únicos para los filtros
-  const paisesUnicos = [...new Set(personal.map((p) => p.pais))].filter(Boolean);
-  const sedesUnicas = [...new Set(personal.map((p) => p.sede))].filter(Boolean);
-  const carrerasUnicas = [...new Set(personal.map((p) => p.carrera))].filter(Boolean);
-  const tiposContratoUnicos = [...new Set(personal.map((p) => p.tipoContrato))].filter(Boolean);
-  const tiposJornadaUnicos = [...new Set(personal.map((p) => p.tipoJornada))].filter(Boolean);
-  const areasUnicas = [...new Set(personal.map((p) => p.area))].filter(Boolean);
+  // Derive unique values for filters not from API (if possible, otherwise remove or mock)
+  // For now we will keep them empty or mocked as we don't have endpoints for them
+  const sedesUnicas: string[] = []; // Should come from API or be removed
+  const carrerasUnicas: string[] = [];
+  const tiposContratoUnicos: string[] = [];
+  const tiposJornadaUnicos: string[] = [];
+  const areasUnicas: string[] = [];
 
   return (
     <div className={estilos.container}>
@@ -479,15 +427,16 @@ export default function Personal() {
         <div className={`${estilos.toolbar} ${estilos.filtersRow}`}>
           <Select
             allowClear
-            placeholder="Filtro por pais"
+            placeholder="Filtro por país"
             value={filtroPais}
             onChange={setFiltroPais}
             className={estilos.filterSelect}
             style={{ minWidth: 150 }}
+            loading={loadingPaises}
           >
-            {paisesUnicos.map((pais) => (
-              <Option key={pais} value={pais}>
-                {pais}
+            {paises.map((pais) => (
+              <Option key={pais.id} value={pais.nombre}>
+                {pais.nombre}
               </Option>
             ))}
           </Select>
@@ -578,9 +527,18 @@ export default function Personal() {
 
         <Table
           columns={columnas}
-          dataSource={personalFiltrado}
-          rowKey="id"
-          pagination={{ pageSize: 10 }}
+          dataSource={personal}
+          rowKey="idPersonal"
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            total: totalRegistros,
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            }
+          }}
+          loading={loading}
           scroll={{ x: 1500 }}
         />
       </div>
