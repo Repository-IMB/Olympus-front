@@ -14,6 +14,7 @@ import LoginPage from "./paginas/Login/Login";
 import ForgotPasswordPage from "./paginas/ForgotPassword/ForgotPasswordPage";
 import ResetPasswordPage from "./paginas/ResetPassword/ResetPasswordPage";
 import Forbidden from "./paginas/Forbidden";
+import AsistenciaPage from "./paginas/Asistencia/Asistencia";
 
 // Layout / guards
 import MainLayout from "./layouts/MainLayout";
@@ -66,7 +67,7 @@ function App() {
       }
     };
 
-    const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/activos/public"];
+    const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/activos/public", "/asistencia"];
 
     const logout = () => {
       document.cookie =
@@ -122,6 +123,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/asistencia" element={<AsistenciaPage />} />
       <Route path="/403" element={<Forbidden />} />
       
       {/* Ruta pública para QR de activos (sin autenticación ni layout) */}
