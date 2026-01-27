@@ -26,11 +26,3 @@ export const obtenerPersonalPaginado = async (
 
     return response.data;
 };
-
-/**
- * Fetches single personal record by ID
- */
-// export const obtenerPersonalPorId = async (id: number): Promise<Personal> => {
-//     const response = await api.get(`/api/RRHHModPersonal/ObtenerPorId/${id}`);
-//     return response.data?.personal ?? response.data;
-// };

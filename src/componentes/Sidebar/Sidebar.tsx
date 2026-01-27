@@ -17,7 +17,6 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   DesktopOutlined,
-  TeamOutlined,
 } from "@ant-design/icons";
 import styles from "./Sidebar.module.css";
 import type { PermisosMenu } from "../../hooks/usePermisosMenu";
@@ -60,8 +59,8 @@ export default function Sidebar({
         {/* ================= DASHBOARD ================= */}
         <div
           className={`${styles.menuItem} ${isActive("/") || isActive("/dashboard")
-              ? styles.menuItemActive
-              : ""
+            ? styles.menuItemActive
+            : ""
             }`}
           onClick={() => navigateAndClose("/")}
         >
@@ -92,8 +91,8 @@ export default function Sidebar({
                 {permisos.leads && (
                   <div
                     className={`${styles.menuItem} ${isActive("/leads/SalesProcess")
-                        ? styles.menuItemActive
-                        : ""
+                      ? styles.menuItemActive
+                      : ""
                       }`}
                     onClick={() =>
                       navigateAndClose("/leads/SalesProcess")
@@ -144,8 +143,8 @@ export default function Sidebar({
               <div className={styles.menuItems}>
                 <div
                   className={`${styles.menuItem} ${isActive("/producto/departamentos")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/producto/departamentos")}
                 >
@@ -154,8 +153,8 @@ export default function Sidebar({
 
                 <div
                   className={`${styles.menuItem} ${isActive("/producto/docentes")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/producto/docentes")}
                 >
@@ -164,8 +163,8 @@ export default function Sidebar({
 
                 <div
                   className={`${styles.menuItem} ${isActive("/producto/modulos")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/producto/modulos")}
                 >
@@ -173,8 +172,8 @@ export default function Sidebar({
                 </div>
                 <div
                   className={`${styles.menuItem} ${isActive("/producto/productos")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/producto/productos")}
                 >
@@ -183,8 +182,8 @@ export default function Sidebar({
 
                 <div
                   className={`${styles.menuItem} ${isActive("/producto/alumnos")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/producto/alumnos")}
                 >
@@ -218,8 +217,8 @@ export default function Sidebar({
               <div className={styles.menuItems}>
                 <div
                   className={`${styles.menuItem} ${isActive("/logistica/activos")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/logistica/activos")}
                 >
@@ -227,8 +226,8 @@ export default function Sidebar({
                 </div>
                 <div
                   className={`${styles.menuItem} ${isActive("/logistica/personal")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/logistica/personal")}
                 >
@@ -262,8 +261,8 @@ export default function Sidebar({
               <div className={styles.menuItems}>
                 <div
                   className={`${styles.menuItem} ${isActive("/rrhh/personal")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/rrhh/personal")}
                 >
@@ -271,8 +270,8 @@ export default function Sidebar({
                 </div>
                 <div
                   className={`${styles.menuItem} ${isActive("/rrhh/contratos")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/rrhh/contratos")}
                 >
@@ -280,8 +279,8 @@ export default function Sidebar({
                 </div>
                 <div
                   className={`${styles.menuItem} ${isActive("/rrhh/permisos")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/rrhh/permisos")}
                 >
@@ -289,8 +288,8 @@ export default function Sidebar({
                 </div>
                 <div
                   className={`${styles.menuItem} ${isActive("/rrhh/vacaciones")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/rrhh/vacaciones")}
                 >
@@ -298,8 +297,8 @@ export default function Sidebar({
                 </div>
                 <div
                   className={`${styles.menuItem} ${isActive("/rrhh/asistencia")
-                      ? styles.menuItemActive
-                      : ""
+                    ? styles.menuItemActive
+                    : ""
                     }`}
                   onClick={() => onNavigate("/rrhh/asistencia")}
                 >
