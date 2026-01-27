@@ -192,6 +192,54 @@ export default function DetalleModulo() {
     setModalEditarVisible(false);
   };
 
+  // Después de las otras funciones de handlers (por ejemplo después de asignarDocenteAlModulo)
+
+  const descargarPDFModulo = async () => {
+    try {
+      if (!modulo?.id) {
+        message.error("No se puede generar el PDF sin un módulo válido");
+        return;
+      }
+
+      message.loading({ content: 'Generando PDF...', key: 'pdf' });
+
+      const response = await api.get(`/api/VTAModVentaModulo/GenerarPDF/${modulo.id}`, {
+        responseType: 'blob',
+      });
+
+      // Crear un blob con el PDF
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      
+      // Crear URL temporal
+      const url = window.URL.createObjectURL(blob);
+      
+      // Crear elemento <a> temporal para descarga
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Nombre del archivo
+      const fileName = `Modulo_${modulo.codigo || modulo.id}_${new Date().toISOString().split('T')[0]}.pdf`;
+      link.download = fileName;
+      
+      // Trigger descarga
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      message.success({ content: 'PDF descargado correctamente', key: 'pdf' });
+      
+    } catch (error: any) {
+      console.error('Error al descargar PDF:', error);
+      message.error({ 
+        content: error?.response?.data?.message || 'Error al generar el PDF del módulo',
+        key: 'pdf'
+      });
+    }
+  };
+
   const abrirModalAsociarProducto = async () => {
     formAsociarProducto.resetFields();
     setModalAsociarProductoVisible(true);
@@ -692,6 +740,7 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
               alignItems: 'center',
               justifyContent: 'center'
             }}
+            onClick={descargarPDFModulo}
           >
             Imprimir cronograma de clases
           </Button>
@@ -787,6 +836,7 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
                 borderColor: '#1f1f1f',
                 color: 'white'
               }}
+              onClick={descargarPDFModulo}
             >
               Imprimir cronograma de clases
             </Button>

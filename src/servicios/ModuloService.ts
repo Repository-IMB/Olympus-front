@@ -150,3 +150,53 @@ export const obtenerSesionesPorModulo = async (idModulo: number): Promise<ISesio
     throw error;
   }
 };
+
+// Agregar esta función a tu ModuloService.ts existente
+
+/**
+ * Genera y descarga el PDF de un módulo
+ */
+export const descargarPDFModulo = async (idModulo: number): Promise<void> => {
+  try {
+    const response = await api.get(`/api/VTAModVentaModulo/GenerarPDF/${idModulo}`, {
+      responseType: 'blob',
+    });
+
+    // Crear un blob con el PDF
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    
+    // Crear URL temporal
+    const url = window.URL.createObjectURL(blob);
+    
+    // Crear elemento <a> temporal para descarga
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Intentar obtener el nombre del archivo del header Content-Disposition
+    const contentDisposition = response.headers['content-disposition'];
+    let fileName = `Modulo_${idModulo}_${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    if (contentDisposition) {
+      const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
+      if (fileNameMatch && fileNameMatch[1]) {
+        fileName = fileNameMatch[1];
+      }
+    }
+    
+    link.download = fileName;
+    
+    // Trigger descarga
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+  } catch (error: any) {
+    console.error('Error al descargar PDF:', error);
+    throw new Error(
+      error?.response?.data?.message || 'Error al generar el PDF del módulo'
+    );
+  }
+};

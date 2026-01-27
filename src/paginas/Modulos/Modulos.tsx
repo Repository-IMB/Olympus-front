@@ -19,7 +19,7 @@ import {
   EditOutlined,
   EyeOutlined,
   DeleteOutlined,
-  CalendarOutlined,
+  FilePdfOutlined, // ✅ Cambiado de CalendarOutlined a FilePdfOutlined
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import ModalModulo from "./ModalModulo";
@@ -29,6 +29,7 @@ import {
   actualizarModulo,
   obtenerModuloPorId,
   obtenerCodigosFiltroModulo,
+  descargarPDFModulo, // ✅ Nueva función importada
   type IModulo,
 } from "../../servicios/ModuloService";
 
@@ -92,9 +93,7 @@ export default function Modulos() {
         }
 
         // Conversión de orden (Antd 'ascend'/'descend' -> SQL 'ASC'/'DESC')
-        // Si no hay orden visual, usamos el valor del estado (que por defecto será DESC)
-        const ordenBackend =
-          sortOrder === "ascend" ? "ASC" : "DESC";
+        const ordenBackend = sortOrder === "ascend" ? "ASC" : "DESC";
 
         const data: any = await obtenerModulos(
           searchText.trim(),
@@ -115,7 +114,7 @@ export default function Modulos() {
             total: data.total,
           });
 
-          // Llenar combo de filtros (Acumulativo para no perder opciones al paginar)
+          // Llenar combo de filtros
           if (data.modulos.length > 0) {
             const nuevosCodigos = data.modulos
               .map((m: any) => m.productosCodigoLanzamiento)
@@ -137,20 +136,19 @@ export default function Modulos() {
         setLoading(false);
       }
     },
-    // Dependencias: Si cambia el orden, la búsqueda o el filtro, se regenera la función
     [searchText, dateRange, productoSeleccionado, sortField, sortOrder]
   );
 
-  // 🔹 Efecto 1: Cambios en Filtros (Input, Select, DatePicker) -> Reset a Página 1
+  // 🔹 Efecto 1: Cambios en Filtros
   useEffect(() => {
     const timer = setTimeout(() => {
       cargarModulos(1, pagination.pageSize);
-    }, 500); // Debounce
+    }, 500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText, productoSeleccionado, dateRange]);
 
-  // 🔹 Efecto 2: Cambios en Ordenamiento -> Mantener Página Actual
+  // 🔹 Efecto 2: Cambios en Ordenamiento
   useEffect(() => {
     cargarModulos(pagination.current, pagination.pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,7 +157,6 @@ export default function Modulos() {
   useEffect(() => {
     const cargarFiltros = async () => {
       try {
-        // Llamamos al endpoint que trae SOLO los usados (tus 2 códigos)
         const codigosReales = await obtenerCodigosFiltroModulo();
         setCodigosProducto(codigosReales);
       } catch (error) {
@@ -169,23 +166,17 @@ export default function Modulos() {
     cargarFiltros();
   }, []);
 
-
-  // 🔹 Manejador de la Tabla (Cambio de Página u Orden)
+  // 🔹 Manejador de la Tabla
   const handleTableChange = (newPagination: any, filters: any, sorter: any) => {
-    
-    // 1. Detectar cambio de Paginación
     if (newPagination.current !== pagination.current || newPagination.pageSize !== pagination.pageSize) {
        cargarModulos(newPagination.current, newPagination.pageSize);
        return; 
     }
 
-    // 2. Detectar cambio de Ordenamiento
-    // 🟢 Si sorter.order es undefined, el usuario reseteó el orden -> Volver a Default
     if (!sorter.order) {
         setSortField("FechaCreacion");
         setSortOrder("DESC");
     } else {
-        // Mapeo: DataIndex (Front) -> Nombre Columna (Stored Procedure)
         const fieldMap: Record<string, string> = {
             'id': 'Id',
             'nombre': 'Nombre',
@@ -228,7 +219,6 @@ export default function Modulos() {
   const handleSubmitModal = async (values: any) => {
     try {
       if (modoEdicion && moduloEditando) {
-        // Preservar sesiones si se requiere (lógica simplificada)
         const preserveSessions = values.preserveSessions === true;
         const payload = preserveSessions 
             ? { ...moduloEditando, ...values, id: moduloEditando.id, preserveSessions: true } 
@@ -241,7 +231,7 @@ export default function Modulos() {
         message.success("Módulo creado correctamente");
       }
       setModalVisible(false);
-      cargarModulos(1, pagination.pageSize); // Recargar
+      cargarModulos(1, pagination.pageSize);
     } catch (error: any) {
         const errorMsg = error?.response?.data?.message || "Error al guardar";
         message.error(errorMsg);
@@ -254,6 +244,26 @@ export default function Modulos() {
     setModoEdicion(false);
   };
 
+  // ✅ NUEVA FUNCIÓN: Descargar PDF
+  const handleDescargarPDF = async (modulo: IModulo) => {
+    try {
+      setLoading(true);
+      message.loading({ content: 'Generando PDF...', key: 'pdfGen', duration: 0 });
+      
+      await descargarPDFModulo(modulo.id!);
+      
+      message.success({ content: 'PDF generado correctamente', key: 'pdfGen', duration: 2 });
+    } catch (error: any) {
+      message.error({ 
+        content: error?.message || 'Error al generar el PDF', 
+        key: 'pdfGen', 
+        duration: 3 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 🔹 Columnas
   const columnas: ColumnsType<IModulo> = [
     {
@@ -261,33 +271,33 @@ export default function Modulos() {
       dataIndex: "id",
       key: "id",
       width: 80,
-      sorter: true, // Backend support
+      sorter: true,
     },
     {
       title: "Módulo",
       dataIndex: "nombre",
       key: "nombre",
-      sorter: true, // Backend support
+      sorter: true,
     },
     {
       title: "Código de Producto",
       dataIndex: "productosCodigoLanzamiento",
       key: "productosCodigoLanzamiento",
-      sorter: true, // Backend support
+      sorter: true,
       render: (codigo: string) => codigo || "-",
     },
     {
       title: "Código de Módulo",
       dataIndex: "codigo",
       key: "codigo",
-      sorter: true, // Backend support
+      sorter: true,
       render: (codigo: string, record: any) => record.codigo || record.moduloCodigo || "-",
     },
     {
       title: "Días de clase",
       dataIndex: "diasSemana",
       key: "diasSemana",
-      sorter: true, // Backend support
+      sorter: true,
       render: (dias: string) => {
         if (!dias) return "-";
         return dias.split(",").map((d) => obtenerNombreCompletoDia(d.trim())).join(" - ");
@@ -297,14 +307,14 @@ export default function Modulos() {
       title: "Fecha de inicio",
       dataIndex: "fechaInicio",
       key: "fechaInicio",
-      sorter: true, // Backend support
+      sorter: true,
       render: (fecha: string) => (fecha ? moment(fecha).format("DD/MM/YYYY") : "-"),
     },
     {
       title: "Estado",
       dataIndex: "estado",
       key: "estado",
-      sorter: true, // Backend support
+      sorter: true,
       render: (estado: boolean) =>
         estado ? <Tag color="green">Activo</Tag> : <Tag color="red">Inactivo</Tag>,
     },
@@ -328,9 +338,13 @@ export default function Modulos() {
               <DeleteOutlined />
             </span>
           </Tooltip>
+          {/* ✅ BOTÓN PDF ACTUALIZADO */}
           <Tooltip title="Imprimir PDF">
-            <span className={estilos.actionIcon}>
-              <CalendarOutlined />
+            <span 
+              className={estilos.actionIcon} 
+              onClick={() => handleDescargarPDF(record)}
+            >
+              <FilePdfOutlined />
             </span>
           </Tooltip>
         </Space>
