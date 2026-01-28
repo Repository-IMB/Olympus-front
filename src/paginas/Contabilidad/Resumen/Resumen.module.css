@@ -1,0 +1,106 @@
+/* Estilos para el contenedor principal */
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  gap: 16px;
+  background: #f5f5f5;
+}
+
+.contentWrapper {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Estilos para los títulos */
+.title {
+  margin-bottom: 16px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* Estilos para las tarjetas de métricas */
+.metricCard {
+  height: 100%;
+  background-color: #ffffff;
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  transform: translateY(-2px);
+}
+
+
+.metricValue {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.metricSubtext {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* Estilos para las secciones */
+.section {
+  margin-top: 16px;
+  height: 100%;
+  background-color: #ffffff;
+  padding: 16px;
+  border-radius: 20px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  transform: translateY(-2px);
+}
+
+/* Estilos para las tarjetas de gráficos */
+.chartCard {
+  height: 100%;
+}
+
+.chartPlaceholder {
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 12px;
+  background-color: #f9fafb;
+}
+
+/* Estilos para la sección de control rápido */
+.quickControl {
+  height: 100%;
+}
+
+.quickControlText {
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: #4b5563;
+}
+
+/* Estilos para la tabla de gastos */
+.expensesTable {
+  margin-top: 8px;
+}
+
+/* Estilos para los botones de acción */
+.actionButton {
+  background-color: #1677ff;
+  border-color: #1677ff;
+  height: 38px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 0 20px;
+}

@@ -1,0 +1,49 @@
+/* Estilos generales */
+.container {
+  padding: 16px;
+}
+
+.title {
+  margin-bottom: 16px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* Tarjetas de métricas */
+.metricsContainer {
+  margin-bottom: 16px;
+}
+
+.card {
+  height: 100%;
+}
+
+.cardTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.cardDescription {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 12px;
+}
+
+.chartPlaceholder {
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 12px;
+  background-color: #f9fafb;
+}
+
+/* Tabla de ingresos/egresos */
+.ingresosEgresosTable {
+  margin-top: 16px;
+}

@@ -43,6 +43,11 @@ import DetalleProducto from "./paginas/Productos/DetalleProducto";
 import DetalleModulo from "./paginas/Modulos/DetalleModulo";
 import DetalleAlumno from "./paginas/Alumnos/DetalleAlumno";
 
+// Contabilidad
+import ContabilidadResumen from "./paginas/Contabilidad/Resumen/Resumen"
+import ContabilidadFacturacion from "./paginas/Contabilidad/Facturacion/Facturacion";
+import ContabilidadReportes from "./paginas/Contabilidad/Reportes/Reportes";
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -184,6 +189,14 @@ function App() {
               </ProtectedContent>
             }
           />
+
+          {/* ======================= CONTABILIDAD ======================= */}
+          <Route path="/contabilidad">
+            <Route index element={<Navigate to="resumen" replace />} />
+            <Route path="resumen" element={<ContabilidadResumen />} />
+            <Route path="facturacion" element={<ContabilidadFacturacion />} />
+            <Route path="reportes" element={<ContabilidadReportes />} />
+          </Route>
         </Route>
       </Route>
 

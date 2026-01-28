@@ -1,0 +1,89 @@
+/* Estilos generales */
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  gap: 16px;
+  background: #f5f5f5;
+}
+
+.header {
+  margin-bottom: 4px;
+}
+
+.title {
+  margin-bottom: 16px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* Filtros */
+.filtersContainer {
+  margin-bottom: 12px;
+  row-gap: 8px;
+}
+
+/* Tabla de facturas */
+.facturasTable {
+  margin-bottom: 20px;
+}
+
+/* Secciones del formulario */
+.formSection {
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  margin-top: 4px;
+  color: #1f2937;
+}
+
+.sectionSubtitle {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+/* Formulario */
+.formItem {
+  margin-bottom: 12px;
+}
+
+/* Botones de acción */
+.actionButton {
+  margin-right: 8px;
+}
+
+/* Tarjeta de registro */
+.registrationCard {
+  margin-top: 24px;
+}
+
+/* Campos de monto */
+.amountInput {
+  width: 100%;
+}
+
+/* Upload */
+.uploadButton {
+  width: 100%;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .filtersContainer {
+    flex-direction: column;
+  }
+  
+  .actionButton {
+    margin-bottom: 8px;
+    margin-right: 0;
+    width: 100%;
+  }
+}

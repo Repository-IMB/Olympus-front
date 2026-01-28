@@ -10,6 +10,9 @@ import {
   BookOutlined,
   ReadOutlined,
   IdcardOutlined,
+  DollarOutlined,
+  FileTextOutlined,
+  FileSearchOutlined,
 } from "@ant-design/icons";
 import styles from "./Sidebar.module.css";
 import type { PermisosMenu } from "../../hooks/usePermisosMenu";
@@ -185,6 +188,57 @@ export default function Sidebar({
                 >
                   <DashboardOutlined /> Mantenimiento
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= Sistema contable ================= */}
+        {permisos.contabilidad && (
+          <div className={styles.menuSection}>
+            <div
+              className={styles.menuHeader}
+              onClick={() => 
+                onToggleMenu(openMenu === "Contabilidad" ? null : "Contabilidad")
+              }
+            >
+              <span className={styles.menuHeaderContent}>
+                <DollarOutlined /> Contabilidad
+              </span>
+              {openMenu === "Contabilidad" ? <CaretUpOutlined /> : <CaretDownOutlined />}
+            </div>
+            {openMenu === "Contabilidad" && (
+              <div className={styles.menuItems}>
+                {permisos.contabilidad_resumen && (
+                  <div
+                    className={`${styles.menuItem} ${
+                      isActive("/contabilidad/resumen") ? styles.menuItemActive : ""
+                    }`}
+                    onClick={() => onNavigate("/contabilidad/resumen")}
+                  >
+                    <DashboardOutlined /> Resumen
+                  </div>
+                )}
+                {permisos.contabilidad_facturacion && (
+                  <div
+                    className={`${styles.menuItem} ${
+                      isActive("/contabilidad/facturacion") ? styles.menuItemActive : ""
+                    }`}
+                    onClick={() => onNavigate("/contabilidad/facturacion")}
+                  >
+                    <FileSearchOutlined /> Facturación
+                  </div>
+                )}
+                {permisos.contabilidad_reportes && (
+                  <div
+                    className={`${styles.menuItem} ${
+                      isActive("/contabilidad/reportes") ? styles.menuItemActive : ""
+                    }`}
+                    onClick={() => onNavigate("/contabilidad/reportes")}
+                  >
+                    <FileTextOutlined /> Reportes
+                  </div>
+                )}
               </div>
             )}
           </div>

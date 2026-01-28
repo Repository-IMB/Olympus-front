@@ -6,6 +6,10 @@ export type PermisosMenu = {
   desarrollo: boolean;
   logistica: boolean;
   usuarios: boolean;
+  contabilidad: boolean;
+  contabilidad_resumen: boolean;
+  contabilidad_facturacion: boolean;
+  contabilidad_reportes: boolean;
 };
 
 const normalizar = (valor?: string) =>
@@ -22,6 +26,10 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         desarrollo: false,
         logistica: false,
         usuarios: false,
+        contabilidad: false,
+        contabilidad_resumen: false,
+        contabilidad_facturacion: false,
+        contabilidad_reportes: false,
       };
     }
 
@@ -37,6 +45,10 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         desarrollo: true,
         logistica: true,
         usuarios: true,
+        contabilidad: true,
+        contabilidad_resumen: true,
+        contabilidad_facturacion: true,
+        contabilidad_reportes: true,
       };
     }
 
@@ -48,6 +60,10 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         desarrollo: false,
         logistica: false,
         usuarios: ROLES_CON_USUARIOS.includes(rol),
+        contabilidad: false,
+        contabilidad_resumen: false,
+        contabilidad_facturacion: false,
+        contabilidad_reportes: false,
       };
     }
 
@@ -59,6 +75,10 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         desarrollo: ["supervisor", "coordinador"].includes(rol),
         logistica: false,
         usuarios: ROLES_CON_USUARIOS.includes(rol),
+        contabilidad: false,
+        contabilidad_resumen: false,
+        contabilidad_facturacion: false,
+        contabilidad_reportes: false,
       };
     }
 
@@ -70,6 +90,10 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         desarrollo: false,
         logistica: true,
         usuarios: ROLES_CON_USUARIOS.includes(rol),
+        contabilidad: false,
+        contabilidad_resumen: false,
+        contabilidad_facturacion: false,
+        contabilidad_reportes: false,
       };
     }
 
@@ -80,6 +104,10 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
       desarrollo: false,
       logistica: false,
       usuarios: false,
+      contabilidad: false,
+      contabilidad_resumen: false,
+      contabilidad_facturacion: false,
+      contabilidad_reportes: false,
     };
   }, [userContext]);
 }
