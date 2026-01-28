@@ -14,6 +14,7 @@ import LoginPage from "./paginas/Login/Login";
 import ForgotPasswordPage from "./paginas/ForgotPassword/ForgotPasswordPage";
 import ResetPasswordPage from "./paginas/ResetPassword/ResetPasswordPage";
 import Forbidden from "./paginas/Forbidden";
+import AsistenciaPage from "./paginas/Asistencia/Asistencia";
 import EnrollmentForm from "./paginas/Form/EnrollmentForm";
 import OnboardingForm from "./paginas/Form/OnboardingForm";
 
@@ -76,7 +77,7 @@ function App() {
       }
     };
 
-    const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/enrollment", "/onboarding", "/activos/public"];
+    const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/enrollment", "/onboarding", "/activos/public", "/asistencia"];
 
     const logout = () => {
       document.cookie =
@@ -139,6 +140,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/asistencia" element={<AsistenciaPage />} />
       <Route path="/403" element={<Forbidden />} />
       <Route path="/enrollment" element={<EnrollmentForm />} />
       <Route path="/onboarding" element={<OnboardingForm />} />
