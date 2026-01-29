@@ -81,6 +81,22 @@ export function useLogin() {
       } catch (cookieErr) {
       }
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+      // 👇 KIOSK MODE: username "AsistenciaImb"
+      // "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name": "AsistenciaImb"
+      const decodedUser = parseJwt(token);
+      const userName = decodedUser?.["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] || decodedUser?.name;
+
+      if (userName === "AsistenciaImb") {
+        if (navigate) {
+          navigate("/asistencia", { replace: true });
+        } else {
+          window.location.href = "/asistencia";
+        }
+        setCargando(false);
+        return;
+      }
+
       try {
         if (navigate) {
           navigate("/leads/SalesProcess", { replace: true });

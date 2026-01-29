@@ -14,7 +14,7 @@ import LoginPage from "./paginas/Login/Login";
 import ForgotPasswordPage from "./paginas/ForgotPassword/ForgotPasswordPage";
 import ResetPasswordPage from "./paginas/ResetPassword/ResetPasswordPage";
 import Forbidden from "./paginas/Forbidden";
-import AsistenciaPage from "./paginas/Asistencia/Asistencia";
+import AsistenciaPage from "./paginas/Asistencia/AsistenciaPage";
 import EnrollmentForm from "./paginas/Form/EnrollmentForm";
 import OnboardingForm from "./paginas/Form/OnboardingForm";
 
@@ -67,17 +67,28 @@ function App() {
   useEffect(() => {
     interface JwtPayload {
       exp?: number;
+      email?: string;
+      correo?: string;
+      [key: string]: any;
     }
 
     const parseJwt = (token: string): JwtPayload | null => {
       try {
-        return JSON.parse(atob(token.split(".")[1]));
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        return JSON.parse(jsonPayload);
       } catch {
         return null;
       }
     };
 
-    const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/enrollment", "/onboarding", "/activos/public", "/asistencia"];
+    const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/enrollment", "/onboarding", "/activos/public"];
 
     const logout = () => {
       document.cookie =
@@ -107,9 +118,29 @@ function App() {
         logout();
         return;
       }
+      // 👇 KIOSK MODE: username "AsistenciaImb"
+      // El token NO trae el email, así que usamos el claim de name
+      // "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name": "AsistenciaImb"
+      const userName = payload?.["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] || payload?.name;
 
-      // 👇 LOGIN → DASHBOARD
-      if (isPublic) {
+      const isKioskUser = userName === "AsistenciaImb";
+
+      if (isKioskUser) {
+        if (location.pathname !== "/asistencia") {
+          navigate("/asistencia", { replace: true });
+          return;
+        }
+      } else {
+        // Bloquear acceso a /asistencia para usuarios normales
+        if (location.pathname === "/asistencia") {
+          navigate("/", { replace: true });
+          return;
+        }
+      }
+
+      // 👇 LOGIN → DASHBOARD (Solo si NO es Kiosk user, o si la ruta no es asistencia)
+      // Ajuste: Si es Kiosk user, ya lo manejamos arriba.
+      if (isPublic && !isKioskUser) {
         sessionStorage.setItem("forceDashboard", "1");
         navigate("/", { replace: true });
         return;
@@ -140,7 +171,6 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/asistencia" element={<AsistenciaPage />} />
       <Route path="/403" element={<Forbidden />} />
       <Route path="/enrollment" element={<EnrollmentForm />} />
       <Route path="/onboarding" element={<OnboardingForm />} />
@@ -153,6 +183,9 @@ function App() {
 
       {/* Privadas */}
       <Route element={<PrivateRoute />}>
+        {/* KIOSK MODE ROUTE */}
+        <Route path="/asistencia" element={<AsistenciaPage />} />
+
         <Route element={<MainLayout />}>
           {/* Home privado: por defecto manda a Leads (si no tiene, ProtectedContent se encarga) */}
           <Route path="/" element={<Dashboard />} />
