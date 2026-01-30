@@ -11,18 +11,43 @@ import {
   Form,
   InputNumber,
   Upload,
+  Modal,
+  Dropdown,
+  Menu,
+  message,
 } from "antd";
-import { UploadOutlined } from "@ant-design/icons";
+import { UploadOutlined, MoreOutlined } from "@ant-design/icons";
+import type { UploadFile } from 'antd/es/upload/interface';
 import estilos from "./Facturacion.module.css";
 import contabilidadService from '../../../servicios/contabilidadService';
 import { getCookie } from '../../../utils/cookies';
 import * as ProductoService from '../../../servicios/ProductoService';
-import { message } from 'antd';
 
 const { Option } = Select;
 
 const Facturacion: React.FC = () => {
   const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
+
+  const [dataFacturas, setDataFacturas] = useState<any[]>([]);
+  const [dataFacturasOriginal, setDataFacturasOriginal] = useState<any[]>([]); 
+  const [personalList, setPersonalList] = useState<any[]>([]);
+  const [contactosList, setContactosList] = useState<any[]>([]);
+  const [productosList, setProductosList] = useState<any[]>([]);
+  const [metodosPagoList, setMetodosPagoList] = useState<any[]>([
+    { id: 1, nombre: 'Tarjeta de crédito' },
+    { id: 2, nombre: 'Pago efectivo' },
+  ]);
+  
+  // Estados para el modal de edición
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [facturaSeleccionada, setFacturaSeleccionada] = useState<any>(null);
+  
+  // Estado para el filtro
+  const [filtroMetodoPago, setFiltroMetodoPago] = useState<number | null>(null);
+
+  // Estados para manejo de archivos
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
 
   const columnasFacturas = [
     { title: "Factura", dataIndex: "factura" },
@@ -49,55 +74,105 @@ const Facturacion: React.FC = () => {
     {
       title: "Acciones",
       key: "acciones",
-      render: () => (
+      render: (record: any) => (
         <>
-          <Button size="small" className={estilos.actionButton}>
+          <Button 
+            size="small" 
+            className={estilos.actionButton}
+            onClick={() => handleVerFactura(record)}
+          >
             Ver
           </Button>
-          <Button size="small" className={estilos.actionButton}>
-            PDF
-          </Button>
-          <Button size="small">⋮</Button>
+          <Dropdown 
+            overlay={
+              <Menu>
+                <Menu.Item key="editar" onClick={() => handleEditarFactura(record)}>
+                  Editar
+                </Menu.Item>
+              </Menu>
+            }
+            trigger={['click']}
+          >
+            <Button size="small" icon={<MoreOutlined />} />
+          </Dropdown>
         </>
       ),
     },
   ];
 
-  const [dataFacturas, setDataFacturas] = useState<any[]>([]);
-  const [personalList, setPersonalList] = useState<any[]>([]);
-  const [contactosList, setContactosList] = useState<any[]>([]);
-  const [productosList, setProductosList] = useState<any[]>([]);
-  const [metodosPagoList, setMetodosPagoList] = useState<any[]>([
-    { id: 1, nombre: 'Tarjeta de crédito' },
-    { id: 2, nombre: 'Pago efectivo' },
-  ]);
+  const handleVerFactura = (record: any) => {
+    message.info(`Ver factura ${record.factura}`);
+  };
+
+  const handleEditarFactura = (record: any) => {
+    setFacturaSeleccionada(record);
+    editForm.setFieldsValue({
+      estadoFactura: record.estadoOriginal || record.estado,
+      montoPagado: parseFloat(record.montoNetoOriginal || 0),
+    });
+    setShowEditModal(true);
+  };
+
+  const handleActualizarFactura = async (values: any) => {
+    if (!facturaSeleccionada) return;
+
+    try {
+      const resultado = await contabilidadService.actualizarEstadoFactura({
+        idFactura: facturaSeleccionada.id,
+        estadoFactura: values.estadoFactura,
+        montoPagado: values.montoPagado,
+        usuario: 'SYSTEM',
+      });
+
+      if (resultado.exito || resultado.Exito) {
+        message.success('Factura actualizada correctamente');
+        setShowEditModal(false);
+        cargarFacturas();
+      } else {
+        message.error(resultado.mensaje || resultado.Mensaje || 'Error al actualizar');
+      }
+    } catch (error) {
+      console.error('Error al actualizar factura:', error);
+      message.error('No se pudo actualizar la factura');
+    }
+  };
+
+  const cargarFacturas = async (idMetodoPago?: number | null) => {
+    try {
+      const params: any = { page: 1, pageSize: 100 };
+      if (idMetodoPago) {
+        params.idMetodoPago = idMetodoPago;
+      }
+
+      const res = await contabilidadService.listarFacturas(params);
+      const data = res?.data ?? res;
+      const filas = data?.facturas || data?.filas || data?.rows || data?.list || [];
+      
+      const mapped = (filas || []).map((f: any, i: number) => ({
+        key: f.id ?? i + 1,
+        id: f.id,
+        factura: f.numeroFactura || f.factura || `#F-${f.id}`,
+        contacto: f.contacto || f.nombreContacto || f.cliente || "-",
+        curso: f.curso || f.codigoCurso || "-",
+        montoNeto: f.montoNeto ? `S/. ${f.montoNeto}` : (f.monto ? `S/. ${f.monto}` : "S/. 0"),
+        montoNetoOriginal: f.montoNeto || f.monto || 0,
+        estado: f.estado || f.estadoFactura || "Pendiente",
+        estadoOriginal: f.estadoFactura || f.estado || "Pendiente",
+        idMetodoPago: f.idMetodoPago,
+      }));
+      
+      setDataFacturasOriginal(mapped);
+      setDataFacturas(mapped);
+    } catch (e) {
+      console.warn('No se pudieron listar facturas', e);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await contabilidadService.listarFacturas({ page: 1, pageSize: 10 });
-        const data = res?.data ?? res;
-        const filas = data?.facturas || data?.filas || data?.rows || data?.list || [];
-        // Map to UI shape
-        const mapped = (filas || []).map((f: any, i: number) => ({
-          key: f.id ?? i + 1,
-          factura: f.numeroFactura || f.factura || `#F-${f.id}`,
-          contacto: f.contacto || f.nombreContacto || f.cliente || "-",
-          curso: f.curso || f.codigoCurso || "-",
-          montoNeto: f.montoNeto ? `S/. ${f.montoNeto}` : (f.monto ? `S/. ${f.monto}` : "S/. 0"),
-          estado: f.estado || f.estadoFactura || "Pendiente",
-        }));
-        setDataFacturas(mapped);
-      } catch (e) {
-        console.warn('No se pudieron listar facturas', e);
-      }
-    };
-
     const loadLookups = async () => {
       try {
         const token = getCookie('token');
 
-        // Personal / contactos (usar ListarConUsuario)
         const usuariosRes = await fetch(`${import.meta.env.VITE_API_URL}/api/CFGModUsuarios/ListarConUsuario?page=1&pageSize=1000`, { headers: { accept: '*/*', Authorization: `Bearer ${token}` } });
         if (usuariosRes.ok) {
           const udata = await usuariosRes.json();
@@ -106,7 +181,6 @@ const Facturacion: React.FC = () => {
           setContactosList(usuarios.map((u:any)=>({ id: u.idPersonall ?? u.idPersonal ?? u.id, nombre: `${u.nombres || ''} ${u.apellidos || ''}`.trim() })));
         }
 
-        // Productos (código / nombre)
         try {
           const productos = await ProductoService.obtenerProductos();
           setProductosList(productos.map((p:any)=>({ id: p.id, codigo: p.codigoLanzamiento ?? p.CodigoLanzamiento ?? p.codigo ?? p.Codigo ?? p.codigoLanzamiento, nombre: p.nombre || p.Nombre })));
@@ -114,7 +188,6 @@ const Facturacion: React.FC = () => {
           console.warn('No se pudieron cargar productos', err);
         }
 
-        // No llamar al backend para métodos de pago; usar solo las dos opciones fijas.
         setMetodosPagoList([
           { id: 1, nombre: 'Tarjeta de crédito' },
           { id: 2, nombre: 'Pago efectivo' },
@@ -124,53 +197,86 @@ const Facturacion: React.FC = () => {
       }
     };
 
-    load();
+    cargarFacturas();
     loadLookups();
   }, []);
 
-  const handleSubmit = (values: any) => {
-    const payload = {
-      IdAsesor: isNaN(Number(values.asesor)) ? null : Number(values.asesor),
-      Sede: values.sede || null,
-      CodigoCurso: values.codigoCurso || null,
-      IdContacto: isNaN(Number(values.contacto)) ? null : Number(values.contacto),
-      Pais: values.pais || null,
-      CorreoCliente: values.correo || null,
-      WhatsAppCliente: values.whatsapp || null,
-      FichaInscripcionCompleta: values.fichaInscripcion === 'Si' || values.fichaInscripcion === true,
-      SesionesExtra: values.sesionesExtra || null,
-      CondicionPago: values.condicionPago || null,
-      MontoTotal: Number(values.montoPagado) || Number(values.montoTotal) || 0,
-      MontoNeto: Number(values.montoNeto) || 0,
-      NumeroCuota: Number(values.numeroCuota) || 1,
-      IdMetodoPago: isNaN(Number(values.modoPago)) ? null : Number(values.modoPago),
-      RutaComprobante: null,
-      Notas: values.notas || null,
-      UsuarioCreacion: 'WEBUSER',
-      FechaModificacion: new Date().toISOString(),
-      UsuarioModificacion: 'WEBUSER'
-    };
+  const handleFiltrarPorMetodoPago = (idMetodoPago: number | null) => {
+    setFiltroMetodoPago(idMetodoPago);
+    
+    if (!idMetodoPago) {
+      setDataFacturas(dataFacturasOriginal);
+    } else {
+      const filtradas = dataFacturasOriginal.filter(f => f.idMetodoPago === idMetodoPago);
+      setDataFacturas(filtradas);
+    }
+  };
 
-    contabilidadService.crearFactura(payload).then((resp:any)=>{
+  // Función para convertir archivo a Base64
+  const convertirArchivoABase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        resolve(base64);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleSubmit = async (values: any) => {
+    try {
+      let rutaComprobante = null;
+      let nombreArchivo = null;
+      let archivoBase64 = null;
+
+      if (fileList.length > 0 && fileList[0].originFileObj) {
+        const archivo = fileList[0].originFileObj;
+        nombreArchivo = archivo.name;
+
+        archivoBase64 = await convertirArchivoABase64(archivo);
+
+        rutaComprobante = `/comprobantes/${new Date().getFullYear()}/${new Date().getMonth() + 1}/${nombreArchivo}`;
+      }
+
+      const payload = {
+        IdAsesor: isNaN(Number(values.asesor)) ? null : Number(values.asesor),
+        Sede: values.sede || null,
+        CodigoCurso: values.codigoCurso || null,
+        IdContacto: isNaN(Number(values.contacto)) ? null : Number(values.contacto),
+        Pais: values.pais || null,
+        CorreoCliente: values.correo || null,
+        WhatsAppCliente: values.whatsapp || null,
+        FichaInscripcionCompleta: values.fichaInscripcion === 'Si' || values.fichaInscripcion === true,
+        SesionesExtra: values.sesionesExtra || null,
+        CondicionPago: values.condicionPago || null,
+        MontoTotal: Number(values.montoPagado) || Number(values.montoTotal) || 0,
+        MontoNeto: Number(values.montoNeto) || 0,
+        NumeroCuota: Number(values.numeroCuota) || 1,
+        IdMetodoPago: isNaN(Number(values.modoPago)) ? null : Number(values.modoPago),
+        RutaComprobante: rutaComprobante, // Ruta del archivo
+        NombreComprobante: nombreArchivo, // Nombre del archivo
+        ComprobanteBase64: archivoBase64, // Archivo en base64
+        Notas: values.notas || null,
+        UsuarioCreacion: 'WEBUSER',
+        FechaModificacion: new Date().toISOString(),
+        UsuarioModificacion: 'WEBUSER'
+      };
+
+      const resp = await contabilidadService.crearFactura(payload);
+      
       message.success('Factura creada correctamente');
-      // refrescar lista
-      contabilidadService.listarFacturas({ page:1, pageSize:10 }).then((r:any)=>{
-        const data = r?.data ?? r;
-        const filas = data?.facturas || data?.filas || data?.rows || [];
-        const mapped = (filas || []).map((f: any, i: number) => ({
-          key: f.id ?? i + 1,
-          factura: f.numeroFactura || f.factura || `#F-${f.id}`,
-          contacto: f.contacto || f.nombreContacto || f.cliente || "-",
-          curso: f.curso || f.codigoCurso || "-",
-          montoNeto: f.montoNeto ? `S/. ${f.montoNeto}` : (f.monto ? `S/. ${f.monto}` : "S/. 0"),
-          estado: f.estado || f.estadoFactura || "Pendiente",
-        }));
-        setDataFacturas(mapped);
-      }).catch(()=>{});
-    }).catch((err:any)=>{
+
+      form.resetFields();
+      setFileList([]);
+      
+      cargarFacturas(filtroMetodoPago);
+      
+    } catch (err: any) {
       console.error('Error crear factura', err);
       message.error('No se pudo crear la factura');
-    });
+    }
   };
 
   return (
@@ -190,11 +296,17 @@ const Facturacion: React.FC = () => {
             <Col xs={24} md={12}>
               <Form.Item
                 label="Modo de pago"
-                name="modoPago"
                 className={estilos.formItem}
               >
-                <Select placeholder="Selecciona método de pago" allowClear>
-                  {metodosPagoList.map(m=> (<Option key={m.id} value={m.id}>{m.nombre}</Option>))}
+                <Select 
+                  placeholder="Selecciona método de pago" 
+                  allowClear
+                  onChange={(value) => handleFiltrarPorMetodoPago(value)}
+                  value={filtroMetodoPago}
+                >
+                  {metodosPagoList.map(m=> (
+                    <Option key={m.id} value={m.id}>{m.nombre}</Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
@@ -216,19 +328,13 @@ const Facturacion: React.FC = () => {
 
       <Card
         title="Listado de facturas"
-        //</div>extra={
-          //<>
-            //<Button className={estilos.actionButton}>Exportar</Button>
-            //</><Button>Enviar recordatorios</Button>
-          //</>
-        //}
         className={estilos.facturasTable}
       >
         <Table
           size="small"
           columns={columnasFacturas}
           dataSource={dataFacturas}
-          pagination={false}
+          pagination={{ pageSize: 10 }}
         />
       </Card>
 
@@ -533,14 +639,17 @@ const Facturacion: React.FC = () => {
               <Form.Item
                 label="Sube tu captura (PDF o imagen)"
                 name="comprobante"
-                valuePropName="fileList"
-                getValueFromEvent={(e) =>
-                  Array.isArray(e) ? e : e && e.fileList
-                }
                 className={estilos.formItem}
               >
                 <Upload
-                  beforeUpload={() => false}
+                  beforeUpload={(file) => {
+                    setFileList([file]);
+                    return false;
+                  }}
+                  onRemove={() => {
+                    setFileList([]);
+                  }}
+                  fileList={fileList}
                   maxCount={1}
                   accept=".pdf,image/*"
                 >
@@ -551,6 +660,11 @@ const Facturacion: React.FC = () => {
                     Seleccionar archivo
                   </Button>
                 </Upload>
+                {fileList.length > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#52c41a' }}>
+                    ✓ Archivo seleccionado: {fileList[0].name}
+                  </div>
+                )}
               </Form.Item>
             </Col>
 
@@ -568,7 +682,12 @@ const Facturacion: React.FC = () => {
             <Col xs={24}>
               <Row justify="end" gutter={8} style={{ marginTop: 16 }}>
                 <Col>
-                  <Button>Cancelar</Button>
+                  <Button onClick={() => {
+                    form.resetFields();
+                    setFileList([]);
+                  }}>
+                    Cancelar
+                  </Button>
                 </Col>
                 <Col>
                   <Button type="primary" htmlType="submit">
@@ -580,6 +699,66 @@ const Facturacion: React.FC = () => {
           </Row>
         </Form>
       </Card>
+
+      {/* Modal para editar factura */}
+      <Modal
+        title={`Editar Factura ${facturaSeleccionada?.factura || ''}`}
+        visible={showEditModal}
+        onCancel={() => setShowEditModal(false)}
+        footer={null}
+        width={500}
+      >
+        <Form 
+          layout="vertical" 
+          form={editForm}
+          onFinish={handleActualizarFactura}
+        >
+          <Form.Item
+            label="Estado de la factura"
+            name="estadoFactura"
+            rules={[{ required: true, message: 'Selecciona un estado' }]}
+          >
+            <Select>
+              <Option value="Pagado">Pagado</Option>
+              <Option value="Pendiente">Pendiente</Option>
+              <Option value="Parcial">Parcial</Option>
+              <Option value="Vencido">Vencido</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="Monto pagado"
+            name="montoPagado"
+            rules={[{ required: true, message: 'Ingresa el monto pagado' }]}
+          >
+            <InputNumber<number>
+              style={{ width: '100%' }}
+              min={0}
+              step={0.01}
+              formatter={(value) => `S/. ${value}`}
+              parser={(value) => {
+                const parsedValue = (value || "").replace(/[^\d.]/g, "");
+                return parsedValue ? parseFloat(parsedValue) : 0;
+              }}
+            />
+          </Form.Item>
+
+          <Form.Item>
+            <Row gutter={8} justify="end">
+              <Col>
+                <Button onClick={() => setShowEditModal(false)}>
+                  Cancelar
+                </Button>
+              </Col>
+              <Col>
+                <Button type="primary" htmlType="submit">
+                  Actualizar factura
+                </Button>
+              </Col>
+            </Row>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

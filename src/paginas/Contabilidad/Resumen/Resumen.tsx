@@ -74,7 +74,7 @@ const Resumen: React.FC = () => {
     const loadLookups = async () => {
       try {
         const token = getCookie('token');
-        // Areas
+
         const areasRes = await fetch(`${import.meta.env.VITE_API_URL}/api/CFGModUsuarios/ObtenerAreaTrabajo`, { headers: { accept: '*/*', Authorization: `Bearer ${token}` } });
         if (areasRes.ok) {
           const data = await areasRes.json();
@@ -82,7 +82,6 @@ const Resumen: React.FC = () => {
           setAreasTrabajoList(lista.map((a:any)=>({ id: a.id ?? a.Id, nombre: a.Nombre ?? a.nombre ?? a.areaTrabajo ?? a.AreaTrabajo })));
         }
 
-        // Responsables: use ListarConUsuario to obtain personal list (page large)
         const usuariosRes = await fetch(`${import.meta.env.VITE_API_URL}/api/CFGModUsuarios/ListarConUsuario?page=1&pageSize=1000`, { headers: { accept: '*/*', Authorization: `Bearer ${token}` } });
         if (usuariosRes.ok) {
           const udata = await usuariosRes.json();
@@ -295,19 +294,21 @@ const Resumen: React.FC = () => {
     <Modal title="Añadir ingreso manual" visible={showIngresoModal} onCancel={()=>setShowIngresoModal(false)} footer={null}>
       <Form layout="vertical" onFinish={async (values)=>{
         try {
+          const tipoIngresoNormalizado = values.tipoIngreso === "Ventas Cursos" ? "Ventas Cursos" : values.tipoIngreso;
+
           const payload = {
             Concepto: values.concepto,
             Descripcion: values.descripcion || null,
-            TipoIngreso: values.tipoIngreso,
+            TipoIngreso: tipoIngresoNormalizado,
             Monto: Number(values.monto) || 0,
             Moneda: values.moneda || 'PEN',
             FechaIngreso: values.fechaIngreso?.format ? values.fechaIngreso.format('YYYY-MM-DD') : values.fechaIngreso,
-            UsuarioCreacion: values.usuarioCreacion || 'ANGEL'
+            UsuarioCreacion: values.usuarioCreacion || 'SYSTEM'
           };
           await contabilidadService.crearIngreso(payload);
           message.success('Ingreso creado correctamente');
           setShowIngresoModal(false);
-          fetchResumen();
+          await fetchResumen();
         } catch(e){
           console.error(e);
           message.error('Error al crear ingreso');
@@ -321,9 +322,9 @@ const Resumen: React.FC = () => {
         </Form.Item>
         <Form.Item name="tipoIngreso" label="Tipo ingreso" rules={[{ required: true }]}>
           <Select>
+            <Select.Option value="Ventas Cursos">Ventas Cursos</Select.Option>
             <Select.Option value="Certificados">Certificados</Select.Option>
             <Select.Option value="Otros Servicios">Otros Servicios</Select.Option>
-            <Select.Option value="Ajustes">Ajustes</Select.Option>
           </Select>
         </Form.Item>
         <Form.Item name="monto" label="Monto" rules={[{ required: true }]}>

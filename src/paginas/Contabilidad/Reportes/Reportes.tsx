@@ -45,6 +45,7 @@ const Reportes: React.FC = () => {
   const [dataIngresosEgresosState, setDataIngresosEgresosState] = useState<any[]>(dataIngresosEgresos);
   const [areasConGastos, setAreasConGastos] = useState<any[]>([]);
   const [gastosRecientes, setGastosRecientes] = useState<any[]>([]);
+  const [top10Personal, setTop10Personal] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(()=>{
@@ -55,10 +56,11 @@ const Reportes: React.FC = () => {
         const mes = today.getMonth() + 1;
         const anio = today.getFullYear();
 
-        const [reportRes, areasRes, resumenRes] = await Promise.all([
+        const [reportRes, areasRes, resumenRes, top10Res] = await Promise.all([
           contabilidadService.reporteIngresosEgresos(12),
           contabilidadService.obtenerAreasConGastos(mes, anio),
-          contabilidadService.obtenerResumenFinanciero(mes, anio)
+          contabilidadService.obtenerResumenFinanciero(mes, anio),
+          contabilidadService.obtenerIngresosPersonalMesActual()
         ]);
 
         const reportData = reportRes?.data ?? reportRes ?? [];
@@ -78,6 +80,12 @@ const Reportes: React.FC = () => {
         if (Array.isArray(areasData)) {
           setAreasConGastos(areasData.map((a:any)=>({ id: a.Id ?? a.id, area: (a.AreaTrabajo ?? a.areaTrabajo ?? a.Area) || a.AreaTrabajo, total: a.TotalGastos ?? a.totalGastos ?? a.TotalGastos ?? 0 })));
         }
+
+        const top10Data = top10Res?.data ?? top10Res ?? [];
+        if (Array.isArray(top10Data)) {
+          setTop10Personal(top10Data);
+        }
+
         // Resumen financiero - usar gastosRecientes para gráfico de gastos generales (mes actual)
         const resumenData = resumenRes?.data ?? resumenRes ?? {};
         const gastos = Array.isArray(resumenData.gastosRecientes) ? resumenData.gastosRecientes : (resumenData.gastosRecientes || []);
@@ -176,27 +184,42 @@ const Reportes: React.FC = () => {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
       formatter: (params: any) => {
-        return `${params[0].name}<br/>Gastos: S/. ${params[0].value}`;
+        const index = params[0].dataIndex;
+        // Invertir el índice para acceder al dato correcto
+        const reversedIndex = top10Personal.length - 1 - index;
+        const personal = top10Personal[reversedIndex];
+        if (!personal) return `${params[0].name}<br/>Ingresos: S/. ${params[0].value}`;
+        
+        return `
+          <strong>${personal.nombreCompleto || params[0].name}</strong><br/>
+          Facturas: ${personal.cantidadFacturas || 0}<br/>
+          Ingresos: S/. ${Number(params[0].value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        `;
       }
     },
     yAxis: {
       type: 'category',
-      data: ['Juan Pérez', 'María García', 'Carlos López', 'Ana Martínez', 'Luis Rodríguez'],
+      data: top10Personal && top10Personal.length 
+        ? [...top10Personal].reverse().map((p:any) => p.nombreCompleto || `${p.nombres || ''} ${p.apellidos || ''}`.trim() || 'Sin nombre')
+        : ['Sin datos'],
       axisLabel: { show: true, fontSize: 12, width: 100, overflow: 'truncate' }
     },
     xAxis: { type: 'value', axisLabel: { show: false } },
     grid: { left: '5%', right: '5%', bottom: '5%', top: '5%', containLabel: true },
     series: [{
-      name: 'Gastos',
+      name: 'Ingresos',
       type: 'bar',
-      data: [32000, 28000, 24000, 20000, 18000],
+      data: top10Personal && top10Personal.length
+        ? [...top10Personal].reverse().map((p:any) => Number(p.totalIngresos || 0))
+        : [0],
       itemStyle: {
         color: (params: any) => {
-          // Gradiente de colores
-          const colorList = ['#1890ff', '#36cfc9', '#73d13d', '#ffc53d', '#ff7a45'];
+          // Gradiente de colores - invertir también el índice para los colores
+          const colorList = ['#1890ff', '#36cfc9', '#73d13d', '#ffc53d', '#ff7a45', '#ff4d4f', '#9254de', '#722ed1', '#eb2f96', '#faad14'];
+          const reversedIndex = (top10Personal.length - 1 - params.dataIndex) % colorList.length;
           return new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-            { offset: 0, color: colorList[params.dataIndex] },
-            { offset: 1, color: `${colorList[params.dataIndex]}80` }
+            { offset: 0, color: colorList[reversedIndex] || '#1890ff' },
+            { offset: 1, color: `${colorList[reversedIndex] || '#1890ff'}80` }
           ]);
         },
         borderRadius: [0, 5, 5, 0]
@@ -235,9 +258,10 @@ const Reportes: React.FC = () => {
 
         <Col xs={24} md={8}>
           <Card 
-            title="Gastos por personal" 
+            title="Ingresos por personal" 
             className={styles.card}
             headStyle={{ fontSize: '15px' }}
+            extra={top10Personal.length > 0 && <Tag color="blue">Top {top10Personal.length}</Tag>}
           >
             <div className={styles.chartPlaceholder}>
               <ECharts option={opcionesBarrasPersonal} />

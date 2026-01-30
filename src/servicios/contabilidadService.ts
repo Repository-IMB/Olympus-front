@@ -88,6 +88,16 @@ export const obtenerAreasConGastos = async (mes?: number, anio?: number) => {
 	}
 };
 
+export const obtenerIngresosPersonalMesActual = async () => {
+	try {
+		const response = await api.get(`${basePath}/IngresosPersonal`);
+		return response.data ?? response;
+	} catch (error) {
+		console.error("ContabilidadService.obtenerIngresosPersonalMesActual error:", error);
+		throw error;
+	}
+};
+
 /* =========================
 	 MOVIMIENTOS (GASTOS / INGRESOS)
 	 ========================= */
@@ -139,6 +149,7 @@ export default {
 	actualizarEstadoFactura,
 	reporteIngresosEgresos,
     obtenerAreasConGastos,
+	obtenerIngresosPersonalMesActual,
 	crearGastoGeneral,
 	crearIngresoManual,
     crearGasto,
