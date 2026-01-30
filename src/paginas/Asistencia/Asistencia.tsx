@@ -5,88 +5,21 @@ import {
   DatePicker,
   Button,
   Checkbox,
+  Spin,
+  message,
 } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import moment, { type Moment } from "moment";
 import estilos from "./Asistencia.module.css";
 import type { ColumnsType } from "antd/es/table";
 import type { AsistenciaPersonal, TipoVista } from "../../interfaces/IAsistencia";
+import { obtenerAsistenciaPaginado } from "../../servicios/AsistenciaService";
 
 moment.locale("es");
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
-
-// Mock data - reemplazar con API real
-const asistenciaMock: AsistenciaPersonal[] = [
-  {
-    id: 1,
-    pais: "Panamá",
-    dni: "88391694",
-    apellidos: "Singh Alvarado",
-    nombres: "Abdiel",
-    tipoJornada: "",
-    correo: "abdielsingh8@gmail.com",
-    sede: "imtpaegermtto08252",
-    area: "imtpaegermtto08252",
-    asistencia: {
-      "2026-01-12": 8,
-      "2026-01-13": null,
-      "2026-01-14": 8,
-      "2026-01-15": 8,
-      "2026-01-16": 8,
-      "2026-01-17": null,
-      "2026-01-18": null,
-      "2026-01-19": 8,
-      "2026-01-20": 8,
-    },
-  },
-  {
-    id: 2,
-    pais: "Panamá",
-    dni: "881796",
-    apellidos: "Tejeira Romaña",
-    nombres: "Abdiel",
-    tipoJornada: "",
-    correo: "abdieltejeira@gmail.com",
-    sede: "imbcepconfin06251",
-    area: "imbcepconfin06251",
-    asistencia: {
-      "2026-01-12": null,
-      "2026-01-13": null,
-      "2026-01-14": 8,
-      "2026-01-15": 8,
-      "2026-01-16": 8,
-      "2026-01-17": null,
-      "2026-01-18": null,
-      "2026-01-19": 8,
-      "2026-01-20": 8,
-    },
-  },
-  {
-    id: 3,
-    pais: "República Dominicana",
-    dni: "03105360873",
-    apellidos: "Jiménez",
-    nombres: "Adalberto",
-    tipoJornada: "",
-    correo: "dalbert490@gmail.com",
-    sede: "imbcepconfin06251",
-    area: "imbcepconfin06251",
-    asistencia: {
-      "2026-01-12": 8,
-      "2026-01-13": null,
-      "2026-01-14": 8,
-      "2026-01-15": 8,
-      "2026-01-16": 8,
-      "2026-01-17": null,
-      "2026-01-18": null,
-      "2026-01-19": 8,
-      "2026-01-20": 8,
-    },
-  },
-];
 
 // Función para obtener las fechas de una semana dado un día de referencia
 const obtenerFechasSemana = (fecha: Moment): Moment[] => {
@@ -139,7 +72,82 @@ export default function Asistencia() {
   const [filtroArea, setFiltroArea] = useState<string>();
   const [filtroFechaNacimiento, setFiltroFechaNacimiento] = useState<[Moment | null, Moment | null] | null>(null);
 
-  const [personal] = useState<AsistenciaPersonal[]>(asistenciaMock);
+  // API Data State
+  const [personal, setPersonal] = useState<AsistenciaPersonal[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 10 });
+
+  // Calculate date range based on view type
+  const fechaRango = useMemo((): { inicio: string; fin: string } => {
+    switch (tipoVista) {
+      case "mes":
+        if (mesSeleccionado) {
+          return {
+            inicio: mesSeleccionado.clone().startOf("month").format("YYYY-MM-DD"),
+            fin: mesSeleccionado.clone().endOf("month").format("YYYY-MM-DD"),
+          };
+        }
+        break;
+      case "semana":
+        if (semanaSeleccionada) {
+          return {
+            inicio: semanaSeleccionada.clone().startOf("isoWeek").format("YYYY-MM-DD"),
+            fin: semanaSeleccionada.clone().endOf("isoWeek").format("YYYY-MM-DD"),
+          };
+        }
+        break;
+      case "rango":
+        if (rangoFechas && rangoFechas[0] && rangoFechas[1]) {
+          return {
+            inicio: rangoFechas[0].clone().startOf("month").format("YYYY-MM-DD"),
+            fin: rangoFechas[1].clone().endOf("month").format("YYYY-MM-DD"),
+          };
+        }
+        break;
+      case "historico":
+        return {
+          inicio: moment().startOf("year").format("YYYY-MM-DD"),
+          fin: moment().endOf("year").format("YYYY-MM-DD"),
+        };
+    }
+    // Default: current week
+    return {
+      inicio: moment().startOf("isoWeek").format("YYYY-MM-DD"),
+      fin: moment().endOf("isoWeek").format("YYYY-MM-DD"),
+    };
+  }, [tipoVista, mesSeleccionado, semanaSeleccionada, rangoFechas]);
+
+  // Fetch data from API
+  const fetchAsistencia = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await obtenerAsistenciaPaginado({
+        search: searchText || undefined,
+        fechaInicio: fechaRango.inicio,
+        fechaFin: fechaRango.fin,
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+      });
+
+      if (response.codigo === "SIN ERROR") {
+        setPersonal(response.personal);
+        setTotal(response.total);
+      } else {
+        message.error(response.mensaje || "Error al cargar asistencia");
+      }
+    } catch (error) {
+      console.error("Error fetching attendance:", error);
+      message.error("Error al cargar asistencia");
+    } finally {
+      setLoading(false);
+    }
+  }, [searchText, fechaRango, pagination]);
+
+  // Fetch data when filters change
+  useEffect(() => {
+    fetchAsistencia();
+  }, [fetchAsistencia]);
 
   const limpiarFiltros = () => {
     setSearchText("");
@@ -345,15 +353,12 @@ export default function Asistencia() {
     {
       title: "Total de horas trabajadas",
       key: "totalHoras",
+      dataIndex: "totalHoras",
       fixed: "right",
       width: 180,
       align: "center" as const,
-      sorter: (a, b) =>
-        calcularTotalHoras(a.asistencia, fechasAMostrar) - calcularTotalHoras(b.asistencia, fechasAMostrar),
-      render: (_: unknown, record: AsistenciaPersonal) => {
-        const total = calcularTotalHoras(record.asistencia, fechasAMostrar);
-        return <span style={{ fontWeight: 600 }}>{total}</span>;
-      },
+      sorter: (a, b) => a.totalHoras - b.totalHoras,
+      render: (value: number) => <span style={{ fontWeight: 600 }}>{value}</span>,
     },
   ];
 
@@ -486,15 +491,24 @@ export default function Asistencia() {
           {tipoVista === "historico" && `Vista histórico`}
         </div>
 
-        <Table
-          columns={columnas}
-          dataSource={personalFiltrado}
-          rowKey="id"
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: anchoScroll }}
-          bordered
-          size="middle"
-        />
+        <Spin spinning={loading}>
+          <Table
+            columns={columnas}
+            dataSource={personalFiltrado}
+            rowKey="id"
+            pagination={{
+              current: pagination.page,
+              pageSize: pagination.pageSize,
+              total: total,
+              onChange: (page, pageSize) => setPagination({ page, pageSize }),
+              showSizeChanger: true,
+              showTotal: (t) => `Total: ${t} registros`,
+            }}
+            scroll={{ x: anchoScroll }}
+            bordered
+            size="middle"
+          />
+        </Spin>
       </div>
     </div>
   );

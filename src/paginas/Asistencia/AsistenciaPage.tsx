@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import estilos from './Asistencia.module.css';
+import {
+    marcarEntrada,
+    marcarInicioAlmuerzo,
+    marcarFinAlmuerzo,
+    marcarSalida,
+} from '../../servicios/AsistenciaService';
 
 type TipoAsistencia = 'entrada' | 'inicioAlmuerzo' | 'finAlmuerzo' | 'salida';
 
@@ -16,6 +22,9 @@ function AsistenciaPage() {
     const [erroresValidacion, setErroresValidacion] = useState<ErroresValidacion>({});
     const [cargando, setCargando] = useState(false);
     const [mostrarExito, setMostrarExito] = useState(false);
+    const [mensajeExito, setMensajeExito] = useState('');
+    const [mostrarError, setMostrarError] = useState(false);
+    const [mensajeError, setMensajeError] = useState('');
     const [slideIndex, setSlideIndex] = useState(0);
 
     // Lógica de selección automática (Turno Completo)
@@ -204,21 +213,61 @@ function AsistenciaPage() {
 
         setErroresValidacion({});
         setCargando(true);
+        setMostrarError(false);
 
-        // Simular envío (aquí iría la llamada a la API)
         try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            let response;
 
-            // Mostrar mensaje de éxito
-            setMostrarExito(true);
-            setDni('');
+            // Call the correct endpoint based on tipoAsistencia
+            switch (tipoAsistencia) {
+                case 'entrada':
+                    response = await marcarEntrada(dni);
+                    break;
+                case 'inicioAlmuerzo':
+                    response = await marcarInicioAlmuerzo(dni);
+                    break;
+                case 'finAlmuerzo':
+                    response = await marcarFinAlmuerzo(dni);
+                    break;
+                case 'salida':
+                    response = await marcarSalida(dni);
+                    break;
+            }
 
-            // Ocultar mensaje después de 3 segundos
-            setTimeout(() => {
-                setMostrarExito(false);
-            }, 3000);
-        } catch (error) {
+            if (response?.codigo === 'SIN ERROR' || response?.status === 'Éxito') {
+                // Show success message
+                const nombrePersonal = response.personal || 'Personal';
+                const hora = response.horaMarcada || new Date().toLocaleTimeString();
+                setMensajeExito(`${nombrePersonal} - ${hora}`);
+                setMostrarExito(true);
+                setDni('');
+
+                // Hide message after 5 seconds
+                setTimeout(() => {
+                    setMostrarExito(false);
+                }, 5000);
+            } else {
+                // Show error message from API
+                setMensajeError(response?.mensaje || 'Error al marcar asistencia');
+                setMostrarError(true);
+
+                // Hide error after 5 seconds
+                setTimeout(() => {
+                    setMostrarError(false);
+                }, 5000);
+            }
+        } catch (error: any) {
             console.error('Error al marcar asistencia:', error);
+            // Extract error message from API response
+            const errorMessage = error?.response?.data?.mensaje
+                || error?.response?.data?.message
+                || 'Error al marcar asistencia. Intente nuevamente.';
+            setMensajeError(errorMessage);
+            setMostrarError(true);
+
+            setTimeout(() => {
+                setMostrarError(false);
+            }, 5000);
         } finally {
             setCargando(false);
         }
@@ -293,7 +342,25 @@ function AsistenciaPage() {
                         {mostrarExito && (
                             <div className={estilos.mensajeExito}>
                                 <CheckCircle size={20} />
-                                <span>Asistencia marcada exitosamente</span>
+                                <span>Asistencia marcada exitosamente: {mensajeExito}</span>
+                            </div>
+                        )}
+
+                        {/* Mensaje de error */}
+                        {mostrarError && (
+                            <div className={estilos.mensajeError || estilos.errorMensaje} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '12px 16px',
+                                backgroundColor: '#fee2e2',
+                                border: '1px solid #fca5a5',
+                                borderRadius: '8px',
+                                color: '#dc2626',
+                                marginBottom: '16px',
+                            }}>
+                                <AlertCircle size={20} />
+                                <span>{mensajeError}</span>
                             </div>
                         )}
 
