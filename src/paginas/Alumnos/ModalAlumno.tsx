@@ -21,6 +21,7 @@ interface ModalAlumnoProps {
   onSave: (alumno: any) => void;
   alumno?: any;
   modo?: 'crear' | 'editar';
+  productos?: { id: number; nombre: string }[];
 }
 
 export default function ModalAlumno({
@@ -28,7 +29,8 @@ export default function ModalAlumno({
   onCancel,
   onSave,
   alumno,
-  modo = 'crear'
+  modo = 'crear',
+  productos = []
 }: ModalAlumnoProps) {
   const [form] = Form.useForm();
   const [paises, setPaises] = useState<Pais[]>([]);
@@ -51,7 +53,7 @@ export default function ModalAlumno({
           setPaisSeleccionado(paisAlumno);
           setIndicativo(`+${paisAlumno.prefijoCelularPais}`);
         }
-        
+
         form.setFieldsValue({
           nombre: alumno.nombre,
           apellido: alumno.apellido,
@@ -65,8 +67,8 @@ export default function ModalAlumno({
           industria: alumno.industria,
           cargo: alumno.cargo,
           codigoCurso: alumno.codigoCurso,
-          pagoRegistrado: alumno.pagoRegistrado,
-          formularioRegistrado: alumno.formularioRegistrado,
+          pagoRegistrado: alumno.pago,
+          formularioRegistrado: alumno.formulario,
         });
       } else {
         const peru = activos.find(p => p.nombre === "Perú");
@@ -109,8 +111,8 @@ export default function ModalAlumno({
           title={esEdicion ? "¿Guardar cambios?" : "¿Crear nuevo alumno?"}
           onConfirm={handleGuardar}
         >
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             className={`${estilos.btnNuevo} ${estilos.modalBtnFull}`}
             icon={esEdicion ? <EditOutlined /> : <PlusOutlined />}
           >
@@ -179,9 +181,9 @@ export default function ModalAlumno({
             </Form.Item>
           </Col>
           <Col span={10}>
-            <Form.Item 
-              name="correo" 
-              label="Correo" 
+            <Form.Item
+              name="correo"
+              label="Correo"
               rules={[
                 { required: true, message: 'Por favor ingrese un correo' },
                 { type: "email", message: 'Por favor ingrese un correo válido' }
@@ -191,8 +193,8 @@ export default function ModalAlumno({
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item 
-              name="documento" 
+            <Form.Item
+              name="documento"
               label="Documento de identidad"
               rules={[
                 { required: true, message: 'Por favor ingrese el documento' },
@@ -207,27 +209,27 @@ export default function ModalAlumno({
         {/* 4to renglón: Área de trabajo, Industria, Cargo */}
         <Row gutter={16}>
           <Col span={8}>
-            <Form.Item name="areaTrabajo" 
-            label="Área de trabajo"
-            rules={[
+            <Form.Item name="areaTrabajo"
+              label="Área de trabajo"
+              rules={[
                 { required: true, message: 'Por favor ingrese un área de trabajo' }
               ]}>
               <Input />
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item name="industria" 
-            label="Industria"
-            rules={[
+            <Form.Item name="industria"
+              label="Industria"
+              rules={[
                 { required: true, message: 'Por favor ingrese una industria' }
               ]}>
               <Input />
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item name="cargo" 
-            label="Cargo"
-            rules={[
+            <Form.Item name="cargo"
+              label="Cargo"
+              rules={[
                 { required: true, message: 'Por favor ingrese el cargo' }
               ]}>
               <Input />
@@ -238,12 +240,18 @@ export default function ModalAlumno({
         {/* 5to renglón: Código del curso */}
         <Row gutter={16}>
           <Col span={24}>
-            <Form.Item 
-              name="codigoCurso" 
-              label="Código del curso"
-              rules={[{ required: true, message: 'Por favor ingrese el código del curso' }]}
+            <Form.Item
+              name="codigoCurso"
+              label="Curso / Producto"
+              rules={[{ required: true, message: 'Por favor seleccione el curso' }]}
             >
-              <Input/>
+              <Select placeholder="Seleccione un curso">
+                {productos.map((prod) => (
+                  <Select.Option key={prod.id} value={prod.id}>
+                    {prod.nombre}
+                  </Select.Option>
+                ))}
+              </Select>
             </Form.Item>
           </Col>
         </Row>

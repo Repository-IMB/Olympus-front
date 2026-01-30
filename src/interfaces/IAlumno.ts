@@ -8,6 +8,7 @@ export interface IAlumno {
     dni: string;
     cargo: string;
     correo: string;
+    telefono: string;
     formularioEstado: boolean;
     pagoEstado: boolean;
     productos: string[];
@@ -37,4 +38,35 @@ export interface IAlumnosFiltros {
     pageSize?: number;
     search?: string | null;
     fechaInicio?: string | null;
+}
+
+/**
+ * Payload for creating a new student
+ */
+export interface IAlumnoInsertar {
+    idProducto: number;
+    idModulo: number | null;
+    nombres: string;
+    apellidos: string;
+    dni: string;
+    fechaNacimiento: string | null;
+    idPais: number;
+    correo: string;
+    celular: string;
+    prefijoCelular: string;
+    prefijo: string | null;
+    idTipoIngles: number | null;
+    idTipoTec: number | null;
+    idTipoFacturacion: number | null;
+    areaFormacion: string;
+    cargo: string;
+    empresa: string | null;
+    industria: string;
+    razonSocial: string | null;
+    numeroFactura: string | null;
+    estadoFormulario: boolean;
+    estadoPago: boolean;
+    usuarioAlumno: string | null;
+    passwordAlumno: string | null;
+    usuarioCreacion: string;
 }

@@ -10,7 +10,7 @@ interface ErroresValidacion {
 
 function AsistenciaPage() {
     const [dni, setDni] = useState('');
-    const [tipoAsistencia, setTipoAsistencia] = useState<TipoAsistencia>('entrada');
+    const [tipoAsistencia, setTipoAsistencia] = useState<TipoAsistencia | null>(null);
     const [hora, setHora] = useState('');
     const [fecha, setFecha] = useState('');
     const [erroresValidacion, setErroresValidacion] = useState<ErroresValidacion>({});
@@ -18,7 +18,60 @@ function AsistenciaPage() {
     const [mostrarExito, setMostrarExito] = useState(false);
     const [slideIndex, setSlideIndex] = useState(0);
 
-    // Actualizar hora y fecha en tiempo real
+    // Lógica de selección automática (Turno Completo)
+    const determineButtonState = (date: Date): TipoAsistencia | null => {
+        const day = date.getDay(); // 0 is Sunday, 6 is Saturday
+        const hours = date.getHours();
+        const minutes = date.getMinutes();
+        const totalMinutes = hours * 60 + minutes;
+
+        // Horarios en minutos
+        const t09_00 = 9 * 60;
+        const t09_30 = 9 * 60 + 30;
+        const t13_00 = 13 * 60;
+        const t13_30 = 13 * 60 + 30;
+        const t14_00 = 14 * 60;
+        const t14_30 = 14 * 60 + 30;
+        const t18_00 = 18 * 60;
+
+        // Domingo no hay reglas definidas, devolvemos null o lo que se prefiera
+        if (day === 0) return null;
+
+        // Sábado (6)
+        if (day === 6) {
+            // Entrada: 09:00 - 09:30
+            if (totalMinutes >= t09_00 && totalMinutes <= t09_30) {
+                return 'entrada';
+            }
+            // Salida: A partir de las 13:00 (digamos hasta 23:59)
+            if (totalMinutes >= t13_00) {
+                return 'salida';
+            }
+            return null;
+        }
+
+        // Lunes a Viernes (1-5)
+        // Entrada: 09:00 - 09:30
+        if (totalMinutes >= t09_00 && totalMinutes <= t09_30) {
+            return 'entrada';
+        }
+        // Inicio Almuerzo: 13:00 - 13:30
+        if (totalMinutes >= t13_00 && totalMinutes <= t13_30) {
+            return 'inicioAlmuerzo';
+        }
+        // Fin Almuerzo: 14:00 - 14:30
+        if (totalMinutes >= t14_00 && totalMinutes <= t14_30) {
+            return 'finAlmuerzo';
+        }
+        // Salida: A partir de las 18:00
+        if (totalMinutes >= t18_00) {
+            return 'salida';
+        }
+
+        return null;
+    };
+
+    // Actualizar hora, fecha y ESTADO DE BOTONES en tiempo real
     useEffect(() => {
         const actualizarTiempo = () => {
             const ahora = new Date();
@@ -36,6 +89,10 @@ function AsistenciaPage() {
 
             setHora(ahora.toLocaleTimeString('es-ES', opcionesHora));
             setFecha(ahora.toLocaleDateString('es-ES', opcionesFecha));
+
+            // Actualizar selección automática
+            const estadoAutomatico = determineButtonState(ahora);
+            setTipoAsistencia(estadoAutomatico);
         };
 
         actualizarTiempo();
@@ -140,6 +197,11 @@ function AsistenciaPage() {
             return;
         }
 
+        if (!tipoAsistencia) {
+            setErroresValidacion({ dni: 'No hay ninguna acción disponible en este horario.' }); // Hack para mostrar error
+            return;
+        }
+
         setErroresValidacion({});
         setCargando(true);
 
@@ -212,8 +274,13 @@ function AsistenciaPage() {
                                         key={tipo.id}
                                         type="button"
                                         className={`${estilos.tipoButton} ${tipoAsistencia === tipo.id ? estilos.tipoButtonActive : ''}`}
-                                        onClick={() => setTipoAsistencia(tipo.id)}
-                                        style={{ animationDelay: `${0.25 + index * 0.05}s` }}
+                                        // onClick={() => setTipoAsistencia(tipo.id)} // Deshabilitado manual
+                                        disabled={true} // Bloqueado para el usuario
+                                        style={{
+                                            animationDelay: `${0.25 + index * 0.05}s`,
+                                            opacity: tipoAsistencia === tipo.id ? 1 : 0.5, // Visual feedback
+                                            cursor: 'default'
+                                        }}
                                     >
                                         <Icon size={18} />
                                         <span>{tipo.label}</span>

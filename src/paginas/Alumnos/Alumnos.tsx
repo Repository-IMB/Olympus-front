@@ -24,8 +24,10 @@ import {
 } from "@ant-design/icons";
 import { obtenerPaises, type Pais } from "../../config/rutasApi";
 import { useNavigate } from "react-router-dom";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
 import ModalAlumno from "./ModalAlumno";
-import { obtenerAlumnosPaginados, eliminarAlumno, type IAlumno } from "../../servicios/AlumnoService";
+import { obtenerAlumnosPaginados, eliminarAlumno, insertarAlumno, type IAlumno, type IAlumnoInsertar } from "../../servicios/AlumnoService";
 import { fetchProductOptions } from "../../servicios/ProductoService";
 import { obtenerModulos } from "../../servicios/ModuloService";
 
@@ -40,6 +42,7 @@ interface AlumnoLocal {
   documento: string;
   cargo: string;
   correo: string;
+  telefono: string;
   curso: string;
   modulo: string;
   departamento: string;
@@ -59,6 +62,7 @@ const mapAlumnoToLocal = (alumno: IAlumno): AlumnoLocal => {
     documento: alumno.dni,
     cargo: alumno.cargo,
     correo: alumno.correo,
+    telefono: alumno.telefono,
     curso: alumno.productos.join(", ") || "-",
     modulo: alumno.modulos.join(", ") || "-",
     departamento: "-",
@@ -389,22 +393,86 @@ export default function Alumnos() {
         open={modalCrearVisible}
         onCancel={() => setModalCrearVisible(false)}
         modo="crear"
-        onSave={(nuevoAlumno) => {
-          // After creating, refetch from API
-          fetchAlumnos();
-          setModalCrearVisible(false);
+        productos={productos}
+        onSave={async (values) => {
+          try {
+            setLoading(true);
+
+            // 1. Find Country ID
+            const paisObj = paises.find(p => p.nombre === values.pais);
+            const idPais = paisObj ? paisObj.id : 0;
+
+            // 2. Get User from Token
+            let usuarioLogueado = "SISTEMA";
+            const token = Cookies.get("token");
+            if (token) {
+              try {
+                const decoded: any = jwtDecode(token);
+                usuarioLogueado = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"]
+                  || decoded.name
+                  || "SISTEMA";
+              } catch (e) {
+                console.error("Error decoding token:", e);
+              }
+            }
+
+            // 3. Prepare Payload - use null for fields not in form
+            const nuevoAlumno: IAlumnoInsertar = {
+              idProducto: values.codigoCurso || 0,
+              idModulo: null,
+              nombres: values.nombre,
+              apellidos: values.apellido,
+              dni: values.documento,
+              fechaNacimiento: null,
+              idPais: idPais,
+              correo: values.correo,
+              celular: values.telefono,
+              prefijoCelular: values.ind || "",
+              prefijo: values.prefijo || null,
+              idTipoIngles: null,
+              idTipoTec: null,
+              idTipoFacturacion: null,
+              areaFormacion: values.areaTrabajo,
+              cargo: values.cargo,
+              empresa: null,
+              industria: values.industria,
+              razonSocial: null,
+              numeroFactura: null,
+              estadoFormulario: values.formularioRegistrado || false,
+              estadoPago: values.pagoRegistrado || false,
+              usuarioAlumno: null,
+              passwordAlumno: null,
+              usuarioCreacion: usuarioLogueado
+            };
+
+            // 3. Call API
+            const respuesta = await insertarAlumno(nuevoAlumno);
+
+            if (respuesta.codigo === "SIN ERROR") {
+              message.success("Alumno creado correctamente");
+              fetchAlumnos();
+              setModalCrearVisible(false);
+            } else {
+              message.error(respuesta.mensaje || "Error al crear alumno");
+            }
+          } catch (error) {
+            console.error(error);
+            message.error("Error al crear alumno");
+          } finally {
+            setLoading(false);
+          }
         }}
       />
       <ModalAlumno
         open={modalEditarVisible}
         alumno={alumnoEditando}
         modo="editar"
+        productos={productos}
         onCancel={() => {
           setModalEditarVisible(false);
           setAlumnoEditando(null);
         }}
         onSave={(alumnoEditado) => {
-          // After editing, refetch from API
           fetchAlumnos();
           setModalEditarVisible(false);
           setAlumnoEditando(null);

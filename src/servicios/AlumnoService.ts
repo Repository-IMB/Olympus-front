@@ -1,7 +1,7 @@
 import api from "./api";
-import type { IAlumno, IAlumnosPaginadosResponse, IAlumnosFiltros } from "../interfaces/IAlumno";
+import type { IAlumno, IAlumnosPaginadosResponse, IAlumnosFiltros, IAlumnoInsertar } from "../interfaces/IAlumno";
 
-export type { IAlumno, IAlumnosPaginadosResponse, IAlumnosFiltros };
+export type { IAlumno, IAlumnosPaginadosResponse, IAlumnosFiltros, IAlumnoInsertar };
 
 /**
  * Fetches paginated students from the API
@@ -39,4 +39,12 @@ export const obtenerAlumnoPorId = async (id: number): Promise<IAlumno> => {
  */
 export const eliminarAlumno = async (id: number): Promise<void> => {
     await api.patch(`/api/ALMModAlumno/Eliminar/${id}`);
+};
+
+/**
+ * Creates a new student
+ */
+export const insertarAlumno = async (alumno: IAlumnoInsertar): Promise<any> => {
+    const response = await api.post("/api/ALMModAlumno/Insertar", alumno);
+    return response.data;
 };
