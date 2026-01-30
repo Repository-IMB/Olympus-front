@@ -55,7 +55,14 @@ export const crearFactura = async (payload: any) => {
 
 export const actualizarEstadoFactura = async (payload: any) => {
 	try {
-		const response = await api.post(`${basePath}/ActualizarEstadoFactura`, payload);
+		const response = await api.put(`${basePath}/ActualizarEstadoFactura`, null, {
+            params: {
+                idFactura: payload.IdFactura,
+                estadoFactura: payload.EstadoFactura,
+                montoPagado: payload.MontoPagado,
+                usuario: payload.UsuarioModificacion
+            }
+        });
 		return response.data ?? response;
 	} catch (error) {
 		console.error("ContabilidadService.actualizarEstadoFactura error:", error);

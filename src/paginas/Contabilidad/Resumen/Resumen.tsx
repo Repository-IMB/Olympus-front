@@ -106,16 +106,17 @@ const Resumen: React.FC = () => {
 
   const opcionesDonaGastos = {
     tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: S/. {c} ({d}%)' },
-    legend: { orient: 'vertical', right: 10, top: 'center' },
+    legend: { orient: 'vertical', right: '10%', top: 'center', itemGap: 2, textStyle: { fontSize: 10 }, width: '80%' },
     series: [
       {
         name: 'Gastos por Área',
         type: 'pie',
-        radius: ['50%', '70%'],
+        center: ['25%', '50%'],
+        radius: ['50%', '30%'],
         avoidLabelOverlap: false,
         itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
         label: { show: false },
-        emphasis: { label: { show: true, fontSize: '18', fontWeight: 'bold' } },
+        emphasis: { label: { show: true, fontSize: '16', fontWeight: 'bold' } },
         labelLine: { show: false },
         data: [] as any[],
       }
@@ -153,7 +154,7 @@ const Resumen: React.FC = () => {
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={6}>
             <Card className={estilos.metricCard}>
-              <Statistic title="Ingresos del mes (ventas cursos)" value={kpis.ingresosMes} precision={2} prefix="S/." className={estilos.metricValue} />
+              <Statistic title="Ingresos del mes (ventas cursos)" value={kpis.ingresosMes} precision={2} prefix="S/." />
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>

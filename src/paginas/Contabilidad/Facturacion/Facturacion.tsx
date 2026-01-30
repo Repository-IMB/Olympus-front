@@ -36,7 +36,7 @@ const Facturacion: React.FC = () => {
   const [productosList, setProductosList] = useState<any[]>([]);
   const [metodosPagoList, setMetodosPagoList] = useState<any[]>([
     { id: 1, nombre: 'Tarjeta de crédito' },
-    { id: 2, nombre: 'Pago efectivo' },
+    { id: 2, nombre: 'Pago en efectivo' },
   ]);
   
   // Estados para el modal de edición
@@ -44,7 +44,7 @@ const Facturacion: React.FC = () => {
   const [facturaSeleccionada, setFacturaSeleccionada] = useState<any>(null);
   
   // Estado para el filtro
-  const [filtroMetodoPago, setFiltroMetodoPago] = useState<number | null>(null);
+  const [filtroMetodoPago, setFiltroMetodoPago] = useState<string | null>(null);
 
   // Estados para manejo de archivos
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -106,9 +106,14 @@ const Facturacion: React.FC = () => {
 
   const handleEditarFactura = (record: any) => {
     setFacturaSeleccionada(record);
+    const montoInicial = parseInt(
+      record.montoPagado || 
+      record.montoNetoOriginal || 
+      (record.montoNeto?.replace('S/. ', '') || '0')
+    ) || 0;
     editForm.setFieldsValue({
       estadoFactura: record.estadoOriginal || record.estado,
-      montoPagado: parseFloat(record.montoNetoOriginal || 0),
+      montoPagado: parseFloat(record.montoPagado || record.montoNetoOriginal || record.montoNeto?.replace('S/. ', '') || 0),
     });
     setShowEditModal(true);
   };
@@ -116,18 +121,30 @@ const Facturacion: React.FC = () => {
   const handleActualizarFactura = async (values: any) => {
     if (!facturaSeleccionada) return;
 
+    const estadoFactura = values.estadoFactura?.trim();
+    const montoPagado = Number(values.montoPagado);
+
+    if (!estadoFactura) {
+      message.error('Selecciona un estado válido');
+      return;
+    }
+    if (isNaN(montoPagado) || montoPagado < 0) {
+      message.error('Ingresa un monto válido');
+      return;
+    }
+
     try {
       const resultado = await contabilidadService.actualizarEstadoFactura({
-        idFactura: facturaSeleccionada.id,
-        estadoFactura: values.estadoFactura,
-        montoPagado: values.montoPagado,
-        usuario: 'SYSTEM',
+        IdFactura: facturaSeleccionada.id,
+        EstadoFactura: estadoFactura,
+        MontoPagado: montoPagado,
+        UsuarioModificacion: 'SYSTEM',
       });
 
       if (resultado.exito || resultado.Exito) {
         message.success('Factura actualizada correctamente');
         setShowEditModal(false);
-        cargarFacturas();
+        cargarFacturas(filtroMetodoPago);
       } else {
         message.error(resultado.mensaje || resultado.Mensaje || 'Error al actualizar');
       }
@@ -137,11 +154,11 @@ const Facturacion: React.FC = () => {
     }
   };
 
-  const cargarFacturas = async (idMetodoPago?: number | null) => {
+  const cargarFacturas = async (metodoPagoFiltro?: string | null) => {
     try {
       const params: any = { page: 1, pageSize: 100 };
-      if (idMetodoPago) {
-        params.idMetodoPago = idMetodoPago;
+      if (metodoPagoFiltro) {
+        params.idMetodoPago = metodoPagoFiltro;
       }
 
       const res = await contabilidadService.listarFacturas(params);
@@ -158,7 +175,11 @@ const Facturacion: React.FC = () => {
         montoNetoOriginal: f.montoNeto || f.monto || 0,
         estado: f.estado || f.estadoFactura || "Pendiente",
         estadoOriginal: f.estadoFactura || f.estado || "Pendiente",
+        metodoPago: f.metodoPago || '',
         idMetodoPago: f.idMetodoPago,
+        montoPagado: f.montoPagado || 0,
+        montoTotal: f.montoTotal || 0,
+        montoRestante: f.montoRestante || 0,
       }));
       
       setDataFacturasOriginal(mapped);
@@ -190,7 +211,7 @@ const Facturacion: React.FC = () => {
 
         setMetodosPagoList([
           { id: 1, nombre: 'Tarjeta de crédito' },
-          { id: 2, nombre: 'Pago efectivo' },
+          { id: 2, nombre: 'Pago en efectivo' },
         ]);
       } catch (e) {
         console.warn('Error cargando lookups', e);
@@ -201,13 +222,13 @@ const Facturacion: React.FC = () => {
     loadLookups();
   }, []);
 
-  const handleFiltrarPorMetodoPago = (idMetodoPago: number | null) => {
-    setFiltroMetodoPago(idMetodoPago);
+  const handleFiltrarPorMetodoPago = (metodoPago: string | null) => {
+    setFiltroMetodoPago(metodoPago);
     
-    if (!idMetodoPago) {
+    if (!metodoPago) {
       setDataFacturas(dataFacturasOriginal);
     } else {
-      const filtradas = dataFacturasOriginal.filter(f => f.idMetodoPago === idMetodoPago);
+      const filtradas = dataFacturasOriginal.filter(f => f.metodoPago === metodoPago);
       setDataFacturas(filtradas);
     }
   };
@@ -301,11 +322,10 @@ const Facturacion: React.FC = () => {
                 <Select 
                   placeholder="Selecciona método de pago" 
                   allowClear
-                  onChange={(value) => handleFiltrarPorMetodoPago(value)}
-                  value={filtroMetodoPago}
+                  onChange={(value) => handleFiltrarPorMetodoPago(value as string || null)}
                 >
                   {metodosPagoList.map(m=> (
-                    <Option key={m.id} value={m.id}>{m.nombre}</Option>
+                    <Option key={m.id} value={m.nombre}>{m.nombre}</Option>
                   ))}
                 </Select>
               </Form.Item>
@@ -580,11 +600,13 @@ const Facturacion: React.FC = () => {
                 <InputNumber<number>
                   className={estilos.amountInput}
                   min={0}
-                  step={0.01}
-                  formatter={(value) => `S/. ${value}`}
-                  parser={(value) => {
-                    const parsedValue = (value || "").replace(/[^\d.]/g, "");
-                    return parsedValue ? parseFloat(parsedValue) : 0;
+                  step={1}
+                  precision={0}
+                  formatter={(value) => value ? `S/. ${value.toLocaleString()}` : 'S/. 0'}
+                  parser={(displayValue) => {
+                    if (!displayValue) return 0;
+                    const cleaned = displayValue.replace(/[^\d]/g, '');
+                    return cleaned ? parseInt(cleaned, 10) || 0 : 0;
                   }}
                 />
               </Form.Item>
@@ -600,11 +622,13 @@ const Facturacion: React.FC = () => {
                 <InputNumber<number>
                   className={estilos.amountInput}
                   min={0}
-                  step={0.01}
-                  formatter={(value) => `S/. ${value}`}
-                  parser={(value) => {
-                    const parsedValue = (value || "").replace(/[^\d.]/g, "");
-                    return parsedValue ? parseFloat(parsedValue) : 0;
+                  step={1}
+                  precision={0}
+                  formatter={(value) => value ? `S/. ${value.toLocaleString()}` : 'S/. 0'}
+                  parser={(displayValue) => {
+                    if (!displayValue) return 0;
+                    const cleaned = displayValue.replace(/[^\d]/g, '');
+                    return cleaned ? parseInt(cleaned, 10) || 0 : 0;
                   }}
                 />
               </Form.Item>
@@ -734,11 +758,13 @@ const Facturacion: React.FC = () => {
             <InputNumber<number>
               style={{ width: '100%' }}
               min={0}
-              step={0.01}
-              formatter={(value) => `S/. ${value}`}
-              parser={(value) => {
-                const parsedValue = (value || "").replace(/[^\d.]/g, "");
-                return parsedValue ? parseFloat(parsedValue) : 0;
+              step={1}
+              precision={0}
+              formatter={(value) => value ? `S/. ${value.toLocaleString()}` : 'S/. 0'}
+              parser={(displayValue) => {
+                if (!displayValue) return 0;
+                const cleaned = displayValue.replace(/[^\d]/g, '');
+                return cleaned ? parseInt(cleaned, 10) || 0 : 0;
               }}
             />
           </Form.Item>
