@@ -203,7 +203,6 @@ export default function SalesProcess() {
   }); */
   
   // Estado para las oportunidades
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("");
