@@ -10,7 +10,8 @@ import {
   BookOutlined,
   ReadOutlined,
   IdcardOutlined,
-  BlockOutlined,
+  DesktopOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import styles from "./Sidebar.module.css";
 import type { PermisosMenu } from "../../hooks/usePermisosMenu";
@@ -208,7 +209,37 @@ export default function Sidebar({
               <span className={styles.menuHeaderContent}>
                 <ContainerOutlined /> Gestión de activos
               </span>
+              {openMenu === "Logistica" ? (
+                <CaretUpOutlined />
+              ) : (
+                <CaretDownOutlined />
+              )}
             </div>
+
+            {openMenu === "Logistica" && (
+              <div className={styles.menuItems}>
+                <div
+                  className={`${styles.menuItem} ${
+                    isActive("/logistica/activos")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
+                  onClick={() => onNavigate("/logistica/activos")}
+                >
+                  <DesktopOutlined /> Activos
+                </div>
+                <div
+                  className={`${styles.menuItem} ${
+                    isActive("/logistica/personal")
+                      ? styles.menuItemActive
+                      : ""
+                  }`}
+                  onClick={() => onNavigate("/logistica/personal")}
+                >
+                  <TeamOutlined /> Personal
+                </div>
+              </div>
+            )}
           </div>
         )}
 

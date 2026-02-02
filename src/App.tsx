@@ -14,6 +14,7 @@ import LoginPage from "./paginas/Login/Login";
 import ForgotPasswordPage from "./paginas/ForgotPassword/ForgotPasswordPage";
 import ResetPasswordPage from "./paginas/ResetPassword/ResetPasswordPage";
 import Forbidden from "./paginas/Forbidden";
+import AsistenciaPage from "./paginas/Asistencia/Asistencia";
 
 // Layout / guards
 import MainLayout from "./layouts/MainLayout";
@@ -44,6 +45,10 @@ import DetalleModulo from "./paginas/Modulos/DetalleModulo";
 import DetalleAlumno from "./paginas/Alumnos/DetalleAlumno";
 import Dashboard from "./paginas/Dashboard/Dashboard";
 
+// Logística
+import Activos from "./paginas/Activos/Activos";
+import DetalleActivo from "./paginas/Activos/DetalleActivo";
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,7 +68,7 @@ function App() {
       }
     };
 
-    const publicRoutes = ["/login", "/forgot-password", "/reset-password"];
+    const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/activos/public", "/asistencia"];
 
     const logout = () => {
       document.cookie =
@@ -126,7 +131,14 @@ const checkToken = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/asistencia" element={<AsistenciaPage />} />
       <Route path="/403" element={<Forbidden />} />
+      
+      {/* Ruta pública para QR de activos (sin autenticación ni layout) */}
+      <Route
+        path="/activos/public/:id"
+        element={<DetalleActivo />}
+      />
 
       {/* Privadas */}
       <Route element={<PrivateRoute />}>
@@ -182,6 +194,24 @@ const checkToken = () => {
             <Route path="modulos/detalle/:id" element={<DetalleModulo />} />
             <Route path="alumnos/detalle/:id" element={<DetalleAlumno />} />
           </Route>
+
+          {/* ======================= LOGÍSTICA ======================= */}
+          <Route
+            path="/logistica/activos"
+            element={
+              <ProtectedContent permiso="logistica">
+                <Activos />
+              </ProtectedContent>
+            }
+          />
+          <Route
+            path="/logistica/activos/:id"
+            element={
+              <ProtectedContent permiso="logistica">
+                <DetalleActivo />
+              </ProtectedContent>
+            }
+          />
 
           {/* ======================= USUARIOS ======================= */}
           <Route
