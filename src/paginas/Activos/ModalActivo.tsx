@@ -1,230 +1,284 @@
 import { useState, useEffect } from "react";
-import { Modal, Form, Input, Select, Row, Col, Button, message } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import {
+  Modal,
+  Form,
+  Input,
+  Select,
+  Row,
+  Col,
+  Button,
+  message,
+  Spin,
+} from "antd";
+import { PlusOutlined, EditOutlined } from "@ant-design/icons";
 import api from "../../servicios/api";
 import styles from "./ModalActivo.module.css";
+import { jwtDecode } from "jwt-decode";
+import { getCookie } from "../../utils/cookies";
 
 const { Option } = Select;
+
+/* =========================
+   TYPES
+========================= */
 
 interface ModalActivoProps {
   visible: boolean;
   onCancel: () => void;
   onSubmit?: () => void;
+  activo?: ActivoEditar;
+}
+
+interface ActivoEditar {
+  idActivo: number;
+  nombre: string;
+  idTipoActivo: number;
+  idFabricante: number;
+  idPais: number;
+  ip?: string | null;
+  numeroSerie?: string | null;
+  imei?: string | null;
+  modelo?: string | null;
+  estado: string; // 👈 IMPORTANTE
+}
+
+interface ComboItem {
+  id: number;
+  nombre: string;
+}
+
+interface Pais {
+  id: number;
+  nombre: string;
 }
 
 export default function ModalActivo({
   visible,
   onCancel,
   onSubmit,
+  activo,
 }: ModalActivoProps) {
   const [form] = Form.useForm();
+  const esEdicion = !!activo;
+
   const [loading, setLoading] = useState(false);
+  const [loadingCombos, setLoadingCombos] = useState(false);
+
+  const [tipos, setTipos] = useState<ComboItem[]>([]);
+  const [fabricantes, setFabricantes] = useState<ComboItem[]>([]);
+  const [paises, setPaises] = useState<Pais[]>([]);
+
+  const token = getCookie("token");
+
+  const getUserIdFromToken = () => {
+    if (!token) return 0;
+    try {
+      const decoded: any = jwtDecode(token);
+      return Number(
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ] ?? 0
+      );
+    } catch {
+      return 0;
+    }
+  };
+
+  const selectProps = {
+    showSearch: true as const,
+    optionFilterProp: "children" as const,
+    virtual: false,
+    listHeight: 260,
+    dropdownStyle: { maxHeight: 260, overflow: "auto", zIndex: 2000 },
+  };
+
+  /* =========================
+     LOAD COMBOS + DATA
+  ========================= */
 
   useEffect(() => {
-    if (visible) {
-      form.resetFields();
-    }
-  }, [visible, form]);
+    if (!visible) return;
+
+    const cargarCombos = async () => {
+      try {
+        setLoadingCombos(true);
+
+        const [tiposRes, fabRes, paisRes] = await Promise.all([
+          api.get("/api/VTAModActivos/tipos"),
+          api.get("/api/VTAModActivos/fabricantes"),
+          api.get("/api/VTAModVentaPais/ObtenerTodas"),
+        ]);
+
+        setTipos(tiposRes.data?.lista ?? []);
+        setFabricantes(fabRes.data?.lista ?? []);
+        setPaises(paisRes.data?.pais ?? []);
+
+        if (activo) {
+          // 👇 precargar TODO, incluido estado
+          form.setFieldsValue({
+            ...activo,
+            estado: activo.estado,
+          });
+        } else {
+          form.resetFields();
+          form.setFieldsValue({ estado: "A" }); // 👈 default al crear
+        }
+      } catch {
+        message.error("Error al cargar los combos");
+      } finally {
+        setLoadingCombos(false);
+      }
+    };
+
+    cargarCombos();
+  }, [visible, activo, form]);
+
+  /* =========================
+     SUBMIT
+  ========================= */
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
 
-      // TODO: Reemplazar con llamada real a la API
-      // await api.post("/api/Activos/CrearActivo", values);
-      
-      console.log("Valores del formulario:", values);
-      message.success("Activo creado exitosamente");
+      if (esEdicion) {
+        await api.put("/api/VTAModActivos/Actualizar", {
+          ...values,
+          idActivo: activo!.idActivo,
+          estado: values.estado, // 👈 CLAVE
+          usuarioModificacion: getUserIdFromToken(),
+        });
+
+        message.success("Activo actualizado correctamente");
+      } else {
+        await api.post("/api/VTAModActivos/Crear", {
+          ...values,
+          estado: "A",
+          usuarioCreacion: getUserIdFromToken(),
+        });
+
+        message.success("Activo creado correctamente");
+      }
+
       form.resetFields();
       onCancel();
-      if (onSubmit) onSubmit();
+      onSubmit?.();
     } catch (error: any) {
-      if (error?.errorFields) {
-        // Errores de validación del formulario
-        return;
-      }
+      if (error?.errorFields) return;
+
       message.error(
-        error?.response?.data?.mensaje || "Error al crear el activo"
+        error?.response?.data?.mensaje || "Error al guardar el activo"
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    form.resetFields();
-    onCancel();
-  };
-
   return (
     <Modal
       open={visible}
-      title="Crear nuevo activo"
-      onCancel={handleCancel}
+      title={esEdicion ? "Editar activo" : "Crear nuevo activo"}
+      onCancel={onCancel}
       footer={null}
       width={600}
       className={styles.modal}
+      destroyOnClose
     >
-      <Form form={form} layout="vertical" className={styles.form}>
-        <Form.Item
-          label="Tipo de activo"
-          name="tipo"
-          rules={[{ required: true, message: "Seleccione el tipo de activo" }]}
-        >
-          <Select
-            placeholder="Seleccionar tipo de activo"
-            showSearch
-            optionFilterProp="children"
+      {loadingCombos ? (
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <Spin size="large" />
+        </div>
+      ) : (
+        <Form form={form} layout="vertical" className={styles.form}>
+          {/* 👇 CAMPO OCULTO PERO OBLIGATORIO */}
+          <Form.Item name="estado" hidden>
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            label="Tipo de activo"
+            name="idTipoActivo"
+            rules={[{ required: true }]}
           >
-            <Option value="Laptop">Laptop</Option>
-            <Option value="Celular">Celular</Option>
-            <Option value="Tablet">Tablet</Option>
-            <Option value="Monitor">Monitor</Option>
-            <Option value="Teclado">Teclado</Option>
-            <Option value="Mouse">Mouse</Option>
-            <Option value="Otro">Otro</Option>
-          </Select>
-        </Form.Item>
+            <Select {...selectProps}>
+              {tipos.map((t) => (
+                <Option key={t.id} value={t.id}>
+                  {t.nombre}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
 
-        <Form.Item
-          label="IP del activo"
-          name="ip"
-          rules={[
-            {
-              pattern: /^(\d{1,3}\.){3}\d{1,3}$/,
-              message: "Ingrese una IP válida",
-            },
-          ]}
-        >
-          <Input placeholder="Ej: 162.248.143.12" />
-        </Form.Item>
+          <Form.Item label="Nombre" name="nombre" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
 
-        <Form.Item
-          label="Nombre del activo"
-          name="nombre"
-          rules={[{ required: true, message: "Ingrese el nombre del activo" }]}
-        >
-          <Input placeholder="Ej: MacBookPro" />
-        </Form.Item>
+          <Form.Item label="IP" name="ip">
+            <Input />
+          </Form.Item>
 
-        <Form.Item label="Número de serie" name="numeroSerie">
-          <Input placeholder="Ingrese el número de serie" />
-        </Form.Item>
+          <Form.Item label="Número de serie" name="numeroSerie">
+            <Input />
+          </Form.Item>
 
-        <Form.Item
-          label="IMEI (Solo celulares)"
-          name="imei"
-          rules={[
-            {
-              pattern: /^\d{15}$/,
-              message: "El IMEI debe tener 15 dígitos",
-            },
-          ]}
-        >
-          <Input placeholder="Ingrese el IMEI" maxLength={15} />
-        </Form.Item>
+          <Form.Item label="IMEI" name="imei">
+            <Input maxLength={15} />
+          </Form.Item>
 
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              label="Fabricante"
-              name="fabricante"
-              rules={[
-                { required: true, message: "Ingrese el fabricante" },
-              ]}
-            >
-              <Select
-                placeholder="Seleccionar fabricante"
-                showSearch
-                optionFilterProp="children"
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label="Fabricante"
+                name="idFabricante"
+                rules={[{ required: true }]}
               >
-                <Option value="Apple">Apple</Option>
-                <Option value="Lenovo">Lenovo</Option>
-                <Option value="HP">HP</Option>
-                <Option value="Dell">Dell</Option>
-                <Option value="Samsung">Samsung</Option>
-                <Option value="Motorola">Motorola</Option>
-                <Option value="Otro">Otro</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              label="Modelo"
-              name="modelo"
-              rules={[{ required: true, message: "Ingrese el modelo" }]}
-            >
-              <Input placeholder="Ej: MacBookPro17" />
-            </Form.Item>
-          </Col>
-        </Row>
+                <Select {...selectProps}>
+                  {fabricantes.map((f) => (
+                    <Option key={f.id} value={f.id}>
+                      {f.nombre}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
 
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              label="Sede"
-              name="sede"
-              rules={[{ required: true, message: "Seleccione la sede" }]}
-            >
-              <Select
-                placeholder="Seleccionar sede"
-                showSearch
-                optionFilterProp="children"
+            <Col span={12}>
+              <Form.Item
+                label="Modelo"
+                name="modelo"
+                rules={[{ required: true }]}
               >
-                <Option value="Perú">Perú</Option>
-                <Option value="Bolivia">Bolivia</Option>
-                <Option value="Argentina">Argentina</Option>
-                <Option value="Colombia">Colombia</Option>
-                <Option value="Chile">Chile</Option>
-                <Option value="Ecuador">Ecuador</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              label="Estación"
-              name="estacion"
-              rules={[
-                { required: true, message: "Ingrese el número de estación" },
-                { type: "number", min: 1, message: "El valor debe ser mayor a 0" },
-              ]}
-            >
-              <Input
-                type="number"
-                placeholder="Número de estación"
-                min={1}
-              />
-            </Form.Item>
-          </Col>
-        </Row>
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
 
-        <Form.Item
-          label="Estado"
-          name="estado"
-          rules={[{ required: true, message: "Seleccione el estado" }]}
-        >
-          <Select placeholder="Seleccionar estado">
-            <Option value="Disponible">Disponible</Option>
-            <Option value="Asignado">Asignado</Option>
-            <Option value="En mantenimiento">En mantenimiento</Option>
-            <Option value="Dado de baja">Dado de baja</Option>
-          </Select>
-        </Form.Item>
+          <Form.Item
+            label="Sede"
+            name="idPais"
+            rules={[{ required: true }]}
+          >
+            <Select {...selectProps}>
+              {paises.map((p) => (
+                <Option key={p.id} value={p.id}>
+                  {p.nombre}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
 
-        <Form.Item>
           <Button
             type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleSubmit}
+            icon={esEdicion ? <EditOutlined /> : <PlusOutlined />}
             loading={loading}
-            className={styles.submitButton}
+            onClick={handleSubmit}
             block
           >
-            + Agregar evento al activo
+            {esEdicion ? "Guardar cambios" : "Agregar activo"}
           </Button>
-        </Form.Item>
-      </Form>
+        </Form>
+      )}
     </Modal>
   );
 }

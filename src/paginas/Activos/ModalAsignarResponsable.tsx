@@ -1,21 +1,42 @@
 import { useState, useEffect } from "react";
-import { Modal, Form, Select, Button, message } from "antd";
+import { Modal, Form, Select, Button, message, Spin } from "antd";
 import api from "../../servicios/api";
 import styles from "./ModalAsignarResponsable.module.css";
+import { getCookie } from "../../utils/cookies";
+import { jwtDecode } from "jwt-decode";
 
 const { Option } = Select;
+
+/* =========================
+   TYPES
+========================= */
 
 interface ModalAsignarResponsableProps {
   visible: boolean;
   onCancel: () => void;
   onSubmit?: () => void;
   activo: {
+    idActivo: number;
     nombre: string;
-    ip: string;
+    ip?: string | null;
     ubicacionSede: string;
     estacion: number;
   } | null;
 }
+
+interface Pais {
+  id: number;
+  nombre: string;
+}
+
+interface Personal {
+  id: number;
+  nombre: string;
+}
+
+/* =========================
+   COMPONENT
+========================= */
 
 export default function ModalAsignarResponsable({
   visible,
@@ -24,147 +45,191 @@ export default function ModalAsignarResponsable({
   activo,
 }: ModalAsignarResponsableProps) {
   const [form] = Form.useForm();
+
   const [loading, setLoading] = useState(false);
-  const [sedes, setSedes] = useState<string[]>([]);
-  const [personal, setPersonal] = useState<any[]>([]);
-  const [loadingSedes, setLoadingSedes] = useState(false);
+  const [loadingPaises, setLoadingPaises] = useState(false);
   const [loadingPersonal, setLoadingPersonal] = useState(false);
 
-  useEffect(() => {
-    if (visible) {
-      form.resetFields();
-      cargarSedes();
-      setPersonal([]);
-    }
-  }, [visible, form]);
+  const [paises, setPaises] = useState<Pais[]>([]);
+  const [personal, setPersonal] = useState<Personal[]>([]);
 
-  const cargarSedes = async () => {
+  /* =========================
+     USER FROM TOKEN
+  ========================= */
+
+  const token = getCookie("token");
+
+  const getUserIdFromToken = (): number => {
+    if (!token) return 0;
     try {
-      setLoadingSedes(true);
-      // TODO: Reemplazar con llamada real a la API
-      // const res = await api.get("/api/Activos/ObtenerSedes");
-      // setSedes(res.data);
-      
-      // Datos de ejemplo
-      setSedes(["Perú", "Bolivia", "Argentina", "Colombia", "Chile", "Ecuador"]);
-    } catch (e) {
-      console.error("Error cargando sedes", e);
-      setSedes([]);
-    } finally {
-      setLoadingSedes(false);
+      const decoded: any = jwtDecode(token);
+      return Number(
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ]
+      );
+    } catch {
+      return 0;
     }
   };
 
-  const cargarPersonal = async (sede: string) => {
+  /* =========================
+     SELECT SCROLL FIX
+  ========================= */
+
+  const selectProps = {
+    showSearch: true as const,
+    optionFilterProp: "children" as const,
+    virtual: false, // 👈 CLAVE PARA EL SCROLL
+    listHeight: 260,
+    dropdownStyle: {
+      maxHeight: 260,
+      overflow: "auto",
+      zIndex: 2000,
+    },
+  };
+
+  /* =========================
+     LOAD ON OPEN
+  ========================= */
+
+  useEffect(() => {
+    if (!visible) return;
+
+    form.resetFields();
+    setPersonal([]);
+    cargarPaises();
+  }, [visible]);
+
+  /* =========================
+     LOAD PAÍSES
+  ========================= */
+
+  const cargarPaises = async () => {
+    try {
+      setLoadingPaises(true);
+
+      const res = await api.get(
+        "/api/VTAModVentaPais/ObtenerTodas"
+      );
+
+      setPaises(res.data?.pais ?? []);
+    } catch {
+      message.error("Error al cargar países");
+      setPaises([]);
+    } finally {
+      setLoadingPaises(false);
+    }
+  };
+
+  /* =========================
+     LOAD PERSONAL POR PAÍS
+  ========================= */
+
+  const cargarPersonalPorPais = async (idPais: number) => {
     try {
       setLoadingPersonal(true);
-      // TODO: Reemplazar con llamada real a la API
-      // const res = await api.get(`/api/Activos/ObtenerPersonalPorSede/${sede}`);
-      // setPersonal(res.data);
-      
-      // Datos de ejemplo
-      const personalEjemplo = [
-        { id: 1, nombre: "Jose Rafael Corzo Luis", correo: "rafael@example.com" },
-        { id: 2, nombre: "María González", correo: "maria@example.com" },
-        { id: 3, nombre: "Carlos Pérez", correo: "carlos@example.com" },
-      ];
-      setPersonal(personalEjemplo);
-    } catch (e) {
-      console.error("Error cargando personal", e);
+
+      const res = await api.get(
+        `/api/VTAModActivos/ObtenerPersonalPorPais/${idPais}`
+      );
+
+      setPersonal(res.data?.lista ?? []);
+    } catch {
+      message.error("Error al cargar personal");
       setPersonal([]);
     } finally {
       setLoadingPersonal(false);
     }
   };
 
+  /* =========================
+     SUBMIT
+  ========================= */
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
 
-      // TODO: Reemplazar con llamada real a la API
-      // await api.post("/api/Activos/AsignarResponsable", {
-      //   idActivo: activo?.idActivo,
-      //   idSede: values.sede,
-      //   idPersonal: values.personal,
-      // });
+      await api.post("/api/VTAModActivos/AsignarResponsable", {
+        idActivo: activo?.idActivo,
+        idPersonal: values.idPersonal,
+        usuarioCambio: getUserIdFromToken(),
+      });
 
-      console.log("Valores del formulario:", values);
-      message.success("Responsable asignado exitosamente");
+      message.success("Responsable asignado correctamente");
       form.resetFields();
       onCancel();
-      if (onSubmit) onSubmit();
+      onSubmit?.();
     } catch (error: any) {
-      if (error?.errorFields) {
-        // Errores de validación del formulario
-        return;
-      }
+      if (error?.errorFields) return;
+
       message.error(
-        error?.response?.data?.mensaje || "Error al asignar el responsable"
+        error?.response?.data?.mensaje ||
+          "Error al asignar responsable"
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    form.resetFields();
-    onCancel();
-  };
+  /* =========================
+     RENDER
+  ========================= */
 
   return (
     <Modal
       open={visible}
-      title="Asignación"
-      onCancel={handleCancel}
+      title="Asignar responsable"
+      onCancel={onCancel}
       footer={null}
-      width={500}
+      width={520}
       className={styles.modal}
+      destroyOnClose
+      style={{ top: 20 }}
     >
       <Form form={form} layout="vertical" className={styles.form}>
+        {/* ===================== */}
+        {/* PAÍS */}
+        {/* ===================== */}
         <Form.Item
-          label="Sede"
-          name="sede"
-          rules={[{ required: true, message: "Seleccione la sede" }]}
+          label="País / Sede"
+          name="idPais"
+          rules={[{ required: true, message: "Seleccione el país" }]}
         >
           <Select
-            placeholder="Selecciona la sede"
-            showSearch
-            optionFilterProp="children"
-            loading={loadingSedes}
-            onChange={(value) => {
-              form.setFieldsValue({ personal: undefined });
-              if (value) {
-                cargarPersonal(value);
-              } else {
-                setPersonal([]);
-              }
+            {...selectProps}
+            placeholder="Seleccionar país"
+            loading={loadingPaises}
+            onChange={(idPais) => {
+              form.setFieldsValue({ idPersonal: undefined });
+              cargarPersonalPorPais(idPais);
             }}
           >
-            {sedes.map((sede) => (
-              <Option key={sede} value={sede}>
-                {sede}
+            {paises.map((p) => (
+              <Option key={p.id} value={p.id}>
+                {p.nombre}
               </Option>
             ))}
           </Select>
         </Form.Item>
 
+        {/* ===================== */}
+        {/* PERSONAL */}
+        {/* ===================== */}
         <Form.Item
-          label="Personal responsable del activo"
-          name="personal"
+          label="Personal responsable"
+          name="idPersonal"
           rules={[
-            {
-              required: true,
-              message: "Seleccione un personal",
-            },
+            { required: true, message: "Seleccione un responsable" },
           ]}
         >
           <Select
-            placeholder="Selecciona un personal"
-            showSearch
-            optionFilterProp="children"
+            {...selectProps}
+            placeholder="Seleccionar personal"
             loading={loadingPersonal}
-            disabled={!form.getFieldValue("sede")}
+            disabled={!form.getFieldValue("idPais")}
           >
             {personal.map((p) => (
               <Option key={p.id} value={p.id}>
@@ -174,32 +239,36 @@ export default function ModalAsignarResponsable({
           </Select>
         </Form.Item>
 
+        {/* ===================== */}
+        {/* PREVIEW */}
+        {/* ===================== */}
         {activo && (
           <div className={styles.previewSection}>
             <label className={styles.previewLabel}>
               Vista previa del activo
             </label>
             <div className={styles.previewBox}>
-              <div className={styles.previewItem}>{activo.nombre}</div>
-              <div className={styles.previewItem}>{activo.ip}</div>
-              <div className={styles.previewItem}>
-                {activo.ubicacionSede} - Estación {activo.estacion}
+              <div>{activo.nombre}</div>
+              <div>{activo.ip || "-"}</div>
+              <div>
+                {activo.ubicacionSede} – Estación {activo.estacion}
               </div>
             </div>
           </div>
         )}
 
-        <div className={styles.submitContainer}>
-          <Button
-            type="primary"
-            onClick={handleSubmit}
-            loading={loading}
-            className={styles.submitButton}
-            block
-          >
-            Confirmar asignacion
-          </Button>
-        </div>
+        {/* ===================== */}
+        {/* ACTION */}
+        {/* ===================== */}
+        <Button
+          type="primary"
+          loading={loading}
+          onClick={handleSubmit}
+          className={styles.submitButton}
+          block
+        >
+          Confirmar asignación
+        </Button>
       </Form>
     </Modal>
   );

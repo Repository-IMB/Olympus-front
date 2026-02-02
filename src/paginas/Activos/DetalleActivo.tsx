@@ -9,10 +9,10 @@ import {
   Row,
   Col,
   Form,
-  Input,
   Select,
   DatePicker,
   message,
+  Modal,
 } from "antd";
 import {
   ArrowLeftOutlined,
@@ -24,205 +24,232 @@ import api from "../../servicios/api";
 import styles from "./DetalleActivo.module.css";
 import Timeline from "./Timeline";
 import ModalAsignarResponsable from "./ModalAsignarResponsable";
+import ModalActivo from "./ModalActivo";
 import { getCookie } from "../../utils/cookies";
+import moment from "moment";
+import { jwtDecode } from "jwt-decode";
 
 const { Content } = Layout;
 const { Option } = Select;
-const { TextArea } = Input;
 
-interface Activo {
+const API_URL = import.meta.env.VITE_API_URL;
+
+/* =========================
+   INTERFACES
+========================= */
+
+interface ActivoDetalle {
   idActivo: number;
   nombre: string;
-  tipo: string;
-  ip: string;
-  numeroSerie: string;
-  imei: string;
-  fabricante: string;
-  modelo: string;
-  ubicacionSede: string;
+  idTipoActivo: number;
+  nombreTipo: string;
+  idFabricante: number;
+  nombreFabricante: string;
+  idPais: number;
+  nombrePais: string;
+  ip?: string | null;
+  numeroSerie?: string | null;
+  imei?: string | null;
+  modelo?: string | null;
+  idResponsable?: number | null;
+  responsable: string;
   estacion: number;
   estado: string;
-  responsable: string;
   fechaActualizacion: string;
+  qrUrl?: string | null;
 }
 
-interface Responsable {
+interface PersonalDetalle {
+  id: number;
   nombres: string;
   apellidos: string;
   correo: string;
-  telefono: string;
+  celular: string;
+  prefijoPaisCelular: string;
   pais: string;
-  documento: string;
   areaTrabajo: string;
-  rol: string;
 }
 
 interface Evento {
   id: number;
-  tipo: string;
+  tipo: "create" | "update" | "assignment";
   detalle: string;
   fechaHora: string;
-  color: string;
+  responsable?: string;
 }
+
+/* =========================
+   COMPONENT
+========================= */
 
 export default function DetalleActivo() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [form] = Form.useForm();
-  const [activo, setActivo] = useState<Activo | null>(null);
-  const [responsable, setResponsable] = useState<Responsable | null>(null);
-  const [eventos, setEventos] = useState<Evento[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [loadingEvento, setLoadingEvento] = useState(false);
-  const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
 
-  // Detectar si el usuario está autenticado
+  const [activo, setActivo] = useState<ActivoDetalle | null>(null);
+  const [personalDetalle, setPersonalDetalle] = useState<PersonalDetalle | null>(null);
+  const [eventos, setEventos] = useState<Evento[]>([]);
+
+  const [qrVisible, setQrVisible] = useState(false);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [loadingPersonal, setLoadingPersonal] = useState(false);
+  const [loadingEvento, setLoadingEvento] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
+  const [modalEditarVisible, setModalEditarVisible] = useState(false);
+
   const token = getCookie("token");
   const isAuthenticated = !!token;
 
+  /* =========================
+     LOAD DATA
+  ========================= */
+
   useEffect(() => {
-    if (id) {
-      cargarDatos();
-    }
+    if (id) cargarDatos();
   }, [id]);
 
   const cargarDatos = async () => {
     try {
       setLoading(true);
-      // TODO: Reemplazar con llamada real a la API
-      // const res = await api.get(`/api/Activos/ObtenerDetalleActivo/${id}`);
-      
-      // Datos de ejemplo
-      const activoEjemplo: Activo = {
-        idActivo: 9675345,
-        nombre: "MacBookPro",
-        tipo: "Laptop",
-        ip: "162.248.143.12",
-        numeroSerie: "162.248.143.12",
-        imei: "",
-        fabricante: "Apple",
-        modelo: "MacBookPro17",
-        ubicacionSede: "Perú",
-        estacion: 1,
-        estado: "Asignado",
-        responsable: "Rafael Corzo",
-        fechaActualizacion: "2025-09-24T23:00:00",
-      };
+      setError(null);
 
-      const responsableEjemplo: Responsable = {
-        nombres: "Jose Rafael",
-        apellidos: "Corzo Luis",
-        correo: "abdielsingh8@gmail.com",
-        telefono: "50765494432",
-        pais: "Peru",
-        documento: "12345678",
-        areaTrabajo: "Ejemplo",
-        rol: "Ejemplo",
-      };
+      const [activoRes, historialRes] = await Promise.all([
+        api.get(`/api/VTAModActivos/ObtenerDetalle/${id}`),
+        api.get(`/api/VTAModActivos/ObtenerPorActivo/${id}`),
+      ]);
 
-      const eventosEjemplo: Evento[] = [
-        {
-          id: 1,
-          tipo: "create",
-          detalle: "Create a services site",
-          fechaHora: "2015-09-01T10:00:00",
-          color: "blue",
-        },
-        {
-          id: 2,
-          tipo: "solve",
-          detalle: "Solve initial network problems",
-          fechaHora: "2015-09-01T11:00:00",
-          color: "green",
-        },
-        {
-          id: 3,
-          tipo: "description",
-          detalle: "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.",
-          fechaHora: "2015-09-01T12:00:00",
-          color: "default",
-        },
-        {
-          id: 4,
-          tipo: "network",
-          detalle: "Network problems being solved",
-          fechaHora: "2015-09-01T13:00:00",
-          color: "red",
-        },
-        {
-          id: 5,
-          tipo: "create",
-          detalle: "Create a services site",
-          fechaHora: "2015-09-01T14:00:00",
-          color: "blue",
-        },
-        {
-          id: 6,
-          tipo: "testing",
-          detalle: "Technical testing",
-          fechaHora: "2015-09-01T15:00:00",
-          color: "default",
-        },
-      ];
+      setActivo(activoRes.data);
+      setQrUrl(activoRes.data.qrUrl ?? null);
 
-      setActivo(activoEjemplo);
-      setResponsable(responsableEjemplo);
-      setEventos(eventosEjemplo);
-    } catch (e: any) {
-      setError(
-        e?.response?.data?.mensaje ??
-          e?.message ??
-          "Error al cargar los datos del activo"
+      const historial: Evento[] = (historialRes.data.historial || []).map(
+        (h: any, i: number) => ({
+          id: h.idHistorial ?? i + 1,
+          tipo:
+            h.tipoCambio === "Asignación"
+              ? "assignment"
+              : h.tipoCambio === "Actualización"
+              ? "update"
+              : "create",
+          detalle: h.detalle ?? "—",
+          fechaHora: h.fechaCambio,
+          responsable: h.responsable ?? undefined,
+        })
       );
+
+      setEventos(historial);
+
+      if (activoRes.data.idResponsable) {
+        cargarPersonal(activoRes.data.idResponsable);
+      } else {
+        setPersonalDetalle(null);
+      }
+    } catch (e: any) {
+      setError("Error al cargar el detalle del activo");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAgregarEvento = async (values: any) => {
+  const cargarPersonal = async (idPersonal: number) => {
     try {
-      setLoadingEvento(true);
-      // TODO: Reemplazar con llamada real a la API
-      // await api.post(`/api/Activos/AgregarEvento/${id}`, values);
-      
-      const nuevoEvento: Evento = {
-        id: eventos.length + 1,
-        tipo: values.tipoEvento,
-        detalle: values.detalleEvento,
-        fechaHora: values.fechaHora.format("YYYY-MM-DDTHH:mm:ss"),
-        color: "blue",
-      };
-
-      setEventos([nuevoEvento, ...eventos]);
-      form.resetFields();
-      message.success("Evento agregado exitosamente");
-    } catch (e: any) {
-      message.error(
-        e?.response?.data?.mensaje ?? "Error al agregar el evento"
-      );
+      setLoadingPersonal(true);
+      const res = await api.get(`/api/VTAModVentaPersonal/ObtenerPorId/${idPersonal}`);
+      setPersonalDetalle(res.data);
     } finally {
-      setLoadingEvento(false);
+      setLoadingPersonal(false);
     }
   };
 
-  // Si no está autenticado, usar Layout completo sin MainLayout
-  const Wrapper = isAuthenticated ? Content : Layout;
+  const getUserIdFromToken = () => {
+    if (!token) return 0;
+    try {
+      const decoded: any = jwtDecode(token);
+      return Number(
+        decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]
+      );
+    } catch {
+      return 0;
+    }
+  };
+
+  /* =========================
+     QR
+  ========================= */
+
+  const handleImprimirQr = async () => {
+    try {
+      if (!activo) return;
+
+      if (qrUrl) {
+        setQrVisible(true);
+        return;
+      }
+
+      const res = await api.post(
+        `/api/VTAModActivos/GenerarQr/${activo.idActivo}`,
+        { idUsuario: getUserIdFromToken() },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      setQrUrl(res.data.qrUrl);
+      setQrVisible(true);
+    } catch {
+      message.error("No se pudo generar el código QR");
+    }
+  };
+
+  const imprimirQr = () => {
+    if (!qrUrl) return;
+
+    const fullUrl = `${API_URL}${qrUrl}?t=${Date.now()}`;
+    const win = window.open("", "_blank");
+    if (!win) return;
+
+    win.document.write(`
+      <html>
+        <head>
+          <title>QR Activo</title>
+          <style>
+            body {
+              display:flex;
+              justify-content:center;
+              align-items:center;
+              height:100vh;
+              margin:0;
+            }
+            img { width:300px; }
+          </style>
+        </head>
+        <body>
+          <img id="qrImg" src="${fullUrl}" />
+          <script>
+            const img = document.getElementById('qrImg');
+            img.onload = function () {
+              window.print();
+              window.close();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+
+    win.document.close();
+  };
+
+  /* =========================
+     RENDER
+  ========================= */
 
   if (loading) {
     return (
-      <Layout style={{ minHeight: "100vh", background: "#f5f5f5" }}>
-        <Content style={{ padding: "20px" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              minHeight: "400px",
-            }}
-          >
-            <Spin size="large" />
-          </div>
+      <Layout>
+        <Content className={styles.loadingCenter}>
+          <Spin size="large" />
         </Content>
       </Layout>
     );
@@ -230,392 +257,128 @@ export default function DetalleActivo() {
 
   if (error || !activo) {
     return (
-      <Layout style={{ minHeight: "100vh", background: "#f5f5f5" }}>
-        <Content style={{ padding: "20px" }}>
-          {isAuthenticated && (
-            <Button
-              icon={<ArrowLeftOutlined />}
-              style={{ marginBottom: 16 }}
-              onClick={() => navigate(-1)}
-            >
-              Volver
-            </Button>
-          )}
-          <Alert message="Error" description={error || "Activo no encontrado"} type="error" showIcon />
+      <Layout>
+        <Content style={{ padding: 20 }}>
+          <Alert type="error" message={error} />
         </Content>
       </Layout>
     );
   }
 
-  // Si no está autenticado, usar Layout completo; si está autenticado, solo Content
-  if (!isAuthenticated) {
-    return (
-      <Layout style={{ minHeight: "100vh", background: "#f5f5f5" }}>
-        <Content style={{ padding: "20px" }}>
-          {/* Card principal con detalles */}
-          <Card className={styles.mainCard}>
-            <div className={styles.cardHeader}>
-              <h2 className={styles.activoTitle}>{activo.nombre}</h2>
-            </div>
-
-            <Row gutter={24} className={styles.detailsRow}>
-              {/* Detalles del activo */}
-              <Col xs={24} md={12}>
-                <div className={styles.section}>
-                  <h3 className={styles.sectionTitle}>Detalles del activo</h3>
-                  <div className={styles.detailGrid}>
-                    <div className={styles.detailItem}>
-                      <span className={styles.detailLabel}>IdActivo:</span>
-                      <span className={styles.detailValue}>{activo.idActivo}</span>
-                    </div>
-                    <div className={styles.detailItem}>
-                      <span className={styles.detailLabel}>Tipo:</span>
-                      <span className={styles.detailValue}>{activo.tipo}</span>
-                    </div>
-                    <div className={styles.detailItem}>
-                      <span className={styles.detailLabel}>IP:</span>
-                      <span className={styles.detailValue}>{activo.ip}</span>
-                    </div>
-                    <div className={styles.detailItem}>
-                      <span className={styles.detailLabel}>Fabricante:</span>
-                      <span className={styles.detailValue}>{activo.fabricante}</span>
-                    </div>
-                    <div className={styles.detailItem}>
-                      <span className={styles.detailLabel}>Modelo:</span>
-                      <span className={styles.detailValue}>{activo.modelo}</span>
-                    </div>
-                    <div className={styles.detailItem}>
-                      <span className={styles.detailLabel}>Sede:</span>
-                      <span className={styles.detailValue}>{activo.ubicacionSede}</span>
-                    </div>
-                  </div>
-                </div>
-              </Col>
-
-              {/* Detalles del responsable */}
-              <Col xs={24} md={12}>
-                <div className={styles.section}>
-                  <h3 className={styles.sectionTitle}>
-                    Detalles del responsable actual
-                  </h3>
-                  {responsable ? (
-                    <div className={styles.detailGrid}>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Nombres:</span>
-                        <span className={styles.detailValue}>
-                          {responsable.nombres}
-                        </span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Apellidos:</span>
-                        <span className={styles.detailValue}>
-                          {responsable.apellidos}
-                        </span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Correo:</span>
-                        <span className={styles.detailValue}>
-                          {responsable.correo}
-                        </span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Teléfono:</span>
-                        <span className={styles.detailValue}>
-                          {responsable.telefono}
-                        </span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>País:</span>
-                        <span className={styles.detailValue}>
-                          {responsable.pais}
-                        </span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>
-                          Documento de identidad:
-                        </span>
-                        <span className={styles.detailValue}>
-                          {responsable.documento}
-                        </span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Área de trabajo:</span>
-                        <span className={styles.detailValue}>
-                          {responsable.areaTrabajo}
-                        </span>
-                      </div>
-                      <div className={styles.detailItem}>
-                        <span className={styles.detailLabel}>Rol:</span>
-                        <span className={styles.detailValue}>{responsable.rol}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={styles.noResponsable}>
-                      No hay responsable asignado
-                    </div>
-                  )}
-                </div>
-              </Col>
-            </Row>
-          </Card>
-
-          {/* Historial del activo - Ancho completo */}
-          <Card className={styles.historyCard}>
-            <h3 className={styles.historyTitle}>
-              Historial del activo ({eventos.length})
-            </h3>
-            <Timeline eventos={eventos} />
-          </Card>
-        </Content>
-      </Layout>
-    );
-  }
-
-  // Vista autenticada (con todos los botones y formularios)
   return (
-    <Content style={{ padding: "20px", background: "#f5f5f5" }}>
-      <Button
-        icon={<ArrowLeftOutlined />}
-        style={{ marginBottom: 16 }}
-        onClick={() => navigate(-1)}
-      >
+    <Content style={{ padding: 20 }}>
+      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
         Volver
       </Button>
 
-      {/* Card principal con detalles */}
       <Card className={styles.mainCard}>
         <div className={styles.cardHeader}>
-          <h2 className={styles.activoTitle}>{activo.nombre}</h2>
+          <h2>{activo.nombre}</h2>
+
           {isAuthenticated && (
             <div className={styles.headerButtons}>
-              <Button
-                icon={<EditOutlined />}
-                className={styles.actionButton}
-                onClick={() => {
-                  // TODO: Implementar edición
-                  message.info("Función de edición próximamente");
-                }}
-              >
+              <Button icon={<EditOutlined />} onClick={() => setModalEditarVisible(true)}>
                 Editar
               </Button>
-              <Button
-                icon={<PrinterOutlined />}
-                className={styles.actionButton}
-                onClick={() => {
-                  // TODO: Implementar impresión
-                  message.info("Función de impresión próximamente");
-                }}
-              >
-                Imprimir codigo
+
+              <Button icon={<PrinterOutlined />} onClick={handleImprimirQr}>
+                Imprimir código
               </Button>
-              <Button
-                className={styles.assignButton}
-                onClick={() => setModalAsignarVisible(true)}
-              >
-                Asignar nuevo responsable del activo
+
+              <Button onClick={() => setModalAsignarVisible(true)}>
+                Asignar responsable
               </Button>
             </div>
           )}
         </div>
 
-        <Row gutter={24} className={styles.detailsRow}>
-          {/* Detalles del activo */}
-          <Col xs={24} md={12}>
-            <div className={styles.section}>
-              <h3 className={styles.sectionTitle}>Detalles del activo</h3>
-              <div className={styles.detailGrid}>
-                <div className={styles.detailItem}>
-                  <span className={styles.detailLabel}>IdActivo:</span>
-                  <span className={styles.detailValue}>{activo.idActivo}</span>
-                </div>
-                <div className={styles.detailItem}>
-                  <span className={styles.detailLabel}>Tipo:</span>
-                  <span className={styles.detailValue}>{activo.tipo}</span>
-                </div>
-                <div className={styles.detailItem}>
-                  <span className={styles.detailLabel}>IP:</span>
-                  <span className={styles.detailValue}>{activo.ip}</span>
-                </div>
-                <div className={styles.detailItem}>
-                  <span className={styles.detailLabel}>Fabricante:</span>
-                  <span className={styles.detailValue}>{activo.fabricante}</span>
-                </div>
-                <div className={styles.detailItem}>
-                  <span className={styles.detailLabel}>Modelo:</span>
-                  <span className={styles.detailValue}>{activo.modelo}</span>
-                </div>
-                <div className={styles.detailItem}>
-                  <span className={styles.detailLabel}>Sede:</span>
-                  <span className={styles.detailValue}>{activo.ubicacionSede}</span>
-                </div>
+        <Row gutter={24}>
+          <Col md={12}>
+            <h3>Detalles del activo</h3>
+            <div className={styles.detailGrid}>
+              <div><b>ID:</b> {activo.idActivo}</div>
+              <div><b>Tipo:</b> {activo.nombreTipo}</div>
+              <div><b>Fabricante:</b> {activo.nombreFabricante}</div>
+              <div><b>Modelo:</b> {activo.modelo || "-"}</div>
+              <div><b>Estado:</b> {activo.estado}</div>
+              <div>
+                <b>Última actualización:</b>{" "}
+                {moment(activo.fechaActualizacion).format("DD/MM/YYYY HH:mm")}
               </div>
             </div>
           </Col>
 
-          {/* Detalles del responsable */}
-          <Col xs={24} md={12}>
-            <div className={styles.section}>
-              <h3 className={styles.sectionTitle}>
-                Detalles del responsable actual
-              </h3>
-              {responsable ? (
-                <div className={styles.detailGrid}>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Nombres:</span>
-                    <span className={styles.detailValue}>
-                      {responsable.nombres}
-                    </span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Apellidos:</span>
-                    <span className={styles.detailValue}>
-                      {responsable.apellidos}
-                    </span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Correo:</span>
-                    <span className={styles.detailValue}>
-                      {responsable.correo}
-                    </span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Teléfono:</span>
-                    <span className={styles.detailValue}>
-                      {responsable.telefono}
-                    </span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>País:</span>
-                    <span className={styles.detailValue}>
-                      {responsable.pais}
-                    </span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>
-                      Documento de identidad:
-                    </span>
-                    <span className={styles.detailValue}>
-                      {responsable.documento}
-                    </span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Área de trabajo:</span>
-                    <span className={styles.detailValue}>
-                      {responsable.areaTrabajo}
-                    </span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Rol:</span>
-                    <span className={styles.detailValue}>{responsable.rol}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className={styles.noResponsable}>
-                  No hay responsable asignado
-                </div>
-              )}
-            </div>
+          <Col md={12}>
+            <h3>Responsable actual</h3>
+            {loadingPersonal ? (
+              <Spin />
+            ) : personalDetalle ? (
+              <div className={styles.detailGrid}>
+                <div><b>Nombre:</b> {personalDetalle.nombres} {personalDetalle.apellidos}</div>
+                <div><b>Correo:</b> {personalDetalle.correo}</div>
+                <div><b>Área:</b> {personalDetalle.areaTrabajo}</div>
+              </div>
+            ) : (
+              <div className={styles.noResponsable}>Responsable no asignado</div>
+            )}
           </Col>
         </Row>
       </Card>
 
-      {/* Historial y formulario en dos columnas */}
-      <Row gutter={24}>
-        {/* Historial del activo - Izquierda (o ancho completo si no está autenticado) */}
-        <Col xs={24} lg={isAuthenticated ? 14 : 24}>
-          <Card className={styles.historyCard}>
-            <h3 className={styles.historyTitle}>
-              Historial del activo ({eventos.length})
-            </h3>
+      <Row style={{ marginTop: 24 }}>
+        <Col span={24}>
+          <Card>
+            <h3>Historial del activo</h3>
             <Timeline eventos={eventos} />
           </Card>
         </Col>
-
-        {/* Formulario para agregar evento - Derecha (solo si está autenticado) */}
-        {isAuthenticated && (
-          <Col xs={24} lg={10}>
-            <Card className={styles.formCard}>
-              <h3 className={styles.formTitle}>Agregar evento al activo</h3>
-              <Form
-                form={form}
-                layout="vertical"
-                onFinish={handleAgregarEvento}
-                className={styles.eventForm}
-              >
-                <Form.Item
-                  label="Tipo de evento"
-                  name="tipoEvento"
-                  rules={[
-                    { required: true, message: "Seleccione el tipo de evento" },
-                  ]}
-                >
-                  <Select placeholder="Seleccionar tipo">
-                    <Option value="create">Crear</Option>
-                    <Option value="update">Actualizar</Option>
-                    <Option value="maintenance">Mantenimiento</Option>
-                    <Option value="assignment">Asignación</Option>
-                    <Option value="other">Otro</Option>
-                  </Select>
-                </Form.Item>
-
-                <Form.Item
-                  label="Detalle del evento"
-                  name="detalleEvento"
-                  rules={[
-                    { required: true, message: "Ingrese el detalle del evento" },
-                  ]}
-                >
-                  <TextArea
-                    rows={4}
-                    placeholder="Ingrese los detalles del evento"
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  label="Fecha y hora del evento"
-                  name="fechaHora"
-                  rules={[
-                    { required: true, message: "Seleccione la fecha y hora" },
-                  ]}
-                >
-                  <DatePicker
-                    showTime
-                    format="DD/MM/YYYY HH:mm"
-                    style={{ width: "100%" }}
-                    placeholder="Seleccionar fecha y hora"
-                  />
-                </Form.Item>
-
-                <Form.Item>
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    htmlType="submit"
-                    loading={loadingEvento}
-                    className={styles.submitButton}
-                    block
-                  >
-                    + Agregar evento al activo
-                  </Button>
-                </Form.Item>
-              </Form>
-            </Card>
-          </Col>
-        )}
       </Row>
 
-      {/* Modal de asignación (solo si está autenticado) */}
-      {isAuthenticated && (
-        <ModalAsignarResponsable
-          visible={modalAsignarVisible}
-          onCancel={() => setModalAsignarVisible(false)}
-          onSubmit={() => {
-            setModalAsignarVisible(false);
-            cargarDatos(); // Recargar datos después de asignar
-          }}
-          activo={activo}
-        />
-      )}
+      <ModalAsignarResponsable
+        visible={modalAsignarVisible}
+        activo={activo}
+        onCancel={() => setModalAsignarVisible(false)}
+        onSubmit={cargarDatos}
+      />
+
+      <ModalActivo
+        visible={modalEditarVisible}
+        activo={activo}
+        onCancel={() => setModalEditarVisible(false)}
+        onSubmit={cargarDatos}
+      />
+
+      <Modal
+        open={qrVisible}
+        footer={null}
+        onCancel={() => setQrVisible(false)}
+        title="Código QR del activo"
+        centered
+      >
+        {qrUrl && (
+          <div style={{ textAlign: "center" }}>
+            <img
+              src={`${API_URL}${qrUrl}?t=${Date.now()}`}
+              style={{ width: 260 }}
+            />
+
+            <div style={{ marginTop: 16 }}>
+              <Button type="primary" onClick={imprimirQr}>
+                Imprimir
+              </Button>
+
+              <a
+                href={`${API_URL}${qrUrl}`}
+                download={`activo_${activo.idActivo}.png`}
+              >
+                <Button style={{ marginLeft: 8 }}>
+                  Descargar
+                </Button>
+              </a>
+            </div>
+          </div>
+        )}
+      </Modal>
     </Content>
   );
 }

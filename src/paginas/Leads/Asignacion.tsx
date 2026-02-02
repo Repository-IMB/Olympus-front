@@ -442,7 +442,7 @@ export default function Asignacion() {
       const API = import.meta.env.VITE_API_URL || "http://localhost:7020";
 
       const response = await axios.get(
-        `${API}/api/VTAModVentaOportunidad/ObtenerTodasConRecordatorioAsignacion`,
+        `${API}api/VTAModVentaOportunidad/ObtenerTodasConRecordatorioAsignacion`,
         {
           headers: { Authorization: `Bearer ${token}` },
           params: {
