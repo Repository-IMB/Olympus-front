@@ -40,6 +40,7 @@ export interface IModulo {
   duracionHoras?: number;
   tituloCertificado?: string;
   estado?: boolean;
+  idModulo?: number;
   
   // Campos de auditoría
   fechaCreacion?: string;
@@ -53,7 +54,11 @@ export interface IModulo {
   horaFinSync?: string;
   numeroSesiones?: number;
   numeroSesionesAsincronicas?: number;
-  diasClase?: string;
+  
+  // 🟢 IMPORTANTE: Estos son los que usa el cálculo de fechas
+  diasClase?: string;       // Ej: "1,3,5"
+  detalleHorarios?: string; // 🟢 AGREGADO: Ej: "1@18:00@20:00|3@..."
+  
   diasSemana?: string;
   
   // Campos de relación con producto
@@ -77,9 +82,10 @@ export interface IModulo {
   
   // Campos de fechas calculadas
   fechaInicio?: string;
-  fechaFinPorSesiones?: string;
+  fechaFin?: string;            // 🟢 El dato real del backend
+  fechaFinPorSesiones?: string; // Dato legacy (opcional)
   
-  // Alias de campos (para compatibilidad)
+  // Alias de campos (para compatibilidad con el SP)
   moduloId?: number;
   moduloNombre?: string;
   moduloCodigo?: string | null;

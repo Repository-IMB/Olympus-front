@@ -1,3 +1,5 @@
+import type { IModulo } from "./IModulo";
+
 export interface Estadistica {
   id?: number;
   texto: string;
@@ -43,6 +45,7 @@ export interface Producto {
   departamentoNombre: string;
 
   personalNombre?: string;
+  personalEmail?: string;
 
   modalidad: string;
 
@@ -62,6 +65,7 @@ export interface Producto {
   usuarioCreacion: string;
   fechaModificacion: string | null;
   usuarioModificacion: string | null;
+  modulos?: IModulo[];
 
   estadisticas?: Estadistica[];
   objetivos?: Objetivo[];

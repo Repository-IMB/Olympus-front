@@ -3,7 +3,7 @@ export interface ISesion {
   id: number;
   nombreSesion: string;
   idModulo: number;
-  idTipoSesion?: number | null;
+  idTipoSesion?: number;
   tipoSesion: string;
   horaInicio?: string | null; // TimeSpan convertido a string (HH:MM:SS)
   horaFin?: string | null;    // TimeSpan convertido a string (HH:MM:SS)

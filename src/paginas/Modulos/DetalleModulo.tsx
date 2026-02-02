@@ -15,10 +15,10 @@ import {
 import {
   ArrowLeftOutlined,
   EditOutlined,
-  EyeOutlined,
   DeleteOutlined,
   PrinterOutlined,
-  StopOutlined
+  StopOutlined,
+  CheckCircleOutlined
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import styles from "./DetalleModulo.module.css";
@@ -36,15 +36,10 @@ import {
   type ISesion
 } from "../../servicios/ModuloService";
 import { obtenerDocentes, type Docente } from "../../servicios/DocenteService";
-import { obtenerProductos, type Producto } from "../../servicios/ProductoService";
+import { obtenerProductos, type Producto, obtenerTiposEstadoProducto, type TipoEstadoProducto } from "../../servicios/ProductoService";
+import { obtenerDepartamentos } from "../../servicios/DepartamentosService";
 import api from "../../servicios/api";
-
-// --- DATOS MOCKEADOS O CONSTANTES ---
-const departamentos = [
-  { id: 1, nombre: "Ventas" },
-  { id: 2, nombre: "Marketing" },
-  { id: 3, nombre: "Administración" },
-];
+import ModalSesion from "./ModalSesion";
 
 const obtenerNombreCompletoDia = (numero: string): string => {
   const mapeo: Record<string, string> = {
@@ -55,6 +50,7 @@ const obtenerNombreCompletoDia = (numero: string): string => {
     "5": "Viernes",
     "6": "Sábado",
     "7": "Domingo",
+    "0": "Domingo", // Por si acaso llega 0
   };
   return mapeo[numero] || numero;
 };
@@ -68,6 +64,8 @@ export default function DetalleModulo() {
   const [modulo, setModulo] = useState<IModulo | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingAsignacion, setLoadingAsignacion] = useState(false);
+  const [filtroEstadoSesion, setFiltroEstadoSesion] = useState<"todas" | "activas" | "inactivas">("activas");
+
 
   // Estados de listas auxiliares
   const [listaDocentes, setListaDocentes] = useState<Docente[]>([]);
@@ -76,9 +74,16 @@ export default function DetalleModulo() {
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [listaProductosDisponibles, setListaProductosDisponibles] = useState<Producto[]>([]);
   const [loadingProductosSelect, setLoadingProductosSelect] = useState(false);
+  
+  // Estados de Sesiones
   const [sesionesData, setSessionesData] = useState<ISesion[]>([]);
   const [loadingSesiones, setLoadingSesiones] = useState(false);
+  const [modalSesionVisible, setModalSesionVisible] = useState(false);
+  const [modoSesion, setModoSesion] = useState<"crear" | "editar">("crear");
+  const [sesionEditando, setSesionEditando] = useState<ISesion | null>(null);
 
+  const [departamentos, setDepartamentos] = useState<{ id: number; nombre: string }[]>([]);
+  const [tiposEstadoProducto, setTiposEstadoProducto] = useState<TipoEstadoProducto[]>([]);
 
   // Estados de Modales
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
@@ -109,6 +114,22 @@ export default function DetalleModulo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modulo]);
 
+  // 3. Cargar departamentos y tipos de estado al iniciar
+  useEffect(() => {
+    const cargarDatosIniciales = async () => {
+      try {
+        const deptData = await obtenerDepartamentos();
+        setDepartamentos(deptData.map((d: any) => ({ id: d.id, nombre: d.nombre })));
+
+        const tiposData = await obtenerTiposEstadoProducto();
+        setTiposEstadoProducto(tiposData);
+      } catch (error) {
+        console.error("Error cargando datos iniciales", error);
+      }
+    };
+    cargarDatosIniciales();
+  }, []);
+
   // --- FUNCIONES DE CARGA ---
 
   const cargarListaDocentes = async () => {
@@ -118,7 +139,6 @@ export default function DetalleModulo() {
       setListaDocentes(docentesData);
     } catch (error) {
       console.error("Error cargando docentes", error);
-      // No mostramos error al usuario para no interrumpir la experiencia visual si falla algo secundario
     } finally {
       setLoadingDocentes(false);
     }
@@ -192,7 +212,141 @@ export default function DetalleModulo() {
     setModalEditarVisible(false);
   };
 
-  // Después de las otras funciones de handlers (por ejemplo después de asignarDocenteAlModulo)
+  // --- HANDLERS DE SESIONES ---
+
+  const abrirModalCrearSesion = () => {
+    setSesionEditando(null);
+    setModoSesion("crear");
+    setModalSesionVisible(true);
+  };
+
+  const abrirModalEditarSesion = (sesion: ISesion) => {
+    setSesionEditando(sesion);
+    setModoSesion("editar");
+    setModalSesionVisible(true);
+  };
+
+  const handleGuardarSesion = async (payload: any) => {
+    try {
+      setLoadingSesiones(true);
+      if (payload.diaSemana === null || payload.diaSemana === undefined) {
+        message.error("El día de la semana es requerido");
+        return;
+      }
+
+      const dataToSend = {
+        id: payload.id ? Number(payload.id) : 0,
+        idModulo: Number(id),
+        
+        nombreSesion: payload.nombre,
+        idTipoSesion: Number(payload.tipo),
+        
+        diaSemana: Number(payload.diaSemana), // Ya validado arriba
+        
+        horaInicio: payload.horaInicio || "00:00:00", // Fallback
+        horaFin: payload.horaFin || "00:00:00",       // Fallback
+        
+        esAsincronica: payload.modalidad === 'asincronica'
+      };
+
+      console.log("📤 Enviando al backend:", dataToSend);
+
+      const response = await api.post('/api/VTAModVentaSesion/Guardar', dataToSend);
+
+      const respData = response.data || response;
+
+      if (respData.codigo === "SIN ERROR" || respData.codigo === "OK" || respData.codigo === "200") {
+        message.success(
+          modoSesion === "crear" ? "Sesión creada correctamente" : "Sesión actualizada correctamente"
+        );
+        
+        setModalSesionVisible(false);
+        await cargarModulo();
+      } else {
+        message.error(respData.mensaje || "Ocurrió un error al guardar la sesión.");
+      }
+
+    } catch (error: any) {
+      console.error("Error al guardar sesión:", error);
+      const errorMsg = error.response?.data?.mensaje || error.response?.data?.errors || "Error de conexión con el servidor";
+      message.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+    } finally {
+      setLoadingSesiones(false);
+    }
+  };
+
+  const handleCancelarModalSesion = () => {
+    setModalSesionVisible(false);
+    setSesionEditando(null);
+  };
+
+  const handleCancelarSesion = async (idSesion: number) => {
+    Modal.confirm({
+      title: '¿Está seguro de cancelar esta sesión?',
+      content: 'La sesión pasará a estado inactivo y no se mostrará en el cronograma.',
+      okText: 'Sí, cancelar',
+      cancelText: 'No',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          setLoadingSesiones(true);
+          const response = await api.post(`/api/VTAModVentaSesion/CancelarSesion/${idSesion}`);
+          
+          if (response.data.codigo === "OK") {
+            message.success("Sesión cancelada correctamente");
+            await cargarModulo(); // Recargar datos
+          } else {
+            message.error(response.data.mensaje || "Error al cancelar sesión");
+          }
+        } catch (error: any) {
+          console.error("Error:", error);
+          message.error("Error al cancelar la sesión");
+        } finally {
+          setLoadingSesiones(false);
+        }
+      }
+    });
+  };
+
+  const handleDescancelarSesion = async (idSesion: number) => {
+    Modal.confirm({
+      title: '¿Desea reactivar esta sesión?',
+      content: 'La sesión volverá a estar activa y visible en el cronograma.',
+      okText: 'Sí, activar',
+      cancelText: 'No',
+      // Cambiamos el estilo del botón a verde para diferenciarlo del "danger" (rojo)
+      okButtonProps: { style: { backgroundColor: '#52c41a', borderColor: '#52c41a' } },
+      onOk: async () => {
+        try {
+          setLoadingSesiones(true);
+          // Llamamos al endpoint nuevo
+          const response = await api.post(`/api/VTAModVentaSesion/DescancelarSesion/${idSesion}`);
+          
+          // Validamos OK o SIN ERROR (por si el backend devuelve uno u otro)
+          const codigo = response.data.codigo;
+          if (codigo === "OK" || codigo === "SIN ERROR" || codigo === "SIN_ERROR" || codigo === "200") {
+            message.success("Sesión activada correctamente");
+            await cargarModulo(); // Recargamos todo igual que en el cancelar
+          } else {
+            message.error(response.data.mensaje || "Error al activar sesión");
+          }
+        } catch (error: any) {
+          console.error("Error:", error);
+          message.error("Error al activar la sesión");
+        } finally {
+          setLoadingSesiones(false);
+        }
+      }
+    });
+  };
+  // Filtrar sesiones según el estado seleccionado
+  const sesionesFiltradas = sesionesData.filter(sesion => {
+    if (filtroEstadoSesion === "activas") return sesion.estado === true;
+    if (filtroEstadoSesion === "inactivas") return sesion.estado === false;
+    return true; // "todas"
+  });
+
+  // --- OTROS HANDLERS ---
 
   const descargarPDFModulo = async () => {
     try {
@@ -207,25 +361,17 @@ export default function DetalleModulo() {
         responseType: 'blob',
       });
 
-      // Crear un blob con el PDF
       const blob = new Blob([response.data], { type: 'application/pdf' });
-      
-      // Crear URL temporal
       const url = window.URL.createObjectURL(blob);
-      
-      // Crear elemento <a> temporal para descarga
       const link = document.createElement('a');
       link.href = url;
       
-      // Nombre del archivo
       const fileName = `Modulo_${modulo.codigo || modulo.id}_${new Date().toISOString().split('T')[0]}.pdf`;
       link.download = fileName;
       
-      // Trigger descarga
       document.body.appendChild(link);
       link.click();
       
-      // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
@@ -288,12 +434,10 @@ export default function DetalleModulo() {
     formAsignarDocente.resetFields();
     setModalAsignarDocenteVisible(true);
     
-    // Si la lista está vacía, cargarla ahora
     if (listaDocentes.length === 0) {
         await cargarListaDocentes();
     }
     
-    // Pre-seleccionar valor
     if (modulo?.idDocente) {
         formAsignarDocente.setFieldsValue({ docenteId: modulo.idDocente });
     }
@@ -307,11 +451,10 @@ export default function DetalleModulo() {
             const idModulo = modulo?.id;
             if (!idModulo) return;
 
-            setLoadingAsignacion(true); // Bloqueamos solo el botón
+            setLoadingAsignacion(true); 
             
             const resp = await asignarDocenteAModulo(idModulo, values.docenteId);
             
-            // Validación robusta
             const codigoStr = String(resp.codigo).toUpperCase();
             const mensajeStr = String(resp.mensaje || "").toLowerCase();
             
@@ -325,11 +468,7 @@ export default function DetalleModulo() {
             if (esExito) {
                 message.success("Docente asignado correctamente");
                 setModalAsignarDocenteVisible(false);
-                
-                // 🟢 CORRECCIÓN: Solo recargamos el módulo (silenciosamente)
-                // NO borramos la lista de docentes (setListaDocentes([]) <- BORRADO)
                 await cargarModulo(); 
-                
             } else {
                 message.error(resp.mensaje || "Error al asignar");
             }
@@ -345,10 +484,11 @@ export default function DetalleModulo() {
                  message.error(msgError || "Error de conexión");
             }
         } finally {
-            setLoadingAsignacion(false); // Desbloqueamos botón
+            setLoadingAsignacion(false); 
         }
       });
   };
+
   const obtenerColorEstado = (estadoNombre: string | undefined): string => {
     if (!estadoNombre) return "default";
     const estadoLower = estadoNombre.toLowerCase();
@@ -402,20 +542,6 @@ export default function DetalleModulo() {
       align: 'center',
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="Ver detalle">
-            <Button
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => {
-                navigate(`/producto/productos/detalle/${record.idProducto}`);
-              }}
-              style={{
-                backgroundColor: '#1f1f1f',
-                borderColor: '#1f1f1f',
-                color: 'white'
-              }}
-            />
-          </Tooltip>
           <Tooltip title="Editar">
             <Button
               size="small"
@@ -436,15 +562,10 @@ export default function DetalleModulo() {
     },
   ];
 
-  // 🟢 LOGICA DE DATOS DOCENTE (CORREGIDA Y SIN ERRORES)
-  // Usamos un tipo genérico para evitar el error de "Unexpected any"
   let datosDocenteTabla: Record<string, any>[] = []; 
   
   if (modulo?.idDocente) {
-      // 1. Buscamos al docente en la lista (para tener email, etc.)
       const docenteCompleto = listaDocentes.find(d => d.id === modulo.idDocente);
-      
-      // Truco: Casteamos a 'any' para que TypeScript no se queje si faltan campos en la interfaz
       const docenteAny = docenteCompleto as any;
       const moduloAny = modulo as any;
 
@@ -455,19 +576,17 @@ export default function DetalleModulo() {
               apellido: docenteCompleto.apellidos,
               correo: docenteCompleto.correo,
               pais: docenteAny.pais || moduloAny.docentePais || '-',
-              
               alias: docenteAny.alias || '-',
               areaTematica: docenteAny.areaTematica || '-',
               estado: 'Asignado'
           }];
       } else {
-          // 2. FALLBACK: Usamos puramente los datos del módulo
           datosDocenteTabla = [{
               id: modulo.idDocente,
               nombre: modulo.docenteNombre || 'Cargando...',
               apellido: moduloAny.docenteApellido || '-', 
               correo: '-', 
-              pais: moduloAny.docentePais || '-', // <--- Aquí mostramos el país del SP
+              pais: moduloAny.docentePais || '-',
               alias: '-',
               areaTematica: '-',
               estado: 'Asignado'
@@ -524,93 +643,110 @@ export default function DetalleModulo() {
   ];
 
   const columnasSesiones: ColumnsType<any> = [
-    {
-      title: 'Sesión',
-      dataIndex: 'nombreSesion',
-      key: 'nombreSesion',
-      sorter: (a, b) => a.nombreSesion.localeCompare(b.nombreSesion),
-    },
-    {
-      title: 'Día de la semana',
-      dataIndex: 'nombreDiaSemana',
-      key: 'nombreDiaSemana',
-      sorter: (a, b) => (a.nombreDiaSemana || '').localeCompare(b.nombreDiaSemana || ''),
-    },
-    {
-      title: 'Hora Inicio',
-      dataIndex: 'horaInicio',
-      key: 'horaInicio',
-      render: (horaInicio: string | null | undefined) => horaInicio || '-',
-      sorter: (a, b) => (a.horaInicio || '').localeCompare(b.horaInicio || ''),
-    },
-    {
-      title: 'Hora Fin',
-      dataIndex: 'horaFin',
-      key: 'horaFin',
-      render: (horaFin: string | null | undefined) => horaFin || '-',
-      sorter: (a, b) => (a.horaFin || '').localeCompare(b.horaFin || ''),
-    },
-    {
-      title: 'Tipo',
-      dataIndex: 'tipoSesion',
-      key: 'tipoSesion',
-      render: (tipoSesion: string) => tipoSesion || '-',
-      sorter: (a, b) => (a.tipoSesion || '').localeCompare(b.tipoSesion || ''),
-    },
-    {
-      title: 'Modalidad',
-      dataIndex: 'esAsincronica',
-      key: 'esAsincronica',
-      render: (esAsincronica: boolean) => (
-        <Tag color={esAsincronica ? 'blue' : 'green'}>
-          {esAsincronica ? 'Asincrónica' : 'Sincrónica'}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Acciones',
-      key: 'acciones',
-      align: 'center',
-      render: () => (
-        <Space size="small">
-          <Tooltip title="Ver detalle">
-            <Button
-              size="small"
-              icon={<EyeOutlined />}
-              style={{
-                backgroundColor: '#1f1f1f',
-                borderColor: '#1f1f1f',
-                color: 'white'
-              }}
-            />
-          </Tooltip>
-          <Tooltip title="Cancelar">
-            <Button
-              size="small"
-              icon={<StopOutlined />}
-              style={{
-                backgroundColor: '#1f1f1f',
-                borderColor: '#1f1f1f',
-                color: 'white'
-              }}
-            />
-          </Tooltip>
-          <Tooltip title="Eliminar">
-            <Button
-              size="small"
-              icon={<DeleteOutlined />}
-              style={{
-                backgroundColor: '#1f1f1f',
-                borderColor: '#1f1f1f',
-                color: 'white'
-              }}
-            />
-          </Tooltip>
-        </Space>
-      ),
-    },
-  ];
-
+  {
+    title: 'Sesión',
+    dataIndex: 'nombreSesion',
+    key: 'nombreSesion',
+    sorter: (a, b) => a.nombreSesion.localeCompare(b.nombreSesion),
+  },
+  {
+    title: 'Día de la semana',
+    dataIndex: 'nombreDiaSemana',
+    key: 'nombreDiaSemana',
+    sorter: (a, b) => (a.nombreDiaSemana || '').localeCompare(b.nombreDiaSemana || ''),
+  },
+  {
+    title: 'Hora Inicio',
+    dataIndex: 'horaInicio',
+    key: 'horaInicio',
+    render: (horaInicio: string | null | undefined) => horaInicio || '-',
+    sorter: (a, b) => (a.horaInicio || '').localeCompare(b.horaInicio || ''),
+  },
+  {
+    title: 'Hora Fin',
+    dataIndex: 'horaFin',
+    key: 'horaFin',
+    render: (horaFin: string | null | undefined) => horaFin || '-',
+    sorter: (a, b) => (a.horaFin || '').localeCompare(b.horaFin || ''),
+  },
+  {
+    title: 'Tipo',
+    dataIndex: 'tipoSesion',
+    key: 'tipoSesion',
+    render: (tipoSesion: string) => tipoSesion || '-',
+    sorter: (a, b) => (a.tipoSesion || '').localeCompare(b.tipoSesion || ''),
+  },
+  {
+    title: 'Modalidad',
+    dataIndex: 'esAsincronica',
+    key: 'esAsincronica',
+    render: (esAsincronica: boolean) => (
+      <Tag color={esAsincronica ? 'blue' : 'green'}>
+        {esAsincronica ? 'Asincrónica' : 'Sincrónica'}
+      </Tag>
+    ),
+  },
+  {
+    title: 'Acciones',
+    key: 'acciones',
+    align: 'center',
+    render: (_, record) => (
+      <Space size="small">
+        <Tooltip title="Editar">
+          <Button
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => abrirModalEditarSesion(record)}
+            disabled={!record.estado} // 🆕 Deshabilitar si está inactiva
+            style={{
+              backgroundColor: '#1f1f1f',
+              borderColor: '#1f1f1f',
+              color: 'white'
+            }}
+          />
+        </Tooltip>
+        {record.estado ? (
+            // SI ESTÁ ACTIVA (TRUE) -> MOSTRAR BOTÓN CANCELAR (ROJO)
+            <Tooltip title="Cancelar sesión">
+              <Button
+                size="small"
+                icon={<StopOutlined />}
+                onClick={() => handleCancelarSesion(record.id)}
+                danger // Color rojo nativo de Antd
+                type="primary" // Para que se vea sólido el rojo si quieres, o quítalo para outline
+                ghost // Opcional: para que sea borde rojo y fondo blanco
+              />
+            </Tooltip>
+          ) : (
+            // SI ESTÁ INACTIVA (FALSE) -> MOSTRAR BOTÓN DESCANCELAR (VERDE)
+            <Tooltip title="Reactivar sesión">
+              <Button
+                size="small"
+                icon={<CheckCircleOutlined />}
+                onClick={() => handleDescancelarSesion(record.id)}
+                style={{
+                  backgroundColor: '#52c41a', // Verde éxito
+                  borderColor: '#52c41a',
+                  color: 'white'
+                }}
+              />
+            </Tooltip>
+          )}
+        <Tooltip title="Eliminar">
+          <Button
+            size="small"
+            icon={<DeleteOutlined />}
+            style={{
+              backgroundColor: '#1f1f1f',
+              borderColor: '#1f1f1f',
+              color: 'white'
+            }}
+          />
+        </Tooltip>
+      </Space>
+    ),
+  },
+];
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -660,7 +796,6 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
 
   const fechaFormateada = new Intl.DateTimeFormat('es-ES', opciones).format(fechaObj);
   
-  // Capitalizar la primera letra (Lunes... en vez de lunes...)
   return fechaFormateada.charAt(0).toUpperCase() + fechaFormateada.slice(1);
 };
 
@@ -826,9 +961,20 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
           marginBottom: 16
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
-            Cronograma de sesiones ({sesionesData.length})
+            Cronograma de sesiones ({sesionesFiltradas.length})
           </h4>
           <Space>
+            {/* 🆕 Filtro de estado */}
+            <Select
+              value={filtroEstadoSesion}
+              onChange={setFiltroEstadoSesion}
+              style={{ width: 150 }}
+            >
+              <Select.Option value="activas">Activas</Select.Option>
+              <Select.Option value="inactivas">Inactivas</Select.Option>
+              <Select.Option value="todas">Todas</Select.Option>
+            </Select>
+            
             <Button
               type="primary"
               style={{
@@ -846,6 +992,7 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
                 borderColor: '#1f1f1f',
                 color: 'white'
               }}
+              onClick={abrirModalCrearSesion}
             >
               Nueva sesión
             </Button>
@@ -853,13 +1000,13 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
         </div>
 
         <Table
-          dataSource={sesionesData}
+          dataSource={sesionesFiltradas} // 🆕 Usar datos filtrados
           columns={columnasSesiones}
           rowKey="id"
           pagination={false}
           size="small"
           loading={loadingSesiones}
-          locale={{ emptyText: "Este módulo no tiene sesiones programadas aún." }}
+          locale={{ emptyText: "No hay sesiones con este filtro." }}
         />
       </Card>
 
@@ -973,7 +1120,7 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
         visible={modalEditarProductoVisible}
         producto={productoEditando}
         departamentos={departamentos}
-        tiposEstadoProducto={[]}
+        tiposEstadoProducto={tiposEstadoProducto}
         modo="editar"
         onCancel={() => {
           setModalEditarProductoVisible(false);
@@ -984,6 +1131,15 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
           setModalEditarProductoVisible(false);
           setProductoEditando(null);
         }}
+      />
+      
+      {/* 🟢 NUEVO MODAL SESIÓN */}
+      <ModalSesion
+        visible={modalSesionVisible}
+        modo={modoSesion}
+        sesion={sesionEditando}
+        onCancel={handleCancelarModalSesion}
+        onSave={handleGuardarSesion}
       />
     </div>
   );

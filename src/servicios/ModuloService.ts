@@ -7,6 +7,21 @@ export type { ISesion };
 
 export const baseUrl: string = (import.meta.env.VITE_API_URL as string) || "http://localhost:7020";
 
+export interface TipoSesion {
+  id: number;
+  nombre: string;
+}
+
+export const obtenerTiposSesion = async (): Promise<TipoSesion[]> => {
+  try {
+    const response = await api.get<TipoSesion[]>("/api/VTAModVentaSesion/ObtenerTiposSesion");
+    return response.data;
+  } catch (error) {
+    console.error("Error al obtener tipos de sesión", error);
+    return [];
+  }
+}
+
 /** 🔹 Obtener todos los módulos con Paginación */
 export const obtenerModulos = async (
   search: string = "", 
@@ -151,11 +166,16 @@ export const obtenerSesionesPorModulo = async (idModulo: number): Promise<ISesio
   }
 };
 
-// Agregar esta función a tu ModuloService.ts existente
+export const cancelarSesion = async (idSesion: number) => {
+  try {
+    const response = await api.post(`/api/VTAModVentaSesion/CancelarSesion/${idSesion}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error al cancelar sesión:", error);
+    throw error;
+  }
+};
 
-/**
- * Genera y descarga el PDF de un módulo
- */
 export const descargarPDFModulo = async (idModulo: number): Promise<void> => {
   try {
     const response = await api.get(`/api/VTAModVentaModulo/GenerarPDF/${idModulo}`, {

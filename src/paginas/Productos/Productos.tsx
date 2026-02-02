@@ -4,7 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import estilos from "./Productos.module.css";
 import type { ColumnsType } from "antd/es/table";
-import { EditOutlined, DeleteOutlined, EyeOutlined, CalendarOutlined } from "@ant-design/icons";
+import { 
+  EditOutlined, 
+  DeleteOutlined, 
+  EyeOutlined, 
+  FilePdfOutlined // 🟢 CAMBIO: Usamos el ícono correcto de PDF
+} from "@ant-design/icons";
 import ModalProducto from "./ModalProducto";
 import {
   obtenerProductos,
@@ -12,6 +17,7 @@ import {
   actualizarProducto,
   obtenerProductoPorId,
   obtenerTiposEstadoProducto,
+  descargarPDFProducto // 🟢 CAMBIO: Importamos la función de descarga
 } from "../../servicios/ProductoService";
 import type { Producto, TipoEstadoProducto } from "../../interfaces/IProducto";
 import { obtenerDepartamentos } from "../../servicios/DepartamentosService";
@@ -24,8 +30,8 @@ export default function Productos() {
   const searchInputRef = useRef<any>(null);
   const [sortField, setSortField] = useState<string>("Nombre");
   const [sortOrder, setSortOrder] = useState<string>("ascend");
+  const lastRequestRef = useRef<number>(0);
   
-  // Estado para la paginación del servidor
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -45,6 +51,7 @@ export default function Productos() {
   
   const navigate = useNavigate();
 
+  // ... (Funciones de carga iguales)
   const cargarDepartamentos = async () => {
     try {
       const data = await obtenerDepartamentos();
@@ -64,10 +71,11 @@ export default function Productos() {
     }
   };
 
-  /* =========================================================
-      LÓGICA DE CARGA DE PRODUCTOS (PAGINADA DESDE BACKEND)
-     ========================================================= */
   const cargarProductos = useCallback(async (page: number, pageSize: number) => {
+    // 1. Generamos un ID único para esta petición
+    const currentRequestId = Date.now();
+    lastRequestRef.current = currentRequestId;
+
     setLoading(true);
     try {
       const ordenBackend = sortOrder === 'ascend' ? 'ASC' : sortOrder === 'descend' ? 'DESC' : sortOrder;
@@ -81,6 +89,13 @@ export default function Productos() {
         ordenBackend
       );
       
+      // 2. VERIFICACIÓN CRÍTICA: 
+      // Si el ID de esta petición NO es el último que lanzamos, significa que el usuario
+      // siguió escribiendo y esta respuesta es vieja. La ignoramos.
+      if (lastRequestRef.current !== currentRequestId) {
+          return; 
+      }
+      
       if (data && Array.isArray(data.productos)) {
          setProductos(data.productos);
          setPagination({
@@ -93,46 +108,41 @@ export default function Productos() {
          setPagination(prev => ({ ...prev, current: page, pageSize: pageSize, total: 0 }));
       }
     } catch (error) {
-      console.error("Error cargando productos:", error);
-      message.error("Error al cargar los productos");
-      setProductos([]);
+      // También verificamos aquí para no mostrar errores de peticiones canceladas
+      if (lastRequestRef.current === currentRequestId) {
+        console.error("Error cargando productos:", error);
+        message.error("Error al cargar los productos");
+        setProductos([]);
+      }
     } finally {
-      setLoading(false);
+      // Solo quitamos el loading si es la última petición
+      if (lastRequestRef.current === currentRequestId) {
+        setLoading(false);
+      }
     }
   }, [searchText, filterEstadoProducto, sortField, sortOrder]);
 
-  // 🔹 Efecto 1: Filtros (Texto, Estado) -> Reset a Página 1
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       cargarProductos(1, pagination.pageSize);
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText, filterEstadoProducto]);
 
-  // 🔹 Efecto 2: Ordenamiento -> Mantener Página Actual
   useEffect(() => {
     cargarProductos(pagination.current, pagination.pageSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortField, sortOrder]);
 
-
-  // 🔹 Manejador de la Tabla (Cambio de Página u Orden)
   const handleTableChange = (newPagination: any, filters: any, sorter: any) => {
-    
-    // 1. Si cambió la Paginación
     if (newPagination.current !== pagination.current || newPagination.pageSize !== pagination.pageSize) {
        cargarProductos(newPagination.current, newPagination.pageSize);
        return; 
     }
 
-    // 2. Si cambió el Ordenamiento
     if (!sorter.order) {
-        // Si el usuario quita el orden, volvemos al Default
         setSortField("FechaCreacion");
         setSortOrder("DESC");
     } else {
-        // Mapeo: Frontend (dataIndex) -> Backend (SP Column Name)
         const fieldMap: Record<string, string> = {
             'nombre': 'Nombre',
             'id': 'Id',
@@ -140,7 +150,6 @@ export default function Productos() {
             'departamentoNombre': 'DepartamentoNombre',
             'personalNombre': 'PersonalNombre',
             'horasSincronicas': 'HorasSincronicas',
-            'horasAsincronicas': 'HorasAsincronicas',
             'estadoProductoTipoNombre': 'EstadoProductoTipoNombre'
         };
         
@@ -148,19 +157,14 @@ export default function Productos() {
         setSortField(nuevoCampo);
         setSortOrder(sorter.order === 'ascend' ? 'ASC' : 'DESC');
     }
-    // No llamamos a cargarProductos aquí, el useEffect lo hará al detectar el cambio de estado.
   };
 
-
-
-  // Mantener el foco en el input de búsqueda después de cargar
   useEffect(() => {
     if (!loading && searchText && searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [loading, searchText]);
 
-  // Carga inicial de productos y combos auxiliares
   useEffect(() => {
     const cargarInicial = async () => {
       await cargarDepartamentos();
@@ -168,12 +172,9 @@ export default function Productos() {
       await cargarProductos(1, pagination.pageSize);
     };
     cargarInicial();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* =========================
-      GUARDAR (CREAR / EDITAR)
-     ========================= */
+  // ... (Funciones de guardar y modales iguales)
   const guardarProducto = async (producto: any) => {
     try {
       if (modoModal === "crear") {
@@ -192,7 +193,6 @@ export default function Productos() {
       setModalVisible(false);
       setErrorModal(null);
       setProductoSeleccionado(null);
-      // Recargar manteniendo página actual
       cargarProductos(pagination.current, pagination.pageSize);
     } catch (error: any) {
       const mensajeError = error?.response?.data?.message || "Error al guardar";
@@ -201,9 +201,6 @@ export default function Productos() {
     }
   };
 
-  /* =========================
-      MODALES
-     ========================= */
   const abrirModalCrear = () => {
     setModoModal("crear");
     setProductoSeleccionado(null);
@@ -223,9 +220,6 @@ export default function Productos() {
     }
   };
 
-  /* =========================
-      ELIMINAR
-     ========================= */
   const handleEliminar = (id: number) => {
     setProductoAEliminar(id);
     setModalEliminarVisible(true);
@@ -242,10 +236,8 @@ export default function Productos() {
     setProductoAEliminar(null);
   };
 
-  // Función para obtener el color del tag según el estado
   const obtenerColorEstado = (estadoNombre: string | undefined): string => {
     if (!estadoNombre) return "default";
-    
     const estadoLower = estadoNombre.toLowerCase();
     
     if (estadoLower === "en curso") return "blue";
@@ -256,26 +248,33 @@ export default function Productos() {
     if (estadoLower === "postergado") return "volcano";
     if (estadoLower === "cancelado") return "default";
     if (estadoLower === "no llamar nuevos") return "magenta";
-    
     return "default";
   };
 
-  /* =========================
-      COLUMNAS - SIN SORTER LOCAL
-     ========================= */
+  // 🟢 NUEVA FUNCIÓN: DESCARGAR PDF
+  const handleDescargarPDF = async (idProducto: number) => {
+    try {
+        message.loading({ content: 'Generando PDF...', key: 'pdfGen', duration: 0 });
+        await descargarPDFProducto(idProducto);
+        message.success({ content: 'PDF descargado correctamente', key: 'pdfGen', duration: 3 });
+    } catch (error: any) {
+        message.error({ content: error.message || 'Error al descargar PDF', key: 'pdfGen', duration: 3 });
+    }
+  };
+
   const columnas: ColumnsType<Producto> = [
     { 
       title: "Id", 
       dataIndex: "id", 
       key: "id", 
       width: 80, 
-      sorter: true // Ordenamiento desde backend
+      sorter: true 
     },
     { 
       title: "Producto", 
       dataIndex: "nombre", 
       key: "nombre", 
-      sorter: true // Ordenamiento desde backend
+      sorter: true 
     },
     { 
       title: "Código", 
@@ -298,19 +297,11 @@ export default function Productos() {
     },
     { 
       title: "Horas en vivo", 
-      dataIndex: "horasSincronicas",
+      dataIndex: "horasSincronicas", // Este campo ya viene calculado del SP
       key: "horasSincronicas",
       align: "center",
       sorter: true,
-      render: (v: number | undefined) => v ?? "-" 
-    },
-    { 
-      title: "Horas asincrónicas", 
-      dataIndex: "horasAsincronicas",
-      key: "horasAsincronicas",
-      align: "center",
-      sorter: true,
-      render: (v: number | undefined) => v ?? "-" 
+      render: (v: number | undefined) => v ? Number(v).toFixed(2) : "-" 
     },
     {
       title: "Estado de producto",
@@ -333,9 +324,17 @@ export default function Productos() {
               <EyeOutlined />
             </span>
           </Tooltip>
+          
+          {/* 🟢 BOTÓN PDF ACTUALIZADO */}
           <Tooltip title="Imprimir PDF">
-            <span className={estilos.actionIcon}><CalendarOutlined /></span>
+            <span 
+                className={estilos.actionIcon} 
+                onClick={() => handleDescargarPDF(record.id)}
+            >
+                <FilePdfOutlined />
+            </span>
           </Tooltip>
+
           <Tooltip title="Editar">
             <span className={estilos.actionIcon} onClick={() => abrirModalEditar(record)}>
               <EditOutlined />
@@ -377,7 +376,6 @@ export default function Productos() {
           </div>
         </div>
 
-        {/* Filtro de estado de producto */}
         <div className={estilos.toolbar} style={{ marginTop: '16px' }}>
           <Select
             value={filterEstadoProducto}
