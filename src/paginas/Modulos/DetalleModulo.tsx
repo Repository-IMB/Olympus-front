@@ -262,6 +262,13 @@ export default function DetalleModulo() {
         
         setModalSesionVisible(false);
         await cargarModulo();
+        const sesionesActualizadas = await obtenerSesionesPorModulo(Number(id));
+        setSessionesData(sesionesActualizadas);
+        
+        // 🆕 NUEVO: Notificar a DetalleProducto que el módulo fue actualizado
+        window.dispatchEvent(new CustomEvent('moduloActualizado', { 
+          detail: { moduloId: Number(id) } 
+        }));
       } else {
         message.error(respData.mensaje || "Ocurrió un error al guardar la sesión.");
       }

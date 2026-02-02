@@ -12,14 +12,12 @@ import {
   Modal,
   message,
   Spin,
-  List,
   Popconfirm,
-  Typography
+  Badge
 } from "antd";
 import {
   ArrowLeftOutlined,
   EditOutlined,
-  CalendarOutlined,
   EyeOutlined,
   CloseOutlined,
   GoogleOutlined,
@@ -31,9 +29,11 @@ import { obtenerProductoPorId, obtenerTiposEstadoProducto, actualizarProducto, s
 import type { Producto, TipoEstadoProducto } from "../../interfaces/IProducto";
 import { obtenerDepartamentos } from "../../servicios/DepartamentosService";
 import ModalProducto from "./ModalProducto";
-import { obtenerModulos } from "../../servicios/ModuloService";
+import { obtenerModulos, obtenerSesionesPorModulo } from "../../servicios/ModuloService";
 import type { IModulo as Modulo } from "../../interfaces/IModulo";
 import { asignarModuloAProducto, desasignarModuloDeProducto } from "../../servicios/EstructuraCurricularModuloService";
+import { obtenerFeriadosRango } from "../../servicios/FeriadoService";
+import type { FeriadoDTO } from "../../interfaces/IFeriado";
 
 const coloresModulos = [
   '#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1',
@@ -52,25 +52,126 @@ export default function DetalleProducto() {
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [feriados, setFeriados] = useState<FeriadoDTO[]>([]);
+  const [fechaCalendario, setFechaCalendario] = useState<moment.Moment>(moment());
   
   const [modulosDisponibles, setModulosDisponibles] = useState<any[]>([]);
 
-  // 🟢 FUNCIÓN MAESTRA DE RECARGA
   const recargarTodo = async () => {
       if (!id) return;
+      
+      console.log("🔄 Iniciando recarga de producto...");
+      
       try {
           const prodData = await obtenerProductoPorId(Number(id));
+          console.log("📦 Producto obtenido:", prodData);
+          console.log("📚 Módulos en producto:", prodData.modulos?.length || 0);
+          
           setProducto(prodData);
           
           if (prodData.modulos && prodData.modulos.length > 0) {
-              setModulos(prodData.modulos);
+              console.log("🔍 Obteniendo sesiones actualizadas para cada módulo...");
+              
+              // 🆕 Recargar sesiones para cada módulo y recalcular contadores
+              const modulosConSesiones = await Promise.all(
+                  prodData.modulos.map(async (modulo, index) => {
+                      const idModulo = modulo.idModulo || modulo.id!;
+                      console.log(`📖 [${index}] Cargando módulo ${idModulo}: ${modulo.moduloNombre}`);
+                      
+                      try {
+                          // Obtener sesiones frescas del backend
+                          const sesionesActualizadas = await obtenerSesionesPorModulo(idModulo);
+                          
+                          // Contar sesiones sincrónicas activas
+                          const sesionesSincronicas = sesionesActualizadas.filter(
+                              s => !s.esAsincronica && s.estado
+                          ).length;
+                          
+                          console.log(`✅ [${index}] ${sesionesSincronicas} sesiones sincrónicas activas`);
+                          
+                          // Retornar módulo con contador actualizado
+                          return {
+                              ...modulo,
+                              sesionesSincronicas
+                          };
+                      } catch (error) {
+                          console.error(`❌ [${index}] Error cargando sesiones:`, error);
+                          return modulo; // Retornar módulo original si falla
+                      }
+                  })
+              );
+              
+              console.log("✅ Todos los módulos actualizados con sesiones frescas");
+              setModulos(modulosConSesiones);
           } else {
               setModulos([]);
           }
+          
+          console.log("🎉 Recarga completada!");
       } catch (error) {
-          console.error("Error recargando datos:", error);
+          console.error("💥 Error recargando datos:", error);
       }
   };
+
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        setLoading(true);
+        const deptData = await obtenerDepartamentos();
+        setDepartamentos(deptData.map((d: any) => ({ id: d.id, nombre: d.nombre })));
+
+        const tiposData = await obtenerTiposEstadoProducto();
+        setTiposEstadoProducto(tiposData);
+
+        const responseModulos: any = await obtenerModulos("", 1, 1000);
+        setModulosDisponibles(Array.isArray(responseModulos.modulos) ? responseModulos.modulos : []);
+
+        if (id) {
+            await recargarTodo();
+        }
+      } catch (error) {
+        console.error("Error al cargar datos:", error);
+        message.error("Error al cargar los datos");
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargarDatos();
+  }, [id]);
+
+  // 🆕 EFECTO: Escuchar eventos de actualización de módulos
+  useEffect(() => {
+    const handleModuloActualizado = (event: CustomEvent) => {
+      console.log('📢 Evento moduloActualizado recibido:', event.detail);
+      // Recargar los datos del producto para obtener módulos actualizados
+      recargarTodo();
+    };
+
+    window.addEventListener('moduloActualizado' as any, handleModuloActualizado as any);
+
+    return () => {
+      window.removeEventListener('moduloActualizado' as any, handleModuloActualizado as any);
+    };
+  }, [id]); // 🔄 Dependencia en 'id' para que siempre tenga el contexto correcto
+
+  // 🟢 EFECTO: Cargar feriados cuando cambia el año del calendario
+  useEffect(() => {
+    const cargarFeriadosAnio = async () => {
+      try {
+        const anio = fechaCalendario.year();
+        const fechaInicio = moment(`${anio}-01-01`).toDate();
+        const fechaFin = moment(`${anio}-12-31`).toDate();
+
+        // Hardcodeamos "AR" o usamos null para todos. 
+        // Si tu producto tiene país, úsalo aquí: producto?.paisISO || "AR"
+        const data = await obtenerFeriadosRango(fechaInicio, fechaFin, "AR");
+        setFeriados(data);
+      } catch (error) {
+        console.error("Error cargando feriados:", error);
+      }
+    };
+    cargarFeriadosAnio();
+  }, [fechaCalendario.year()]);
 
   /* =========================================================
      1. LÓGICA DE CALENDARIO (Visualización)
@@ -81,15 +182,7 @@ export default function DetalleProducto() {
     return diasStr.split(',').map(d => parseInt(d.trim()));
   };
 
-  const obtenerLimiteSesiones = (modulo: any): number => {
-    return modulo.sesiones || modulo.numeroSesiones || 0;
-  };
-
-  // 🆕 Función para obtener sesiones asincrónicas
   const obtenerSesionesAsincronicas = (modulo: any): number => {
-    // 🎯 Tu backend devuelve: "numeroSesionesAsincronicas" (camelCase desde C#)
-    
-    // Intentar directamente con el nombre que viene del backend
     if (typeof modulo.numeroSesionesAsincronicas === 'number') {
       return modulo.numeroSesionesAsincronicas;
     }
@@ -167,16 +260,6 @@ export default function DetalleProducto() {
     // 1. Validaciones básicas de existencia
     if (!modulo || !modulo.fechaInicio) return { fechas: [], fechaFin: null };
 
-    // ---------------------------------------------------------
-    // 🔍 DIAGNÓSTICO COMPLETO DEL MÓDULO
-    // ---------------------------------------------------------
-    console.group(`🔍 CÁLCULO CRONOGRAMA: ${modulo.moduloNombre || 'Sin nombre'}`);
-    console.log('📦 OBJETO COMPLETO:', JSON.stringify(modulo, null, 2));
-    console.log('🔑 TODAS LAS CLAVES:', Object.keys(modulo));
-
-    // ---------------------------------------------------------
-    // 2. BÚSQUEDA EXHAUSTIVA DE SESIONES SINCRÓNICAS
-    // ---------------------------------------------------------
     let limiteSesiones = obtenerSesionesSincronicas(modulo);
 
     // Si después de todo esto es 0, no hay nada que calcular
@@ -187,11 +270,6 @@ export default function DetalleProducto() {
       return { fechas: [], fechaFin: null };
     }
 
-    console.log(`📊 SESIONES SINCRÓNICAS para cálculo: ${limiteSesiones}`);
-
-    // ---------------------------------------------------------
-    // 3. OBTENCIÓN DE DÍAS PERMITIDOS (Con Fallback)
-    // ---------------------------------------------------------
     let diasPermitidos = parsearDiasClase(modulo.diasClase);
 
     // PLAN B: Si diasClase está vacío, intentamos leer 'detalleHorarios'
@@ -283,35 +361,40 @@ export default function DetalleProducto() {
     }
   };
 
-  /* =========================
-     CARGAR DATOS INICIALES
-  ========================= */
   useEffect(() => {
-    const cargarDatos = async () => {
+    const cargarFeriadosDelContexto = async () => {
+      if (modulos.length === 0) return;
+
       try {
-        setLoading(true);
-        const deptData = await obtenerDepartamentos();
-        setDepartamentos(deptData.map((d: any) => ({ id: d.id, nombre: d.nombre })));
+        let fechaMin = moment().startOf('year'); 
+        let fechaMax = moment().endOf('year');
 
-        const tiposData = await obtenerTiposEstadoProducto();
-        setTiposEstadoProducto(tiposData);
+        const fechasInicio = modulos
+          .map(m => m.fechaInicio ? moment(m.fechaInicio) : null)
+          .filter(f => f !== null) as moment.Moment[];
 
-        const responseModulos: any = await obtenerModulos("", 1, 1000);
-        setModulosDisponibles(Array.isArray(responseModulos.modulos) ? responseModulos.modulos : []);
-
-        if (id) {
-            await recargarTodo();
+        if (fechasInicio.length > 0) {
+            const min = moment.min(fechasInicio).clone().subtract(1, 'month');
+            const max = moment.max(fechasInicio).clone().add(6, 'months');
+            
+            fechaMin = min;
+            fechaMax = max;
         }
+        const feriadosData = await obtenerFeriadosRango(
+            fechaMin.toDate(), 
+            fechaMax.toDate(), 
+            null
+        );
+        
+        setFeriados(feriadosData);
+
       } catch (error) {
-        console.error("Error al cargar datos:", error);
-        message.error("Error al cargar los datos");
-      } finally {
-        setLoading(false);
+        console.error("Error cargando feriados para el calendario:", error);
       }
     };
 
-    cargarDatos();
-  }, [id]);
+    cargarFeriadosDelContexto();
+  }, [modulos]);
 
   /* =========================
      HANDLERS
@@ -765,22 +848,49 @@ export default function DetalleProducto() {
             ) : <div style={{textAlign:'center', color:'#8c8c8c', padding: 16}}>Selecciona un módulo para ver su información detallada</div>}
             
             <Calendar
-              dateCellRender={(date) => {
-                const dateStr = date.format("YYYY-MM-DD");
-                const sesiones = diasClasesPorFecha[dateStr];
-                if (!sesiones) return null;
-                return (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    {sesiones.map((s, idx) => (
-                        <div key={idx} style={{ background: "#f5f5f5", borderLeft: `4px solid ${s.color}`, padding: "4px", borderRadius: 4, fontSize: 11 }}>
-                            <strong>{s.nombre}</strong>
-                            <div>Sesión {s.nroSesion}/{s.totalSesiones}</div>
-                            {s.horario && <div>{s.horario}</div>}
+                value={fechaCalendario}
+                onPanelChange={setFechaCalendario}
+                onSelect={setFechaCalendario}
+                dateCellRender={(date) => {
+                    const dateStr = date.format("YYYY-MM-DD");
+                    
+                    // 1. Clases
+                    const sesiones = diasClasesPorFecha[dateStr] || [];
+                    
+                    // 2. Feriados (Comprobación por string para evitar problemas de horas)
+                    const feriadosDia = feriados.filter(f => moment(f.fecha).format("YYYY-MM-DD") === dateStr);
+
+                    return (
+                        <div style={{display:'flex', flexDirection:'column', gap:2}}>
+                            {/* Render Feriados */}
+                            {feriadosDia.map(f => (
+                                <Badge key={f.id} color="#f5222d" 
+                                    text={
+                                      <span style={{
+                                        fontSize:10, 
+                                        color:'#f5222d', 
+                                        background:'#fff1f0', 
+                                        border:'1px solid #ffa39e', 
+                                        padding:'0 2px', 
+                                        borderRadius:2,
+                                        whiteSpace: 'normal',
+                                        lineHeight: '1.1',
+                                        display: 'inline-block'
+                                      }}>
+                                        🚫 {f.nombre}
+                                      </span>
+                                    } 
+                                />
+                            ))}
+                            {/* Render Clases */}
+                            {sesiones.map((s, i) => (
+                                <div key={i} style={{background:'#f5f5f5', borderLeft:`3px solid ${s.color}`, padding:2, fontSize:10}}>
+                                    <b>{s.nombre}</b> <br/> Sesión {s.nroSesion}/{s.totalSesiones} {s.horario}
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                  </div>
-                );
-              }}
+                    );
+                }}
             />
           </Card>
           
