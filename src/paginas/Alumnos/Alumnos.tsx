@@ -278,6 +278,7 @@ export default function Alumnos() {
             <Button
               type="primary"
               onClick={() => setModalCrearVisible(true)}
+              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
             >
               Nuevo alumno
             </Button>

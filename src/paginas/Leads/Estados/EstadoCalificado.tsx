@@ -136,6 +136,32 @@ export default function EstadoCalificado({
     );
   };
 
+  
+  const handleSelect = async (ocId: number) => {
+    if (creatingId || !activo) return;
+
+    setCreatingId(ocId);
+
+    try {
+      await crearHistorialConOcurrencia(
+        oportunidadId,
+        ocId,
+        Number(getUserIdFromToken())
+      );
+
+      emitHistorialChanged({
+        motivo: "crearHistorialConOcurrencia",
+        ocurrenciaId: ocId,
+      });
+
+      onCreado?.();
+    } catch {
+      message.error("Error al aplicar ocurrencia");
+    } finally {
+      if (mounted) setCreatingId(null);
+    }
+  };
+
   const renderActionBtn = (label: string, base: string, hover: string) => {
     const oc = findByName(label);
     const allowedBackend = !!oc?.allowed;
@@ -178,6 +204,7 @@ export default function EstadoCalificado({
         okText="Sí"
         cancelText="No"
         placement="top"
+        onConfirm={() => handleSelect(id)}
       >
         {button}
       </Popconfirm>

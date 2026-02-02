@@ -13,8 +13,6 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { CloseOutlined, CalendarOutlined } from "@ant-design/icons";
 import moment, { type Moment } from "moment";
-// @ts-ignore
-import "moment/locale/es";
 import {
   insertarOportunidadHistorialRegistrado,
   obtenerLanzamientos,
@@ -58,11 +56,19 @@ const CreateOpportunity: React.FC = () => {
   const client = (location.state as { client?: ClientePotencial })?.client;
 
   // ======================== CARGAR LANZAMIENTOS =========================
+  // ======================== CARGAR LANZAMIENTOS =========================
   useEffect(() => {
     const cargarLanzamientos = async () => {
       try {
         setLoadingLanzamientos(true);
-        const data = await obtenerLanzamientos();
+
+        const data = await obtenerLanzamientos(
+          searchText || null,
+          1,
+          1000,
+          null,
+        );
+
         setLanzamientos(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error al cargar lanzamientos:", error);
@@ -74,7 +80,7 @@ const CreateOpportunity: React.FC = () => {
     };
 
     cargarLanzamientos();
-  }, []);
+  }, [searchText]); // 👈 se ejecuta cuando escriben
 
   // ======================== CARGAR ASESORES =============================
   const obtenerAsesores = async () => {
@@ -82,9 +88,10 @@ const CreateOpportunity: React.FC = () => {
       setLoadingAsesores(true);
 
       const response = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       const data = response.data;
@@ -135,7 +142,7 @@ const CreateOpportunity: React.FC = () => {
       }
 
       const fechaRecordatorio = moment(values.fecha).format(
-        "YYYY-MM-DDTHH:mm:ss"
+        "YYYY-MM-DDTHH:mm:ss",
       );
       const horaRecordatorio = moment(values.hora).format("HH:mm");
 
@@ -151,7 +158,7 @@ const CreateOpportunity: React.FC = () => {
         UsuarioCreacion: "SYSTEM",
         UsuarioModificacion: "SYSTEM",
         idPersonal: values.asesor, //
-        idPersonall: values.asesor,  // <-- opcional: mantener por compatibilidad backend
+        idPersonall: values.asesor, // <-- opcional: mantener por compatibilidad backend
       };
 
       await insertarOportunidadHistorialRegistrado(payload);
@@ -162,7 +169,7 @@ const CreateOpportunity: React.FC = () => {
     } catch (error: any) {
       console.error("Error al crear oportunidad:", error);
       message.error(
-        error?.response?.data?.message || "Error al crear la oportunidad"
+        error?.response?.data?.message || "Error al crear la oportunidad",
       );
     } finally {
       setLoading(false);
@@ -171,16 +178,7 @@ const CreateOpportunity: React.FC = () => {
 
   const handleClose = () => navigate(-1);
 
-  // ======================== LANZAMIENTOS FILTRADOS =============================
-  const lanzamientosArray = Array.isArray(lanzamientos) ? lanzamientos : [];
-  const filteredLanzamientos =
-    searchText.trim() === ""
-      ? lanzamientosArray
-      : lanzamientosArray.filter((l) =>
-        l?.codigoLanzamiento?.toLowerCase().includes(searchText.toLowerCase())
-      );
-
-  const lanzamientoOptions = filteredLanzamientos.map((l) => ({
+  const lanzamientoOptions = lanzamientos.map((l) => ({
     value: l.codigoLanzamiento,
     label: l.codigoLanzamiento,
   }));
@@ -232,7 +230,9 @@ const CreateOpportunity: React.FC = () => {
               </span>
             }
             name="lanzamiento"
-            rules={[{ required: true, message: "El campo Lanzamiento es requerido" }]}
+            rules={[
+              { required: true, message: "El campo Lanzamiento es requerido" },
+            ]}
           >
             <AutoComplete
               options={lanzamientoOptions}
@@ -240,7 +240,9 @@ const CreateOpportunity: React.FC = () => {
               value={searchText}
               placeholder="Buscar lanzamiento..."
               notFoundContent={
-                loadingLanzamientos ? "Cargando..." : "No se encontraron lanzamientos"
+                loadingLanzamientos
+                  ? "Cargando..."
+                  : "No se encontraron lanzamientos"
               }
               filterOption={false}
               defaultActiveFirstOption={false}
@@ -257,7 +259,7 @@ const CreateOpportunity: React.FC = () => {
               }}
               getPopupContainer={() =>
                 document.querySelector(
-                  ".create-opportunity-modal .ant-modal-body"
+                  ".create-opportunity-modal .ant-modal-body",
                 ) as HTMLElement
               }
               onChange={(value) => {
@@ -266,9 +268,10 @@ const CreateOpportunity: React.FC = () => {
                 form.setFieldsValue({ lanzamiento: value });
 
                 const lanzamientoEncontrado = lanzamientos.find(
-                  (l) => l.codigoLanzamiento === value
+                  (l) => l.codigoLanzamiento === value,
                 );
-                if (lanzamientoEncontrado) setSelectedLanzamientoId(lanzamientoEncontrado.id);
+                if (lanzamientoEncontrado)
+                  setSelectedLanzamientoId(lanzamientoEncontrado.id);
               }}
               onSelect={(value) => {
                 setSearchText(value);
@@ -276,9 +279,10 @@ const CreateOpportunity: React.FC = () => {
                 form.setFieldsValue({ lanzamiento: value });
 
                 const lanzamientoEncontrado = lanzamientos.find(
-                  (l) => l.codigoLanzamiento === value
+                  (l) => l.codigoLanzamiento === value,
                 );
-                if (lanzamientoEncontrado) setSelectedLanzamientoId(lanzamientoEncontrado.id);
+                if (lanzamientoEncontrado)
+                  setSelectedLanzamientoId(lanzamientoEncontrado.id);
               }}
             />
           </Form.Item>
@@ -303,7 +307,6 @@ const CreateOpportunity: React.FC = () => {
             />
           </Form.Item>
 
-
           {/* ================= FECHA Y HORA ================= */}
           <div className="date-time-row">
             <Form.Item
@@ -313,7 +316,9 @@ const CreateOpportunity: React.FC = () => {
                 </span>
               }
               name="fecha"
-              rules={[{ required: true, message: "El campo Fecha es requerido" }]}
+              rules={[
+                { required: true, message: "El campo Fecha es requerido" },
+              ]}
               className="date-field"
             >
               <DatePicker
@@ -331,7 +336,9 @@ const CreateOpportunity: React.FC = () => {
                 </span>
               }
               name="hora"
-              rules={[{ required: true, message: "El campo Hora es requerido" }]}
+              rules={[
+                { required: true, message: "El campo Hora es requerido" },
+              ]}
               className="time-field"
             >
               <TimePicker
@@ -347,9 +354,10 @@ const CreateOpportunity: React.FC = () => {
           <div className="scheduled-container">
             <div className="scheduled-label">
               {selectedDate && selectedTime
-                ? `Programado para: ${selectedDate.format("dddd").charAt(0).toUpperCase() +
-                selectedDate.format("dddd").slice(1)
-                }, ${selectedDate.format("DD [de] MMMM [de] YYYY")} a las ${selectedTime.format("HH:mm")} horas`
+                ? `Programado para: ${
+                    selectedDate.format("dddd").charAt(0).toUpperCase() +
+                    selectedDate.format("dddd").slice(1)
+                  }, ${selectedDate.format("DD [de] MMMM [de] YYYY")} a las ${selectedTime.format("HH:mm")} horas`
                 : "Programado para: Seleccione fecha y hora"}
             </div>
 
