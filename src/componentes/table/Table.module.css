@@ -72,7 +72,7 @@
 .paginationButton {
   background: #fff;
   border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 4px 12px;
   cursor: pointer;
   font-size: 16px;
@@ -88,5 +88,64 @@
 .paginationButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ===== DARK MODE ===== */
+:global([data-theme="dark"]) .tableContainer {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme="dark"]) .table {
+  background-color: #1a1a1a;
+}
+
+:global([data-theme="dark"]) .headerRow {
+  background-color: #252525;
+}
+
+:global([data-theme="dark"]) .tableRow {
+  background-color: #1a1a1a;
+}
+
+:global([data-theme="dark"]) .tableRow:hover {
+  background-color: #252525;
+}
+
+:global([data-theme="dark"]) .tableRowSelected {
+  background-color: rgba(22, 119, 255, 0.15) !important;
+}
+
+:global([data-theme="dark"]) .tableCell {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #d0d0d0;
+}
+
+:global([data-theme="dark"]) .headerCell {
+  color: #e0e0e0;
+}
+
+:global([data-theme="dark"]) .pagination {
+  background-color: #1e1e1e;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+:global([data-theme="dark"]) .paginationInfo {
+  color: #a0a0a0;
+}
+
+:global([data-theme="dark"]) .paginationButton {
+  background: #252525;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d0d0d0;
+}
+
+:global([data-theme="dark"]) .paginationButton:hover:not(:disabled) {
+  border-color: #1677ff;
+  color: #1677ff;
+  background: #2a2a2a;
+}
+
+:global([data-theme="dark"]) .checkbox {
+  accent-color: #1677ff;
 }
 

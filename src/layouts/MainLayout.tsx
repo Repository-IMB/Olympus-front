@@ -4,6 +4,9 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  SunOutlined,
+  MoonOutlined,
+  ArrowLeftOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
@@ -16,6 +19,7 @@ import Sidebar from "../componentes/Sidebar/Sidebar";
 import api from "../servicios/api";
 import styles from "./MainLayout.module.css";
 import { UserContext } from "../context/UserContext";
+import { useTheme } from "../context/ThemeContext";
 
 const { Sider, Header, Content } = Layout;
 
@@ -37,6 +41,7 @@ export default function MainLayout() {
   const [idUsuario, setIdUsuario] = useState<number>(0);
   const [userContext, setUserContext] = useState<any>(null);
   const [loadingContext, setLoadingContext] = useState(true);
+  const { theme, toggleTheme } = useTheme();
 
   /* ========= Leer token ========= */
   useEffect(() => {
@@ -85,6 +90,15 @@ export default function MainLayout() {
     if (isDesktop) setIsCollapsed(false);
     else if (isTablet) setIsCollapsed(true);
   }, [isDesktop, isTablet]);
+
+  /* ========= Cerrar menú al entrar en una oportunidad ========= */
+  useEffect(() => {
+    if (location.pathname.startsWith("/leads/oportunidades/")) {
+      setIsCollapsed(true);
+      setIsDrawerOpen(false);
+      setOpenMenu(null);
+    }
+  }, [location.pathname]);
 
   const handleLogout = () => {
     Cookies.remove("token");
@@ -153,34 +167,68 @@ return (
 
       <Layout>
         <Header className={styles.header}>
-          <Button
-            type="text"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            icon={isCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-          />
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <Button
+              type="text"
+              className={styles.hamburgerBtn}
+              onClick={() => {
+                if (isMobile) {
+                  setIsDrawerOpen(!isDrawerOpen);
+                } else {
+                  setIsCollapsed(!isCollapsed);
+                }
+              }}
+              icon={
+                (isMobile ? !isDrawerOpen : isCollapsed)
+                  ? <MenuUnfoldOutlined />
+                  : <MenuFoldOutlined />
+              }
+            />
+            {location.pathname.startsWith("/leads/oportunidades/") && (
+              <Button
+                type="text"
+                icon={<ArrowLeftOutlined />}
+                onClick={() => navigate(-1)}
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  color: "#595959",
+                }}
+              >
+                Volver
+              </Button>
+            )}
+          </div>
 
-          <Dropdown
-            menu={{
-              items: [
-                {
-                  key: "info",
-                  label: <strong>{userName}</strong>,
-                  disabled: true,
-                },
-                { type: "divider" },
-                {
-                  key: "logout",
-                  label: (
-                    <span onClick={handleLogout} style={{ color: "red" }}>
-                      <LogoutOutlined /> Cerrar sesión
-                    </span>
-                  ),
-                },
-              ],
-            }}
-          >
-            <UserOutlined />
-          </Dropdown>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <Button
+              type="text"
+              onClick={toggleTheme}
+              icon={theme === "light" ? <MoonOutlined /> : <SunOutlined />}
+              style={{ fontSize: 18 }}
+            />
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: "info",
+                    label: <strong>{userName}</strong>,
+                    disabled: true,
+                  },
+                  { type: "divider" },
+                  {
+                    key: "logout",
+                    icon: <LogoutOutlined />,
+                    label: "Cerrar sesión",
+                    danger: true,
+                    onClick: handleLogout,
+                  },
+                ],
+              }}
+            >
+              <UserOutlined style={{ fontSize: 18, cursor: "pointer" }} />
+            </Dropdown>
+          </div>
         </Header>
 
         <Content className={styles.content}>

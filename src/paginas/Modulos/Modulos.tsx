@@ -350,7 +350,7 @@ export default function Modulos() {
             allowClear
           />
 
-          <Button type="primary" onClick={abrirModalCrear}>
+          <Button type="primary" className={estilos.btnNuevo} onClick={abrirModalCrear}>
             Nuevo módulo
           </Button>
         </div>
@@ -360,6 +360,7 @@ export default function Modulos() {
             allowClear
             placeholder="Filtro por producto relacionado"
             style={{ width: 260 }}
+            className={estilos.filterSelect}
             onChange={(value) => setProductoSeleccionado(value)}
             value={productoSeleccionado}
           >
@@ -372,6 +373,7 @@ export default function Modulos() {
 
           <RangePicker
             value={dateRange}
+            className={estilos.filterSelect}
             onChange={(dates) =>
               setDateRange(dates as [Moment | null, Moment | null] | null)
             }

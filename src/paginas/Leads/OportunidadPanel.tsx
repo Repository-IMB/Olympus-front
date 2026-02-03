@@ -323,25 +323,42 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
             }}
             bodyStyle={{ padding: 12 }}
           >
-            <div
-              style={{
-                width: "100%",
-                height: "600px",
-                background: "#FFFFFF",
-                borderRadius: 6,
-                overflow: "hidden",
-              }}
-            >
-              <iframe
-                src={brochureUrl}
+            {brochureUrl.toLowerCase().endsWith(".pdf") ? (
+              <div
                 style={{
                   width: "100%",
-                  height: "100%",
-                  border: "none",
+                  height: "600px",
+                  background: "#FFFFFF",
+                  borderRadius: 6,
+                  overflow: "hidden",
                 }}
-                title="Brochure del Producto"
-              />
-            </div>
+              >
+                <iframe
+                  src={brochureUrl}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    border: "none",
+                  }}
+                  title="Brochure del Producto"
+                />
+              </div>
+            ) : (
+              <div
+                style={{
+                  width: "100%",
+                  background: "#FFFFFF",
+                  borderRadius: 6,
+                  padding: 40,
+                  textAlign: "center",
+                }}
+              >
+                <Text type="secondary" style={{ fontSize: 14 }}>
+                  El brochure no está disponible para visualización.
+                  Solo se admiten archivos en formato PDF.
+                </Text>
+              </div>
+            )}
           </Card>
         </>
       )}

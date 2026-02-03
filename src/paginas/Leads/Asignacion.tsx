@@ -625,6 +625,7 @@ export default function Asignacion() {
         title: "IdLead",
         dataIndex: "id",
         key: "id",
+        width: 80,
         sorter: (a, b) => a.id - b.id,
       },
       {
@@ -714,7 +715,8 @@ export default function Asignacion() {
       {
         title: "Recordatorio",
         key: "recordatorios",
-        width: 240,
+        width: 200,
+        fixed: "right",
         render: (_: any, record: LeadTabla) =>
           !record.recordatorios || record.recordatorios.length === 0 ? (
             "-"
@@ -759,6 +761,8 @@ export default function Asignacion() {
         title: "Fecha Creación",
         dataIndex: "fechaCreacion",
         key: "fechaCreacion",
+        width: 160,
+        fixed: "right",
         sorter: (a, b) =>
           new Date(a.fechaCreacion ?? "").getTime() -
           new Date(b.fechaCreacion ?? "").getTime(),
@@ -801,6 +805,8 @@ export default function Asignacion() {
         title: "Fecha Formulario",
         dataIndex: "fechaFormulario",
         key: "fechaFormulario",
+        width: 160,
+        fixed: "right",
         sorter: (a, b) =>
           new Date(a.fechaFormulario ?? "").getTime() -
           new Date(b.fechaFormulario ?? "").getTime(),
@@ -842,13 +848,15 @@ export default function Asignacion() {
         title: "Acciones",
         key: "actions",
         align: "center",
+        width: 100,
+        fixed: "right",
         render: (_: any, record: Lead) => (
           <Tooltip title="Ver Detalle">
             <Button
               type="primary"
               icon={<EyeOutlined />}
               size="small"
-              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+              style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f", borderRadius: "6px" }}
               onClick={() => handleClick(record.id)}
             />
           </Tooltip>
@@ -863,6 +871,8 @@ export default function Asignacion() {
     onChange: (_: React.Key[], rows: LeadTabla[]) => {
       setSelectedRows(rows);
     },
+    fixed: true,
+    columnWidth: 60,
   };
 
   const hayOportunidadesConAsesor = selectedRows.some(
@@ -1067,6 +1077,7 @@ export default function Asignacion() {
                 rowSelection={rowSelection}
                 dataSource={leadsMapeados}
                 rowKey="id"
+                scroll={{ x: 1800 }}
                 pagination={{
                   current: currentPage,
                   pageSize,
@@ -1324,7 +1335,7 @@ export default function Asignacion() {
             type="primary"
             block
             size="large"
-            style={{ marginTop: 16 }}
+            style={{ marginTop: 16, borderRadius: "6px" }}
             disabled={botonDeshabilitado}
             onClick={handleConfirmarAsignacion}
           >
@@ -1373,6 +1384,7 @@ export default function Asignacion() {
                 setImportResult(null);
               }}
               size="large"
+              style={{ borderRadius: "6px" }}
             >
               Limpiar
             </Button>
@@ -1418,7 +1430,7 @@ export default function Asignacion() {
             onClick={ejecutarImportacion}
             loading={importLoading}
             disabled={importLoading}
-            style={{ marginBottom: 8 }}
+            style={{ marginBottom: 8, borderRadius: "6px" }}
           >
             Ejecutar importación
           </Button>

@@ -73,18 +73,11 @@ const SalesCard = memo(({ sale, highlightedId }: { sale: Opportunity; highlighte
     <Card
       id={`card-${sale.id}`}
       size="small"
-      className="client-card"
+      className={`client-card ${isHighlighted ? "client-card-highlighted" : ""}`}
       onClick={handleClick}
-      style={{ 
-        cursor: "pointer",
-        border: isHighlighted ? "2px solid #1677ff" : "1px solid #f0f0f0",
-        backgroundColor: isHighlighted ? "#e6f7ff" : "#ffffff",
-        transition: "all 0.3s ease",
-        transform: isHighlighted ? "scale(1.02)" : "scale(1)",
-        boxShadow: isHighlighted ? "0 4px 12px rgba(22, 119, 255, 0.3)" : undefined
-      }}
+      style={{ cursor: "pointer" }}
     >
-      <div className="client-name" style={{ fontWeight: isHighlighted ? "bold" : "normal" }}>
+      <div className="client-name">
         {sale.personaNombre}
       </div>
 
@@ -637,10 +630,10 @@ useEffect(() => {
 
   return (
     <Layout style={{ height: "100vh" }}>
-      <Content style={{ padding: "20px", background: "#f5f5f5" }}>
+      <Content className="sales-process-content" style={{ padding: "20px" }}>
         <div style={{ marginBottom: "20px", display: "flex", justifyContent: "flex-end", gap: "10px" }}>
           {userRole !== "Asesor" && (
-            <Button onClick={() => setIsSelectClientModalVisible(true)}>Agregar Oportunidad</Button>
+            <Button style={{ borderRadius: "6px" }} onClick={() => setIsSelectClientModalVisible(true)}>Agregar Oportunidad</Button>
           )}
           <Button type="primary" style={{ background: "#1f1f1f", borderColor: "#1f1f1f", borderRadius: "6px" }}>Vista de Proceso</Button>
           <Button style={{ borderRadius: "6px" }} onClick={() => navigate("/leads/Opportunities")}>Vista de Tabla</Button>
@@ -709,7 +702,7 @@ useEffect(() => {
                 ))}
               </div>
             </div>
-            <div className="other-states-grid">
+            <div className={`other-states-grid ${activeFilter === "todos" ? "filter-todos-active" : ""}`}>
               {activeFilter === "todos" ? (
                 Object.entries(otrosEstados)
                   .filter(

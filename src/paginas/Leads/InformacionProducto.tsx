@@ -3,14 +3,13 @@ import { Card, Divider, Space, Typography, Row, Col, Spin } from "antd";
 import { RightOutlined } from "@ant-design/icons";
 import { getCookie } from "../../utils/cookies";
 import ModalHorarios from "./InformacionProductoModales/ModalHorarios";
-import ModalInversion from "./InformacionProductoModales/ModalInversion";
 import ModalDocentes from "./InformacionProductoModales/ModalDocentes";
 import api from "../../servicios/api";
 import styles from "./InformacionProducto.module.css";
 
 const { Text, Title } = Typography;
 
-type ModalKey = null | "horarios" | "inversion" | "docentes";
+type ModalKey = null | "horarios" | "docentes";
 
 interface Horario {
   id: number;
@@ -182,7 +181,6 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
   const [docentesSeleccionados, setDocentesSeleccionados] = useState<DocentePorModulo[]>([]);
   const [docentesInicializados, setDocentesInicializados] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [descuentoTemporal, setDescuentoTemporal] = useState<number | null>(null);
   const [tabSeleccionado, setTabSeleccionado] = useState(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
@@ -260,6 +258,22 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
   // Fetch de datos del producto
   useEffect(() => {
     cargarDatosProducto();
+  }, [oportunidadId]);
+
+  // Escuchar evento de actualización de descuento desde EstadoMatriculado/Cobranza
+  useEffect(() => {
+    const handleDescuentoActualizado = (event: CustomEvent<{ oportunidadId: string; costoOfrecido: number }>) => {
+      // Solo recargar si el evento es para esta oportunidad
+      if (event.detail.oportunidadId === String(oportunidadId)) {
+        cargarDatosProducto(true); // Mantener docentes seleccionados
+      }
+    };
+
+    window.addEventListener("descuentoActualizado", handleDescuentoActualizado as EventListener);
+
+    return () => {
+      window.removeEventListener("descuentoActualizado", handleDescuentoActualizado as EventListener);
+    };
   }, [oportunidadId]);
 
 
@@ -361,23 +375,10 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
 
     const inversion = inversionesData[0];
     const costoBase = inversion.costoTotal;
-
-    // Usar descuento temporal si existe (mientras se edita en el modal), sino usar el de la inversión guardada
-    const porcentajeDescuento = descuentoTemporal !== null ? descuentoTemporal : inversion.descuentoPorcentaje;
-
-    // Si hay descuento temporal (editando en modal), calcular en el frontend
-    // Si no hay descuento temporal, usar el costoOfrecido del backend
-    let costoConDescuento: number;
-    if (descuentoTemporal !== null) {
-      // Calcular temporalmente mientras se edita
-      const descuentoMonto = (costoBase * porcentajeDescuento) / 100;
-      costoConDescuento = costoBase - descuentoMonto;
-    } else {
-      // Usar el valor calculado por el backend
-      costoConDescuento = inversion.costoOfrecido;
-    }
-
+    const porcentajeDescuento = inversion.descuentoPorcentaje;
+    const costoConDescuento = inversion.costoOfrecido;
     const tieneDescuento = porcentajeDescuento > 0;
+
     return {
       costoBase,
       porcentajeDescuento,
@@ -385,7 +386,7 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
       moneda: inversion.moneda,
       tieneDescuento
     };
-  }, [inversionesData, descuentoTemporal]);
+  }, [inversionesData]);
 
   // Generar preview de docentes (lista única de docentes)
   const previewDocentes = useMemo(() => {
@@ -423,23 +424,6 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
 
   const closeModal = () => {
     setOpenModal(null);
-    // Resetear el descuento temporal al cerrar el modal sin guardar
-    if (openModal === "inversion") {
-      setDescuentoTemporal(null);
-    }
-  };
-
-  // Manejar cambio de descuento en tiempo real desde el modal
-  const handleDescuentoChange = (descuento: number) => {
-    setDescuentoTemporal(descuento);
-  };
-
-  // Manejar guardado de inversión
-  const handleSaveInversion = async () => {
-    // Recargar los datos y esperar a que se complete, manteniendo docentes seleccionados
-    await cargarDatosProducto(true);
-    // Resetear el descuento temporal después de que los datos se hayan recargado
-    setDescuentoTemporal(null);
   };
 
   const clickableBoxStyle: React.CSSProperties = useMemo(
@@ -484,26 +468,26 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
         <Row gutter={6} className={styles.tabsRow}>
           {tabs.map((tab, i) => (
             <Col flex={1} key={tab}>
-              <Card
+              <div
                 onClick={() => handleTabClick(i)}
                 style={{
-                  background: i === tabSeleccionado ? "#252C35" : "#FFFFFF",
+                  backgroundColor: i === tabSeleccionado ? "#252C35" : "#FFFFFF",
                   textAlign: "center",
                   borderRadius: 8,
                   boxShadow: "1px 1px 2px rgba(0,0,0,0.12)",
                   border: i === tabSeleccionado ? "none" : "1px solid #EAEAEA",
                   cursor: "pointer",
                   transition: "all 0.2s ease",
+                  padding: "6px 8px",
                 }}
-                bodyStyle={{ padding: "6px 8px" }}
                 onMouseEnter={(e) => {
                   if (i !== tabSeleccionado) {
-                    e.currentTarget.style.background = "#F5F5F5";
+                    e.currentTarget.style.backgroundColor = "#F5F5F5";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (i !== tabSeleccionado) {
-                    e.currentTarget.style.background = "#FFFFFF";
+                    e.currentTarget.style.backgroundColor = "#FFFFFF";
                   }
                 }}
               >
@@ -515,7 +499,7 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
                 >
                   {tab}
                 </Text>
-              </Card>
+              </div>
             </Col>
           ))}
         </Row>
@@ -592,35 +576,19 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
                   <Text type="secondary">Inversión:</Text>
                 </Col>
                 <Col flex={1}>
-                  <div
-                    onClick={() => setOpenModal("inversion")}
-                    style={clickableBoxStyle}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "#F7F7F7")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "#FFFFFF")
-                    }
-                  >
+                  {previewInversion ? (
                     <div style={{ lineHeight: "1.5" }}>
-                      {!previewInversion ? (
-                        <Text style={{ fontSize: 13 }}>Sin información de inversión</Text>
-                      ) : (
-                        <>
-                          <Text style={{ fontSize: 13, display: "block" }}>
-                            Costo base: <Text strong style={{ fontSize: 13 }}>${previewInversion.costoBase.toFixed(2)}</Text>
-                            {previewInversion.tieneDescuento && (
-                              <> menos {previewInversion.porcentajeDescuento}% de descuento</>
-                            )}
-                          </Text>
-                          <Text style={{ fontSize: 13, display: "block" }}>
-                            Costo ofrecido: <Text strong style={{ fontSize: 13 }}>${previewInversion.costoConDescuento.toFixed(2)}</Text>
-                          </Text>
-                        </>
-                      )}
+                      <Text style={{ fontSize: 13, display: "block", color: "#595959" }}>
+                        Costo base: {previewInversion.moneda} {Math.round(previewInversion.costoBase)}
+                      </Text>
+                      <Text style={{ fontSize: 13, display: "block", color: previewInversion.tieneDescuento ? "#52c41a" : "#000", fontWeight: 500 }}>
+                        Costo ofrecido: {previewInversion.moneda} {Math.round(previewInversion.costoConDescuento)}
+                        {previewInversion.tieneDescuento && ` (${previewInversion.porcentajeDescuento}% desc.)`}
+                      </Text>
                     </div>
-                    <RightOutlined style={arrowStyle} />
-                  </div>
+                  ) : (
+                    <Text style={{ fontSize: 13 }}>Sin inversión definida</Text>
+                  )}
                 </Col>
               </Row>
 
@@ -775,15 +743,6 @@ const InformacionProducto: React.FC<InformacionProductoProps> = ({ oportunidadId
         fechaInicio={productoData?.fechaInicio}
         fechaFin={productoData?.fechaFin}
         horarios={horariosData}
-      />
-      <ModalInversion
-        open={openModal === "inversion"}
-        onClose={closeModal}
-        inversion={inversionesData.length > 0 ? inversionesData[0] : null}
-        idProducto={productoData?.id}
-        idOportunidad={oportunidadId ? parseInt(oportunidadId) : undefined}
-        onSave={handleSaveInversion}
-        onDescuentoChange={handleDescuentoChange}
       />
       <ModalDocentes
         open={openModal === "docentes"}

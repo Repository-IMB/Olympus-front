@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Row, Col, Spin, message, Alert, Button } from "antd"; // ✅ Importar Button
-import { ArrowLeftOutlined } from "@ant-design/icons"; // ✅ Importar Icono
+import { Row, Col, Spin, message, Alert, Button } from "antd";
 import ClienteProductoCard from "./ClienteProducto";
 import OportunidadPanel from "./OportunidadPanel";
 import HistorialInteraccion from "./HistorialInteraccion";
@@ -12,6 +11,7 @@ import { jwtDecode } from "jwt-decode";
 import styles from "./Leads.module.css";
 import "./modals-mobile.css";
 import "./enhancements.css";
+import "./Estados/Estados.css";
 
 interface TokenData {
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
@@ -162,25 +162,6 @@ export default function Leads() {
   return (
     <div className={styles.mainContainer}>
       <div className={styles.contentWrapper}>
-        
-        {/* ✅✅✅ AQUÍ AGREGAMOS EL BOTÓN VOLVER ✅✅✅ */}
-        <div style={{ marginBottom: "10px" }}>
-          <Button
-            type="text"
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(-1)} // Esto vuelve al historial (Tabla o Proceso)
-            style={{ 
-                fontSize: "16px", 
-                fontWeight: 500, 
-                color: "#595959",
-                paddingLeft: 0 
-            }}
-          >
-            Volver
-          </Button>
-        </div>
-        {/* ✅✅✅ FIN DEL BOTÓN ✅✅✅ */}
-
         <VistaProceso oportunidadId={id} />
       </div>
 

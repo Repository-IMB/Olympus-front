@@ -1,0 +1,206 @@
+/* ===================================================================
+   ESTADO MATRICULADO - ESTILOS
+   =================================================================== */
+
+/* Contenedor principal */
+.estado-matriculado-container {
+  background: #F0F0F0;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* Info box */
+.estado-matriculado-info {
+  background: #ECECEC;
+  border-radius: 10px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.3s ease;
+}
+
+.estado-matriculado-info .anticon {
+  font-size: 12px;
+}
+
+.estado-matriculado-info span {
+  font-size: 9px;
+}
+
+/* Secciones de contenido (Cobranza/Convertido) */
+.estado-matriculado-section {
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 16px;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* Botones Tab personalizados */
+.tab-button {
+  background: #D1D1D1;
+  color: #0D0C11;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1.5px 4px rgba(0, 0, 0, 0.12);
+  transition: all 0.14s ease;
+  user-select: none;
+  min-width: 105px;
+  text-align: center;
+  display: inline-block;
+}
+
+.tab-button:hover {
+  background: #C0C0C0;
+}
+
+.tab-button.active {
+  background: #B8F3B8;
+}
+
+.tab-button.active:hover {
+  background: #A7E8A7;
+}
+
+.tab-button:disabled,
+.tab-button.disabled {
+  background: #F0F0F0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Sección de inversión */
+.inversion-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.inversion-label {
+  width: 150px;
+  font-size: 13px;
+}
+
+/* ===================================================================
+   DARK MODE - ESTILOS MODO OSCURO
+   =================================================================== */
+
+[data-theme="dark"] .estado-matriculado-container {
+  background: linear-gradient(145deg, #1e1e1e 0%, #171717 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .estado-matriculado-info {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .estado-matriculado-info span {
+  color: #a0a0a0;
+}
+
+[data-theme="dark"] .estado-matriculado-info .anticon {
+  color: #6a9eff;
+}
+
+[data-theme="dark"] .estado-matriculado-section {
+  background: linear-gradient(145deg, #1a1a1a 0%, #141414 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Tab buttons en modo oscuro */
+[data-theme="dark"] .tab-button {
+  background: linear-gradient(145deg, #2a2a2a 0%, #222222 100%);
+  color: #a0a0a0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .tab-button:hover {
+  background: linear-gradient(145deg, #333333 0%, #2a2a2a 100%);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #d0d0d0;
+}
+
+[data-theme="dark"] .tab-button.active {
+  background: linear-gradient(145deg, #2d4a2d 0%, #1f3a1f 100%);
+  color: #90ee90;
+  border: 1px solid rgba(144, 238, 144, 0.3);
+}
+
+[data-theme="dark"] .tab-button.active:hover {
+  background: linear-gradient(145deg, #365a36 0%, #2a4a2a 100%);
+}
+
+[data-theme="dark"] .tab-button:disabled,
+[data-theme="dark"] .tab-button.disabled {
+  background: #1a1a1a;
+  color: #505050;
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Textos en modo oscuro */
+[data-theme="dark"] .estado-matriculado-container .ant-typography,
+[data-theme="dark"] .estado-matriculado-section .ant-typography {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .inversion-label {
+  color: #b0b0b0;
+}
+
+/* ===================================================================
+   RESPONSIVE
+   =================================================================== */
+
+@media (max-width: 767px) {
+  .estado-matriculado-container {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .estado-matriculado-section {
+    padding: 12px;
+  }
+
+  .tab-button {
+    min-width: 90px;
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+
+  .inversion-label {
+    width: 120px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 575px) {
+  .estado-matriculado-container {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .estado-matriculado-section {
+    padding: 10px;
+  }
+
+  .tab-button {
+    min-width: 80px;
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .inversion-label {
+    width: 100px;
+    font-size: 11px;
+  }
+}

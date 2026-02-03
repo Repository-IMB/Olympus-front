@@ -1,3 +1,8 @@
+/* Fondo del contenido principal */
+.sales-process-content {
+  background: #f5f5f5;
+}
+
 /* Contenedor blanco principal, similar a Opportunities.tsx */
 .content-wrapper {
   background: #fff;
@@ -6,6 +11,18 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.03);
   height: calc(100vh - 104px); /* Ajusta la altura para el padding y botones */
   overflow-y: auto;
+}
+
+/* Tarjeta resaltada */
+.client-card-highlighted {
+  border: 2px solid #1677ff !important;
+  background-color: #e6f7ff !important;
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(22, 119, 255, 0.3) !important;
+}
+
+.client-card-highlighted .client-name {
+  font-weight: bold;
 }
 
 /* Estilos para la barra de scroll del contenedor principal */
@@ -191,7 +208,7 @@
   gap: 6px;
   color: #ffffff;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
   width: 100%;
@@ -556,20 +573,27 @@
   .content-wrapper {
     padding: 12px;
     height: auto;
+    overflow-y: auto;
   }
 
   .resizable-section {
     padding: 8px;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
   }
 
   .stage-column {
-    min-height: 200px;
+    min-height: 150px;
+    max-height: 250px;
     width: 100%;
   }
 
   .card-list-container {
-    min-height: 150px;
+    min-height: 100px;
+    max-height: 200px;
     width: 100%;
+    overflow-y: auto;
   }
 
   .client-card {
@@ -585,16 +609,36 @@
     font-size: 12px;
     padding: 4px 8px;
   }
+
+  /* Ocultar el resize handle en móvil */
+  .resize-handle {
+    display: none;
+  }
+
+  /* ===== OCULTAR FILTRO "TODOS" EN TABLET VERTICAL ===== */
+  .filter-btn:first-child {
+    display: none;
+  }
+
+  /* Ocultar cards cuando "todos" está activo (por defecto) */
+  .other-states-grid.filter-todos-active {
+    display: none;
+  }
 }
 
 /* Mobile (< 600px) */
 @media (max-width: 600px) {
   .content-wrapper {
     padding: 8px;
+    height: auto;
+    overflow-y: auto;
   }
 
   .resizable-section {
     padding: 6px;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
   }
 
   .stages-grid {
@@ -603,7 +647,8 @@
 
   .stage-column {
     padding: 8px;
-    min-height: 180px;
+    min-height: 120px;
+    max-height: 200px;
     width: 100%;
   }
 
@@ -614,8 +659,10 @@
 
   .card-list-container {
     padding: 4px;
-    min-height: 120px;
+    min-height: 80px;
+    max-height: 150px;
     width: 100%;
+    overflow-y: auto;
   }
 
   .client-card {
@@ -648,16 +695,9 @@
     font-size: 10px;
   }
 
-  /* Divisor más grande en móvil para facilitar el toque */
+  /* Ocultar resize handle en móvil */
   .resize-handle {
-    height: 48px;
-    margin: 8px 0;
-  }
-
-  .resize-handle-bar {
-    width: 100%;
-    max-width: 200px;
-    height: 8px;
+    display: none;
   }
 
   /* Botones más compactos */
@@ -678,6 +718,16 @@
 
   .other-states-header h3 {
     font-size: 16px;
+  }
+
+  /* ===== OCULTAR FILTRO "TODOS" EN MÓVIL ===== */
+  .filter-btn:first-child {
+    display: none;
+  }
+
+  /* Ocultar cards cuando "todos" está activo (por defecto) */
+  .other-states-grid.filter-todos-active {
+    display: none;
   }
 }
 
@@ -800,6 +850,310 @@
   gap: 12px; /* 🔥 separación real */
   overflow-y: auto;
   padding-right: 4px;
+}
+
+/* ===================================================================
+   DARK MODE - ESTILOS MEJORADOS PARA MODO NOCTURNO
+   =================================================================== */
+
+[data-theme="dark"] .content-wrapper {
+  background: linear-gradient(145deg, #1a1a1a 0%, #141414 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .content-wrapper h1 {
+  color: #f0f0f0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== SCROLLBARS MODO OSCURO ===== */
+[data-theme="dark"] .content-wrapper::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #404040 0%, #2a2a2a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .content-wrapper::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+[data-theme="dark"] .card-list-container::-webkit-scrollbar-thumb,
+[data-theme="dark"] .state-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3a3a3a 0%, #252525 100%);
+  border-radius: 10px;
+}
+
+[data-theme="dark"] .card-list-container::-webkit-scrollbar-track,
+[data-theme="dark"] .state-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+}
+
+/* ===== SECCIONES Y COLUMNAS MODO OSCURO ===== */
+[data-theme="dark"] .sales-section h3 {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .resizable-section {
+  background: linear-gradient(180deg, #1e1e1e 0%, #171717 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .stage-column {
+  background: linear-gradient(180deg, #1f1f1f 0%, #1a1a1a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .stage-column:hover {
+  background: linear-gradient(180deg, #242424 0%, #1e1e1e 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .stage-header {
+  color: #e8e8e8;
+}
+
+[data-theme="dark"] .stage-title {
+  color: #f0f0f0;
+  font-weight: 600;
+}
+
+/* ===== CONTENEDORES DE TARJETAS MODO OSCURO ===== */
+[data-theme="dark"] .card-list-container {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+/* Bordes superiores sutiles para estados principales */
+[data-theme="dark"] .card-list-container.registrado,
+[data-theme="dark"] .card-list-container.calificado,
+[data-theme="dark"] .card-list-container.potencial,
+[data-theme="dark"] .card-list-container.promesa {
+  border-top: 2px solid rgba(99, 148, 255, 0.5);
+  box-shadow:
+    inset 0 2px 8px rgba(99, 148, 255, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ===== TARJETAS (CARDS) MODO OSCURO ===== */
+[data-theme="dark"] .client-card {
+  background: linear-gradient(145deg, #252525 0%, #1e1e1e 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] .client-card:hover {
+  background: linear-gradient(145deg, #2a2a2a 0%, #222222 100%);
+  border-color: rgba(99, 148, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(99, 148, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .client-card .ant-card-body {
+  background: transparent;
+}
+
+[data-theme="dark"] .client-name {
+  color: #f5f5f5;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .client-price {
+  color: #a0a0a0;
+}
+
+[data-theme="dark"] .client-date {
+  color: #707070;
+}
+
+[data-theme="dark"] .client-country {
+  color: #808080 !important;
+}
+
+/* ===== FILTROS Y TABS MODO OSCURO ===== */
+[data-theme="dark"] .other-states-header h3 {
+  color: #e8e8e8;
+}
+
+[data-theme="dark"] .total-count {
+  color: #6a9eff;
+}
+
+[data-theme="dark"] .filters-container {
+  background: linear-gradient(180deg, #1e1e1e 0%, #171717 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .filter-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #b0b0b0;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .filter-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e0e0e0;
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .filter-btn.active,
+[data-theme="dark"] .filter-btn.ant-btn-primary {
+  background: linear-gradient(145deg, #3a3a3a 0%, #2a2a2a 100%);
+  border-color: rgba(99, 148, 255, 0.3);
+  color: #ffffff;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ===== COLUMNAS DE OTROS ESTADOS MODO OSCURO ===== */
+[data-theme="dark"] .other-state-column {
+  background: linear-gradient(180deg, #1f1f1f 0%, #1a1a1a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .other-state-column:hover {
+  background: linear-gradient(180deg, #242424 0%, #1e1e1e 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .column-header {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .state-content {
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+/* Bordes superiores sutiles por estado - MODO OSCURO */
+/* Amarillo suave: coorporativo, ventaCruzada, seguimiento */
+[data-theme="dark"] .state-content.coorporativo,
+[data-theme="dark"] .state-content.ventaCruzada,
+[data-theme="dark"] .state-content.seguimiento {
+  border-top: 2px solid rgba(250, 204, 80, 0.4);
+  box-shadow: inset 0 2px 8px rgba(250, 204, 80, 0.05);
+}
+
+/* Rojo suave: perdido, noCalificado */
+[data-theme="dark"] .state-content.perdido,
+[data-theme="dark"] .state-content.noCalificado {
+  border-top: 2px solid rgba(248, 113, 113, 0.4);
+  box-shadow: inset 0 2px 8px rgba(248, 113, 113, 0.05);
+}
+
+/* Verde suave: cobranza, convertido */
+[data-theme="dark"] .state-content.cobranza,
+[data-theme="dark"] .state-content.convertido {
+  border-top: 2px solid rgba(134, 239, 172, 0.4);
+  box-shadow: inset 0 2px 8px rgba(134, 239, 172, 0.05);
+}
+
+/* ===== EMPTY BOX MODO OSCURO ===== */
+[data-theme="dark"] .empty-box {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.06);
+}
+
+/* ===== RESIZE HANDLE MODO OSCURO ===== */
+[data-theme="dark"] .resize-handle:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .resize-handle-bar {
+  background: linear-gradient(90deg, #404040 0%, #505050 50%, #404040 100%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .resize-handle:hover .resize-handle-bar {
+  background: linear-gradient(90deg, #505050 0%, #606060 50%, #505050 100%);
+}
+
+[data-theme="dark"] .resize-handle:active .resize-handle-bar {
+  background: linear-gradient(90deg, #4a7fff 0%, #6a9eff 50%, #4a7fff 100%);
+  box-shadow: 0 0 12px rgba(99, 148, 255, 0.3);
+}
+
+/* ===== BADGES MODO OSCURO ===== */
+[data-theme="dark"] .stage-header .ant-badge-count,
+[data-theme="dark"] .column-header .ant-badge-count {
+  color: #6a9eff !important;
+}
+
+/* ===== BOTONES SUPERIORES MODO OSCURO ===== */
+[data-theme="dark"] .ant-btn-default {
+  background: linear-gradient(145deg, #2a2a2a 0%, #222222 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #d0d0d0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .ant-btn-default:hover {
+  background: linear-gradient(145deg, #333333 0%, #2a2a2a 100%);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .ant-btn-primary {
+  background: linear-gradient(145deg, #3a3a3a 0%, #2d2d2d 100%);
+  border: 1px solid rgba(99, 148, 255, 0.2);
+  color: #ffffff;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .ant-btn-primary:hover {
+  background: linear-gradient(145deg, #444444 0%, #363636 100%);
+  border-color: rgba(99, 148, 255, 0.4);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(99, 148, 255, 0.2);
+}
+
+/* ===== CONTENT PRINCIPAL MODO OSCURO ===== */
+[data-theme="dark"] .sales-process-content {
+  background: #141414;
+}
+
+/* ===== TARJETA RESALTADA MODO OSCURO ===== */
+[data-theme="dark"] .client-card-highlighted {
+  background: linear-gradient(145deg, #1a2a3a 0%, #152535 100%) !important;
+  border: 2px solid rgba(99, 148, 255, 0.5) !important;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(99, 148, 255, 0.15) !important;
+}
+
+[data-theme="dark"] .client-card-highlighted .client-name {
+  color: #ffffff;
+  font-weight: bold;
 }
 
 

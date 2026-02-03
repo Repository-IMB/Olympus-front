@@ -27,18 +27,19 @@
 }
 
 .clienteCard {
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
   height: 100%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  background: #fff;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  background: var(--card-bg);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, background-color 0.3s ease;
 }
 
 .clienteCard:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   transform: translateY(-1px);
+  background: var(--card-bg);
 }
 
 /* Segunda columna - Contenido principal */
@@ -50,7 +51,7 @@
 }
 
 .contentCard {
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
   display: flex;
@@ -58,8 +59,8 @@
   gap: 16px;
   width: 100%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  background: #fff;
-  transition: box-shadow 0.2s ease;
+  background: var(--card-bg);
+  transition: box-shadow 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .oportunidadSection {
@@ -210,13 +211,13 @@
 
   .clienteCard {
     padding: 6px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
   .contentCard {
     padding: 6px;
     gap: 8px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
   .oportunidadSection,
@@ -252,11 +253,32 @@
   .clienteCard,
   .contentCard {
     padding: 4px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
   .oportunidadSection,
   .historialSection {
     gap: 6px;
   }
+}
+
+/* ===================================================================
+   DARK MODE - ESTILOS MODO OSCURO
+   =================================================================== */
+
+:global([data-theme="dark"]) .contentCard {
+  background: linear-gradient(145deg, #1a1a1a 0%, #141414 100%);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme="dark"]) .clienteCard {
+  background: linear-gradient(145deg, #1a1a1a 0%, #141414 100%);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme="dark"]) .clienteCard:hover {
+  background: linear-gradient(145deg, #1e1e1e 0%, #181818 100%);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }

@@ -44,7 +44,7 @@
 .select-client-search {
   margin-bottom: 12px;
   height: 36px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .select-client-search .ant-input {
@@ -90,7 +90,7 @@
 
 .client-card {
   margin-bottom: 10px;
-  border-radius: 4px;
+  border-radius: 6px;
   border: 1px solid #e8e8e8;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -142,7 +142,7 @@
   padding: 6px 8px;
   border-top: 1px solid #e8e8e8;
   background-color: #e6f4ff;
-  border-radius: 0 0 4px 4px;
+  border-radius: 0 0 6px 6px;
   margin: 6px -14px -12px -14px;
   text-align: center;
 }
@@ -156,7 +156,7 @@
 
 .create-new-client-button {
   height: 38px;
-  border-radius: 4px;
+  border-radius: 6px;
   background-color: #1677ff;
   border: none;
   font-size: 13px;
@@ -240,4 +240,103 @@
 .clientes-ac-popup {
   max-height: 400px;
   overflow-y: auto;
+}
+
+/* ===================================================================
+   DARK MODE - ESTILOS MODO OSCURO
+   =================================================================== */
+
+[data-theme="dark"] .select-client-modal .ant-modal-content {
+  background: linear-gradient(145deg, #1e1e1e 0%, #171717 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .select-client-modal .ant-modal-close-x {
+  color: #808080;
+}
+
+[data-theme="dark"] .select-client-modal .ant-modal-close-x:hover {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .select-client-title {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .select-client-search .ant-input {
+  background: linear-gradient(145deg, #252525 0%, #1e1e1e 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .select-client-search .ant-input::placeholder {
+  color: #606060;
+}
+
+[data-theme="dark"] .search-icon {
+  color: #808080;
+}
+
+[data-theme="dark"] .client-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .client-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #404040 0%, #2a2a2a 100%);
+}
+
+[data-theme="dark"] .client-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #505050 0%, #3a3a3a 100%);
+}
+
+[data-theme="dark"] .client-card {
+  background: linear-gradient(145deg, #1a1a1a 0%, #141414 100%);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .client-card:hover {
+  background: linear-gradient(145deg, #1a2a3a 0%, #152535 100%);
+  border-color: rgba(22, 119, 255, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .client-name {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .client-detail {
+  color: #808080;
+}
+
+[data-theme="dark"] .client-opportunities {
+  background: rgba(22, 119, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #6a9eff;
+}
+
+[data-theme="dark"] .no-results {
+  color: #808080;
+}
+
+[data-theme="dark"] .selected-client-card {
+  background: linear-gradient(145deg, #1a1a1a 0%, #141414 100%);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .selected-client-card:hover {
+  background: linear-gradient(145deg, #1a2a3a 0%, #152535 100%);
+  border-color: rgba(22, 119, 255, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .selected-client-name {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .selected-client-detail {
+  color: #808080;
+}
+
+[data-theme="dark"] .selected-client-detail strong {
+  color: #a0a0a0;
 }

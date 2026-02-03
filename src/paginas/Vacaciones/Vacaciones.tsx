@@ -479,7 +479,7 @@ export default function Vacaciones() {
             <Button className={estilos.btnLimpiar} onClick={limpiarFiltros}>
               Limpiar filtros
             </Button>
-            <Button type="primary" style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}>
+            <Button type="primary" className={estilos.btnNuevo}>
               Nuevo registro
             </Button>
           </div>

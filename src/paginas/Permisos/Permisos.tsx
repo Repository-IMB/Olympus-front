@@ -464,7 +464,7 @@ export default function Permisos() {
             <Button className={estilos.btnLimpiar} onClick={limpiarFiltros}>
               Limpiar filtros
             </Button>
-            <Button type="primary" style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }} onClick={handleNuevoRegistro}>
+            <Button type="primary" className={estilos.btnNuevo} onClick={handleNuevoRegistro}>
               Nuevo registro
             </Button>
           </div>

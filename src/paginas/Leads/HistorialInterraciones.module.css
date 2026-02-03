@@ -108,10 +108,27 @@
   border-radius: 8px;
   padding: 6px 8px;
   transition: all 0.2s ease;
+  border: none;
+  box-shadow: none;
 }
 
 .textAreaWrapper:hover {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Forzar que el textarea interno no tenga fondo blanco */
+.textAreaWrapper :global(.ant-input) {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.textAreaWrapper :global(.ant-input:focus),
+.textAreaWrapper :global(.ant-input:hover),
+.textAreaWrapper :global(.ant-input-focused) {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .sendButton {
@@ -308,7 +325,7 @@
 @media (max-width: 575px) {
   .mainCard {
     padding: 3px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
   .topBar {
@@ -335,7 +352,7 @@
 
   .textAreaWrapper {
     padding: 4px 5px;
-    border-radius: 4px;
+    border-radius: 6px;
     width: 100%;
   }
 
@@ -375,4 +392,220 @@
   .sendButton {
     height: 28px;
   }
+}
+
+/* ===================================================================
+   DARK MODE - ESTILOS MODO OSCURO
+   =================================================================== */
+
+:global([data-theme="dark"]) .mainCard {
+  background: linear-gradient(145deg, #1a1a1a 0%, #141414 100%);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+:global([data-theme="dark"]) .searchInput {
+  background: linear-gradient(145deg, #252525 0%, #1e1e1e 100%);
+}
+
+:global([data-theme="dark"]) .searchInput:hover {
+  background: linear-gradient(145deg, #2a2a2a 0%, #222222 100%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme="dark"]) .filterButton {
+  background: linear-gradient(145deg, #252525 0%, #1e1e1e 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #6a9eff;
+}
+
+:global([data-theme="dark"]) .filterButton:hover {
+  background: linear-gradient(145deg, #2a2a2a 0%, #222222 100%);
+  border-color: rgba(99, 148, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(99, 148, 255, 0.2);
+}
+
+:global([data-theme="dark"]) .interaccionCard:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme="dark"]) .textAreaWrapper {
+  background: linear-gradient(145deg, #252525 0%, #1e1e1e 100%);
+}
+
+:global([data-theme="dark"]) .textAreaWrapper:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme="dark"]) .dateTimeControls {
+  background: linear-gradient(145deg, #1e1e1e 0%, #171717 100%);
+}
+
+/* ===================================================================
+   ESTILOS PARA MENSAJES DEL HISTORIAL
+   =================================================================== */
+
+.mensajeHistorial {
+  border-radius: 8px;
+  padding: 8px 10px;
+  transition: all 0.2s ease;
+}
+
+.mensajeHistorial:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Textos de mensajes */
+.textoMensaje {
+  color: #0D0C11;
+}
+
+.textoFecha {
+  color: #5D5D5D;
+}
+
+.textoRecordatorio {
+  color: #000;
+}
+
+/* Indicadores de estado */
+.indicadorActivo {
+  color: #389e0d;
+}
+
+.indicadorDesactivado {
+  color: #a61d24;
+}
+
+/* Botón desactivar */
+.botonDesactivar {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+}
+
+/* Colores para modo claro */
+.mensajeNota {
+  background: #FFF7B3;
+}
+
+.mensajeWhatsapp {
+  background: #DBFFD2;
+}
+
+.mensajeRecordatorio {
+  background: #DCDCDC;
+}
+
+.mensajeDesuscrito {
+  background: #FFCDCD;
+}
+
+/* ===================================================================
+   DARK MODE - MENSAJES DEL HISTORIAL
+   =================================================================== */
+
+:global([data-theme="dark"]) .mensajeNota {
+  background: linear-gradient(145deg, #4a4520 0%, #3d3a1a 100%);
+  border: 1px solid rgba(255, 247, 179, 0.2);
+}
+
+:global([data-theme="dark"]) .mensajeWhatsapp {
+  background: linear-gradient(145deg, #1e4a1a 0%, #183d15 100%);
+  border: 1px solid rgba(37, 211, 102, 0.2);
+}
+
+:global([data-theme="dark"]) .mensajeRecordatorio {
+  background: linear-gradient(145deg, #3a3a3a 0%, #2d2d2d 100%);
+  border: 1px solid rgba(220, 220, 220, 0.15);
+}
+
+:global([data-theme="dark"]) .mensajeDesuscrito {
+  background: linear-gradient(145deg, #4a2020 0%, #3d1a1a 100%);
+  border: 1px solid rgba(255, 77, 79, 0.2);
+}
+
+:global([data-theme="dark"]) .mensajeHistorial:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Textos en modo oscuro */
+:global([data-theme="dark"]) .mensajeHistorial .textoMensaje {
+  color: #e0e0e0 !important;
+}
+
+:global([data-theme="dark"]) .mensajeHistorial .textoFecha {
+  color: #a0a0a0 !important;
+}
+
+:global([data-theme="dark"]) .mensajeHistorial .textoRecordatorio {
+  color: #f0f0f0 !important;
+}
+
+/* Botón desactivar en modo oscuro */
+:global([data-theme="dark"]) .botonDesactivar {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #e0e0e0 !important;
+}
+
+:global([data-theme="dark"]) .botonDesactivar:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Indicadores de estado en modo oscuro */
+:global([data-theme="dark"]) .indicadorActivo {
+  color: #52c41a !important;
+}
+
+:global([data-theme="dark"]) .indicadorDesactivado {
+  color: #ff6b6b !important;
+}
+
+/* Lista de mensajes en modo oscuro */
+:global([data-theme="dark"]) .listContainer {
+  scrollbar-color: #404040 #1a1a1a;
+}
+
+:global([data-theme="dark"]) .listContainer::-webkit-scrollbar {
+  width: 6px;
+}
+
+:global([data-theme="dark"]) .listContainer::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 3px;
+}
+
+:global([data-theme="dark"]) .listContainer::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 3px;
+}
+
+:global([data-theme="dark"]) .listContainer::-webkit-scrollbar-thumb:hover {
+  background: #505050;
+}
+
+/* Botón enviar en modo oscuro */
+:global([data-theme="dark"]) .sendButton {
+  background: linear-gradient(145deg, #1a5cc9 0%, #1450b0 100%);
+}
+
+:global([data-theme="dark"]) .sendButton:hover {
+  background: linear-gradient(145deg, #1e68dd 0%, #1858c2 100%);
+  box-shadow: 0 4px 12px rgba(30, 104, 221, 0.4);
+}
+
+/* Dividers en modo oscuro */
+:global([data-theme="dark"]) .container :global(.ant-divider) {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Input placeholder en modo oscuro */
+:global([data-theme="dark"]) .textAreaWrapper :global(.ant-input)::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .textAreaWrapper :global(.ant-input) {
+  color: #e0e0e0 !important;
 }

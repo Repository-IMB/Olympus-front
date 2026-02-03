@@ -387,6 +387,7 @@ const [total, setTotal] = useState<number>(0);
       title: "Fecha y Hora",
       dataIndex: "fechaCreacion",
       key: "fechaCreacion",
+      responsive: ["md"],
       sorter: (a, b) => new Date(a.fechaCreacion).getTime() - new Date(b.fechaCreacion).getTime(),
       render: (fechaCreacion: string) => (
         <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
@@ -420,6 +421,7 @@ const [total, setTotal] = useState<number>(0);
       title: "Correo",
       dataIndex: "personaCorreo",
       key: "personaCorreo",
+      responsive: ["md"],
       render: (personaCorreo: string) => personaCorreo || "-",
     },
     {
@@ -452,6 +454,7 @@ const [total, setTotal] = useState<number>(0);
       title: "Código LinkedIn",
       dataIndex: "codigoLinkedin",
       key: "codigoLinkedin",
+      responsive: ["md"],
       sorter: (a: Opportunity, b: Opportunity) =>
         (a.codigoLinkedin || "").localeCompare(b.codigoLinkedin || ""),
       render: (codigo: string) =>
@@ -508,6 +511,7 @@ const [total, setTotal] = useState<number>(0);
       title: "Asesor",
       dataIndex: "personalNombre",
       key: "personalNombre",
+      responsive: ["md"],
       sorter: (a, b) => (a.personalNombre || "").localeCompare(b.personalNombre || ""),
       render: (val) => val || "-",
     },
@@ -624,9 +628,10 @@ const [total, setTotal] = useState<number>(0);
         ) : (
           <Table
             columns={columns}
-            dataSource={allData} 
+            dataSource={allData}
             rowKey="id"
             loading={loading}
+            scroll={{ x: 'max-content' }}
             onRow={(record) => ({
                 id: `row-${record.id}`,
                 style: record.id.toString() === highlightedId ? {

@@ -472,7 +472,7 @@ export default function Personal() {
             <Button className={estilos.btnLimpiar} onClick={limpiarFiltros}>
               Limpiar filtros
             </Button>
-            <Button type="primary" style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}>Nuevo alumno</Button>
+            <Button type="primary" className={estilos.btnNuevo}>Nuevo personal</Button>
           </div>
         </div>
 

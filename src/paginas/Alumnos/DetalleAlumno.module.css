@@ -27,12 +27,14 @@
 
 .label {
   font-weight: 600;
-  color: #777676;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .value {
-    font-weight: 600;
-  color: #262626;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
 }
 
 .actions {
@@ -76,6 +78,22 @@
   background-color: #1f1f1f !important;
   border-color: #1f1f1f !important;
   color: #ffffff !important;
+}
+
+/* ===================================================================
+   DARK MODE - ESTILOS MODO OSCURO
+   =================================================================== */
+
+:global([data-theme="dark"]) .darkButton,
+:global([data-theme="dark"]) .iconDarkButton {
+  background: linear-gradient(145deg, #333333 0%, #262626 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+:global([data-theme="dark"]) .darkButton:hover,
+:global([data-theme="dark"]) .iconDarkButton:hover {
+  background: linear-gradient(145deg, #404040 0%, #333333 100%) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 

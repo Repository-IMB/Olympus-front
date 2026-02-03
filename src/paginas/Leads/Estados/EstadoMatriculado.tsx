@@ -17,6 +17,7 @@ import moment, { type Moment } from "moment";
 import { crearHistorialConOcurrencia } from "../../../config/rutasApi";
 import api from "../../../servicios/api";
 import { jwtDecode } from "jwt-decode";
+import "./EstadoMatriculado.css";
 
 const { Text } = Typography;
 
@@ -83,6 +84,17 @@ const EstadoMatriculado: React.FC<{
   const [puedeConvertir, setPuedeConvertir] = useState<boolean>(false);
   const [errorModal, setErrorModal] = useState<string | null>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
+
+  // Estados para la sección de inversión
+  const [costoTotal, setCostoTotal] = useState<number>(0);
+  const [descuentoPorcentaje, setDescuentoPorcentaje] = useState<number>(0);
+  const [descuentoConfirmado, setDescuentoConfirmado] = useState<boolean>(false);
+  const [cargandoInversion, setCargandoInversion] = useState<boolean>(false);
+  const [idProducto, setIdProducto] = useState<number | null>(null);
+
+  // Calcular el total con descuento
+  const descuentoMonto = (costoTotal * descuentoPorcentaje) / 100;
+  const costoFinal = costoTotal - descuentoMonto;
 
   // Nuevo flag: si llegamos a Convertido DESDE Cobranza (para ocultar método y bloquear confirmar)
   const [arrivedFromCobranza, setArrivedFromCobranza] =
@@ -245,6 +257,93 @@ const EstadoMatriculado: React.FC<{
     }
   };
 
+  // Función para obtener datos de inversión completos
+  const obtenerDatosInversion = async (idOportunidad: number) => {
+    try {
+      setCargandoInversion(true);
+      const token = getCookie("token");
+      const res = await api.get(
+        `/api/VTAModVentaProducto/DetallePorOportunidad/${idOportunidad}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = res.data;
+      const inversiones = data?.inversiones;
+      const producto = data?.producto;
+
+      if (producto?.id) {
+        setIdProducto(producto.id);
+      }
+
+      if (inversiones && inversiones.length > 0) {
+        const inv = inversiones[0];
+        setCostoTotal(Number(inv.costoTotal ?? 0));
+        setDescuentoPorcentaje(Number(inv.descuentoPorcentaje ?? 0));
+        // Si ya hay un descuento aplicado previamente, considerarlo confirmado
+        if (Number(inv.descuentoPorcentaje ?? 0) > 0) {
+          setDescuentoConfirmado(true);
+        }
+      }
+    } catch (err) {
+      console.debug("obtenerDatosInversion error", err);
+    } finally {
+      setCargandoInversion(false);
+    }
+  };
+
+  // Función para guardar el descuento
+  const guardarDescuento = async () => {
+    if (!idProducto || !oportunidadId) {
+      setErrorValidacion("Faltan datos necesarios para guardar el descuento");
+      return;
+    }
+
+    try {
+      const token = getCookie("token");
+      const decoded: any = jwtDecode(token || "");
+      const usuario = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] || "SYSTEM";
+
+      const payload = {
+        idProducto,
+        idOportunidad: oportunidadId,
+        DescuentoPorcentaje: descuentoPorcentaje,
+        UsuarioModificacion: usuario,
+      };
+
+      await api.post("/api/VTAModVentaInversion/ActualizarCostoOfrecido", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setDescuentoConfirmado(true);
+      setExitoMensaje("Descuento confirmado correctamente");
+
+      // Emitir evento para actualizar otros componentes
+      window.dispatchEvent(
+        new CustomEvent("costoOfrecidoActualizado", {
+          detail: { oportunidadId: String(oportunidadId), costoOfrecido: costoFinal },
+        })
+      );
+
+      // Emitir evento específico para actualizar sección de inversión en InformacionProducto
+      window.dispatchEvent(
+        new CustomEvent("descuentoActualizado", {
+          detail: { oportunidadId: String(oportunidadId), costoOfrecido: costoFinal },
+        })
+      );
+    } catch (error: any) {
+      setErrorValidacion(error?.response?.data?.message || "Error al guardar el descuento");
+    }
+  };
+
+  // Cargar datos de inversión al montar el componente
+  useEffect(() => {
+    if (oportunidadId) {
+      obtenerDatosInversion(oportunidadId);
+    }
+  }, [oportunidadId]);
+
   const mapearCuotas = (listaBackend: any[]): CuotaRow[] => {
     const hoy = moment().startOf("day");
 
@@ -292,6 +391,8 @@ const EstadoMatriculado: React.FC<{
     setIdPlan(plan.id);
     setNumCuotas(String(plan.numCuotas));
     setBloquearSelect(true);
+    // Si ya existe un plan, el descuento ya fue confirmado
+    setDescuentoConfirmado(true);
 
     const cuotasNormalizadas = mapearCuotas(plan.cuotas);
     setCuotas(cuotasNormalizadas);
@@ -879,16 +980,15 @@ const EstadoMatriculado: React.FC<{
     onClick?: () => void;
     children?: React.ReactNode;
   }> = ({ selected, disabled = false, onClick, children }) => {
-    const [hover, setHover] = useState(false);
-    const base = selected ? "#B8F3B8" : "#D1D1D1";
-    const hoverColor = "#A7E8A7";
-    const computedBg = disabled ? "#F0F0F0" : hover ? hoverColor : base;
+    const classNames = [
+      "tab-button",
+      selected ? "active" : "",
+      disabled ? "disabled" : ""
+    ].filter(Boolean).join(" ");
 
     return (
       <div
-        style={{ ...buttonStyle(computedBg, hoverColor, disabled) }}
-        onMouseEnter={() => !disabled && setHover(true)}
-        onMouseLeave={() => !disabled && setHover(false)}
+        className={classNames}
         onClick={() => {
           if (disabled) return;
           if (onClick) onClick();
@@ -905,16 +1005,7 @@ const EstadoMatriculado: React.FC<{
   // RENDER
   // ======================================================
   return (
-    <div
-      style={{
-        background: "#F0F0F0",
-        borderRadius: 12,
-        padding: 16,
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-      }}
-    >
+    <div className="estado-matriculado-container">
       {/* TABS */}
       <Row justify="space-between" align="middle">
         <Text style={{ fontSize: 12 }}>Ocurrencia:</Text>
@@ -964,39 +1055,88 @@ const EstadoMatriculado: React.FC<{
         </Space>
       </Row>
 
-      <div
-        style={{
-          background: "#ECECEC",
-          borderRadius: 10,
-          padding: "6px 8px",
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-        }}
-      >
-        <InfoCircleOutlined style={{ fontSize: 12 }} />
-        <Text style={{ fontSize: 9 }}>
+      <div className="estado-matriculado-info">
+        <InfoCircleOutlined />
+        <Text>
           Para pasar a Convertido el cliente debe completar sus pagos.
         </Text>
       </div>
 
       {tabActivo === "cobranza" ? (
-        <div style={{ background: "#FFF", borderRadius: 12, padding: 16 }}>
+        <div className="estado-matriculado-section">
           <Text strong>Cobranza</Text>
-          <Space className="spaceCenter" direction="vertical" style={{ marginTop: 10, width: "100%" }}>
-            <Select
-              value={numCuotas}
-              options={[
-                { value: "", label: "Seleccionar" },
-                ...Array.from({ length: 12 }, (_, i) => ({
-                  value: (i + 1).toString(),
-                  label: `${i + 1}`,
-                })),
-              ]}
-              onChange={(v) => activo && setNumCuotas(v)}
-              disabled={!activo || bloquearSelect}
-              style={{ width: "100%" }}
-            />
+
+          {/* Sección de Inversión */}
+          <div style={{ marginTop: 12, marginBottom: 16 }}>
+            <div className="inversion-row">
+              <Text className="inversion-label">Costo total del producto:</Text>
+              <Text strong>$ {costoTotal.toFixed(0)}</Text>
+            </div>
+
+            <div className="inversion-row">
+              <Text className="inversion-label">Descuento:</Text>
+              <Input
+                value={descuentoPorcentaje}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "") {
+                    setDescuentoPorcentaje(0);
+                    return;
+                  }
+                  if (!/^\d+$/.test(value)) return;
+                  const porcentaje = parseInt(value, 10);
+                  if (porcentaje > 100) return;
+                  setDescuentoPorcentaje(porcentaje);
+                  setDescuentoConfirmado(false);
+                }}
+                suffix="%"
+                disabled={!activo || descuentoConfirmado}
+                style={{ width: 100, fontSize: 13 }}
+              />
+            </div>
+
+            <div className="inversion-row" style={{ marginBottom: 12 }}>
+              <Text className="inversion-label">Total:</Text>
+              <Text strong>$ {costoFinal.toFixed(0)}</Text>
+            </div>
+
+            <div style={{ textAlign: "center" }}>
+              <Popconfirm
+                title="¿Está seguro de confirmar este descuento?"
+                okText="Sí"
+                cancelText="No"
+                onConfirm={guardarDescuento}
+                disabled={descuentoConfirmado}
+              >
+                <Button
+                  type="primary"
+                  disabled={!activo || descuentoConfirmado}
+                  style={{ marginBottom: 12 }}
+                >
+                  {descuentoConfirmado ? "Descuento confirmado" : "Confirmar descuento"}
+                </Button>
+              </Popconfirm>
+            </div>
+          </div>
+
+          {/* Sección de número de cuotas - solo visible después de confirmar descuento */}
+          {descuentoConfirmado && (
+            <>
+              <Text style={{ fontSize: 12 }}>Selecciona número de cuotas:</Text>
+              <Space className="spaceCenter" direction="vertical" style={{ marginTop: 10, width: "100%" }}>
+                <Select
+                  value={numCuotas}
+                  options={[
+                    { value: "", label: "Seleccione..." },
+                    ...Array.from({ length: 12 }, (_, i) => ({
+                      value: (i + 1).toString(),
+                      label: `${i + 1}`,
+                    })),
+                  ]}
+                  onChange={(v) => activo && setNumCuotas(v)}
+                  disabled={!activo || bloquearSelect}
+                  style={{ width: "100%" }}
+                />
 
             <div
               style={{
@@ -1071,24 +1211,6 @@ const EstadoMatriculado: React.FC<{
             scroll={{ x: 650 }}
           />
 
-          {/* MENSAJE DE ERROR */}
-          {errorValidacion && (
-            <div style={{ textAlign: "center", marginTop: 8 }}>
-              <Text style={{ color: "#ff4d4f", fontSize: 11 }}>
-                {errorValidacion}
-              </Text>
-            </div>
-          )}
-
-          {/* MENSAJE DE ÉXITO */}
-          {exitoMensaje && (
-            <div style={{ textAlign: "center", marginTop: 6 }}>
-              <Text style={{ color: "#0F6B32", fontSize: 11, fontWeight: 600 }}>
-                {exitoMensaje}
-              </Text>
-            </div>
-          )}
-
           <div style={{ textAlign: "center", marginTop: 8 }}>
             <Popconfirm
               title={
@@ -1111,10 +1233,30 @@ const EstadoMatriculado: React.FC<{
               </Button>
             </Popconfirm>
           </div>
+            </>
+          )}
+
+          {/* MENSAJE DE ERROR */}
+          {errorValidacion && (
+            <div style={{ textAlign: "center", marginTop: 8 }}>
+              <Text style={{ color: "#ff4d4f", fontSize: 11 }}>
+                {errorValidacion}
+              </Text>
+            </div>
+          )}
+
+          {/* MENSAJE DE ÉXITO */}
+          {exitoMensaje && (
+            <div style={{ textAlign: "center", marginTop: 6 }}>
+              <Text style={{ color: "#0F6B32", fontSize: 11, fontWeight: 600 }}>
+                {exitoMensaje}
+              </Text>
+            </div>
+          )}
         </div>
       ) : (
         // VISTA CONVERTIDO
-        <div style={{ background: "#FFF", borderRadius: 12, padding: 16 }}>
+        <div className="estado-matriculado-section">
           <Text strong>Convertido</Text>
 
           {exitoMensaje && (

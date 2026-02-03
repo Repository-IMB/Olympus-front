@@ -713,6 +713,7 @@ export default function Dashboard() {
                   <Card
                     size="small"
                     bordered={false}
+                    className={a.llamadasPorDia < 5 ? "alerta-critico-severo" : "alerta-critico-moderado"}
                     style={{
                       background: s.bg,
                       borderRadius: 8,
@@ -790,7 +791,7 @@ export default function Dashboard() {
           <Col xs={12} md={6}>
             <Card>
               <Title level={5}>Top performers</Title>
-              <Title level={3} style={{ color: "#389e0d" }}>
+              <Title level={3} className="dashboard-color-green" style={{ color: "#389e0d" }}>
                 {resumen.top}
               </Title>
             </Card>
@@ -799,7 +800,7 @@ export default function Dashboard() {
           <Col xs={12} md={6}>
             <Card>
               <Title level={5}>Críticos</Title>
-              <Title level={3} style={{ color: "#cf1322" }}>
+              <Title level={3} className="dashboard-color-red" style={{ color: "#cf1322" }}>
                 {resumen.critico}
               </Title>
             </Card>
@@ -818,7 +819,7 @@ export default function Dashboard() {
           <Col xs={12} md={6}>
             <Card>
               <Title level={5}>Convertidos</Title>
-              <Title level={3} style={{ color: "#389e0d" }}>
+              <Title level={3} className="dashboard-color-green" style={{ color: "#389e0d" }}>
                 {resumenBackend.totalConvertidos}
               </Title>
             </Card>
@@ -827,7 +828,7 @@ export default function Dashboard() {
           <Col xs={12} md={6}>
             <Card>
               <Title level={5}>Cobranza</Title>
-              <Title level={3} style={{ color: "#fa8c16" }}>
+              <Title level={3} className="dashboard-color-orange" style={{ color: "#fa8c16" }}>
                 {resumenBackend.totalCobranza}
               </Title>
             </Card>
@@ -966,6 +967,7 @@ export default function Dashboard() {
                       </div>
 
                       <div
+                        className="dashboard-progress-bar"
                         style={{
                           background: "#f0f0f0",
                           borderRadius: 6,
