@@ -274,6 +274,7 @@ export default function ModalProducto({
             <Form.Item
               label="Fecha de presentación"
               name="fechaPresentacion"
+              rules={[{ required: true, message: "Seleccione un responsable" }]}
             >
               <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
             </Form.Item>
@@ -293,7 +294,7 @@ export default function ModalProducto({
             </Form.Item>
 
             {/* 🟢 CAMPO SELECT PERSONAL */}
-            <Form.Item label="Personal responsable" name="personalCreacion">
+            <Form.Item label="Personal responsable" name="personalCreacion" rules={[{ required: true, message: "Seleccione un responsable" }]}>
                <Select 
                  placeholder="Selecciona personal por Nombre, apellido o DNI"
                  showSearch

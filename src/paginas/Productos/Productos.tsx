@@ -1,4 +1,5 @@
 import { Table, Button, Input, Space, Tag, Tooltip, message, Modal, Spin, Select } from "antd";
+import moment from "moment";
 import { SearchOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -149,6 +150,7 @@ export default function Productos() {
             'codigoLanzamiento': 'CodigoLanzamiento',
             'departamentoNombre': 'DepartamentoNombre',
             'personalNombre': 'PersonalNombre',
+            'fechaPresentacion': 'FechaPresentacion',
             'horasSincronicas': 'HorasSincronicas',
             'estadoProductoTipoNombre': 'EstadoProductoTipoNombre'
         };
@@ -294,6 +296,16 @@ export default function Productos() {
       key: "personalNombre", 
       sorter: true,
       render: (v: string | undefined) => v ?? "-" 
+    },
+    { 
+      title: "Fecha presentación", 
+      dataIndex: "fechaPresentacion", 
+      key: "fechaPresentacion", 
+      sorter: true,
+      render: (fecha: string | undefined) => {
+        if (!fecha) return "-";
+        return moment(fecha).format("DD/MM/YYYY");
+      }
     },
     { 
       title: "Horas en vivo", 

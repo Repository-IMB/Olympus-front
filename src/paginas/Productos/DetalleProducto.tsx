@@ -54,8 +54,8 @@ export default function DetalleProducto() {
   const [syncLoading, setSyncLoading] = useState(false);
   const [feriados, setFeriados] = useState<FeriadoDTO[]>([]);
   const [fechaCalendario, setFechaCalendario] = useState<moment.Moment>(moment());
-  
   const [modulosDisponibles, setModulosDisponibles] = useState<any[]>([]);
+  const [errorAsignacion, setErrorAsignacion] = useState<string | null>(null);
 
   const recargarTodo = async () => {
       if (!id) return;
@@ -84,11 +84,10 @@ export default function DetalleProducto() {
                               s => !s.esAsincronica && s.estado
                           ).length;
                           
-                          // 🟢 IMPORTANTE: Guardamos 'sesionesDetalle' en el objeto módulo
                           return {
                               ...modulo,
                               sesionesSincronicas,
-                              sesionesDetalle: sesionesActualizadas // <--- ESTO ES LA CLAVE
+                              sesionesDetalle: sesionesActualizadas
                           };
                       } catch (error) {
                           console.error(`❌ [${index}] Error cargando sesiones:`, error);
@@ -387,6 +386,70 @@ export default function DetalleProducto() {
     cargarFeriadosDelContexto();
   }, [modulos]);
 
+  // 🟢 2. EFECTO DE VALIDACIÓN DE FECHAS EN EL MODAL (CORREGIDO)
+  useEffect(() => {
+    if (!moduloBuscado || modulos.length === 0) {
+      setErrorAsignacion(null);
+      return;
+    }
+
+    // A. Módulo nuevo
+    const moduloSeleccionadoParaAsignar = modulosDisponibles.find(m => m.id === moduloBuscado);
+    if (!moduloSeleccionadoParaAsignar || !moduloSeleccionadoParaAsignar.fechaInicio) {
+        return; 
+    }
+    const fechaInicioNuevo = moment(moduloSeleccionadoParaAsignar.fechaInicio).utc().startOf('day');
+
+    // B. Buscar la Fecha Fin REAL más lejana de los módulos ya asignados
+    let ultimaFechaFin: moment.Moment | null = null;
+    let nombreUltimoModulo = "";
+
+    modulos.forEach(m => {
+        // 1. Intentamos sacar la fecha real de las sesiones (si existen)
+        let fechaFinModulo: moment.Moment | null = null;
+
+        if ((m as any).sesionesDetalle && (m as any).sesionesDetalle.length > 0) {
+             const fechasSesiones = (m as any).sesionesDetalle
+                .filter((s: any) => s.estado && (s.fecha || s.fechaSesion))
+                .map((s: any) => moment.utc(s.fecha || s.fechaSesion));
+             
+             if (fechasSesiones.length > 0) {
+                 fechaFinModulo = moment.max(fechasSesiones);
+             }
+        }
+
+        // 2. Si no hay sesiones cargadas, usamos el cálculo teórico (fallback)
+        if (!fechaFinModulo) {
+            const { fechaFin } = calcularCronograma(m);
+            fechaFinModulo = fechaFin;
+        }
+
+        // 3. Comparamos para encontrar el máximo global
+        if (fechaFinModulo) {
+            if (!ultimaFechaFin || fechaFinModulo.isAfter(ultimaFechaFin)) {
+                ultimaFechaFin = fechaFinModulo;
+                nombreUltimoModulo = m.moduloNombre || m.nombre || "Módulo existente";
+            }
+        }
+    });
+
+    // C. Validar superposición
+    if (ultimaFechaFin) {
+        // Si el nuevo empieza ANTES o el MISMO DÍA que la última sesión del anterior
+        if (fechaInicioNuevo.isSameOrBefore(ultimaFechaFin)) {
+            setErrorAsignacion(
+                `⚠️ Conflicto de fechas: El nuevo módulo inicia el ${fechaInicioNuevo.format("DD/MM/YYYY")}, ` +
+                `pero se superpone con "${nombreUltimoModulo}" que termina el ${ultimaFechaFin.format("DD/MM/YYYY")}.`
+            );
+        } else {
+            setErrorAsignacion(null);
+        }
+    } else {
+        setErrorAsignacion(null);
+    }
+
+  }, [moduloBuscado, modulos, modulosDisponibles]);
+
   /* =========================
      HANDLERS
   ========================= */
@@ -404,6 +467,7 @@ export default function DetalleProducto() {
         message.success("Módulo asignado correctamente");
         setModalAsignarVisible(false);
         setModuloBuscado(null);
+        setErrorAsignacion(null);
         await recargarTodo();
       } else {
         message.error(response.mensaje || "Error al asignar el módulo");
@@ -512,12 +576,12 @@ export default function DetalleProducto() {
       title: 'Fecha de Fin',
       key: 'fechaFin', 
       render: (_: any, record: Modulo) => {
-        if (record.fechaFin) {
-            return <Tag color="blue">{moment(record.fechaFin).utc().format('DD/MM/YYYY')}</Tag>;
-        }
-        const { fechaFin } = calcularCronograma(record);
-        if (fechaFin) {
-            return <Tag color="orange">{fechaFin.format('DD/MM/YYYY')}</Tag>;
+        // 🟢 USAMOS LA FUNCIÓN DE CÁLCULO REAL
+        // Esto asegura que la tabla coincida con el calendario y reaccione a cambios de sesiones
+        const fechaTexto = calcularFechaFinReal(record);
+        
+        if (fechaTexto && fechaTexto !== '-') {
+            return <Tag color="blue">{fechaTexto}</Tag>;
         }
         return '-';
       }
@@ -582,6 +646,56 @@ export default function DetalleProducto() {
     const str = h.toString();
     if (str.includes('T')) return moment(str).format('HH:mm');
     return str.substring(0, 5);
+  };
+
+  // 🟢 NUEVO: Busca la fecha de la última sesión real registrada
+  const calcularFechaFinReal = (modulo: any): string => {
+    // A. Si hay sesiones reales cargadas, buscamos la fecha más alta
+    if (modulo.sesionesDetalle && Array.isArray(modulo.sesionesDetalle) && modulo.sesionesDetalle.length > 0) {
+        // Obtenemos todas las fechas válidas
+        const fechas = modulo.sesionesDetalle
+            .filter((s: any) => s.estado && (s.fecha || s.fechaSesion))
+            .map((s: any) => moment(s.fecha || s.fechaSesion));
+
+        if (fechas.length > 0) {
+            // moment.max encuentra la fecha mayor del array
+            const fechaMax = moment.max(fechas);
+            return fechaMax.utc().format('DD/MM/YYYY');
+        }
+    }
+
+    // B. Fallback: Si no hay sesiones, usamos el cálculo estimado original
+    const { fechaFin } = calcularCronograma(modulo);
+    return fechaFin ? fechaFin.format('DD/MM/YYYY') : '-';
+  };
+
+  // 🟢 NUEVO: Calcula la duración sumando las sesiones reales cargadas
+  const calcularDuracionReal = (modulo: any): number => {
+    // A. Si tenemos las sesiones detalladas cargadas (Estrategia precisa)
+    if (modulo.sesionesDetalle && Array.isArray(modulo.sesionesDetalle)) {
+      let minutosTotales = 0;
+      
+      modulo.sesionesDetalle.forEach((s: any) => {
+        // Solo sumamos sesiones activas y sincrónicas
+        if (s.estado && !s.esAsincronica && s.horaInicio && s.horaFin) {
+           // Moment es inteligente: acepta HH:mm:ss o HH:mm
+           const ini = moment(s.horaInicio, ["HH:mm:ss", "HH:mm"]);
+           const fin = moment(s.horaFin, ["HH:mm:ss", "HH:mm"]);
+           
+           if (ini.isValid() && fin.isValid()) {
+             const duracion = fin.diff(ini, 'minutes');
+             minutosTotales += Math.max(0, duracion);
+           }
+        }
+      });
+
+      if (minutosTotales > 0) {
+        return Number((minutosTotales / 60).toFixed(2));
+      }
+    }
+
+    // B. Fallback: Si no hay sesiones cargadas, usamos el dato de la BD
+    return modulo.duracionHoras || modulo.horasSincronicas || 0;
   };
 
   // Función auxiliar para el fallback (lógica antigua)
@@ -819,65 +933,14 @@ export default function DetalleProducto() {
                         <span style={{ color: '#262626', fontWeight: 500 }}>{moduloSeleccionado.fechaInicio ? moment(moduloSeleccionado.fechaInicio).utc().format('DD/MM/YYYY') : '-'}</span>
                         <span style={{ color: '#8c8c8c', marginLeft: 24 }}>Fecha Final:</span>{" "}
                         <span style={{ color: '#262626', fontWeight: 500 }}>
-                            {(() => {
-                                const { fechaFin } = calcularCronograma(moduloSeleccionado);
-                                return fechaFin ? fechaFin.format('DD/MM/YYYY') : '-';
-                            })()}
+                            {calcularFechaFinReal(moduloSeleccionado)}
                         </span>
                      </div>
                      <div style={{ marginBottom: 8 }}>
                         <span style={{ color: '#8c8c8c' }}>Duración:</span>{" "}
                         <span style={{ color: '#262626', fontWeight: 500 }}>
-                          {(() => {
-                             // 1. Obtenemos las fechas exactas del cronograma calculado
-                             const { fechas } = calcularCronograma(moduloSeleccionado);
-                             if (!fechas || fechas.length === 0) return '0';
-
-                             // 2. Obtenemos el mapa de horarios por día (para detectar si el sábado es distinto)
-                             // (Usamos la función parsearDetalleHorarios que ya tienes en el componente)
-                             const detalleStr = (moduloSeleccionado as any).detalleHorarios || "";
-                             const mapaHorarios = parsearDetalleHorarios(detalleStr);
-
-                             // 3. Definimos horas por defecto (buscando en todas las propiedades posibles)
-                             const defInicio = moduloSeleccionado.horaInicioSync 
-                                            || (moduloSeleccionado as any).horaInicio 
-                                            || (moduloSeleccionado as any).HoraInicio
-                                            || "00:00:00";
-                                            
-                             const defFin = moduloSeleccionado.horaFinSync 
-                                         || (moduloSeleccionado as any).horaFin 
-                                         || (moduloSeleccionado as any).HoraFin
-                                         || "00:00:00";
-
-                             let minutosTotales = 0;
-
-                             // 4. Sumamos sesión por sesión
-                             fechas.forEach(f => {
-                                 const diaSemana = moment(f.fecha).day(); // 0=Dom, 6=Sab
-                                 
-                                 let hIniStr = defInicio;
-                                 let hFinStr = defFin;
-
-                                 // Si hay un horario específico configurado para este día (ej: Sábado), lo usamos
-                                 if (mapaHorarios[diaSemana]) {
-                                     hIniStr = mapaHorarios[diaSemana].inicio;
-                                     hFinStr = mapaHorarios[diaSemana].fin;
-                                 }
-
-                                 // Parseamos con moment (acepta varios formatos por seguridad)
-                                 const mIni = moment(hIniStr, ["HH:mm:ss", "HH:mm", "YYYY-MM-DDTHH:mm:ss"]);
-                                 const mFin = moment(hFinStr, ["HH:mm:ss", "HH:mm", "YYYY-MM-DDTHH:mm:ss"]);
-                                 
-                                 if (mIni.isValid() && mFin.isValid()) {
-                                     const diff = mFin.diff(mIni, 'minutes');
-                                     minutosTotales += Math.max(0, diff);
-                                 }
-                             });
-
-                             // 5. Convertimos a horas y mostramos
-                             const horas = minutosTotales / 60;
-                             return horas > 0 ? Number(horas.toFixed(2)) : '-';
-                          })()} horas
+                          {/* 🟢 USAMOS LA NUEVA FUNCIÓN DE CÁLCULO */}
+                          {calcularDuracionReal(moduloSeleccionado)} horas
                         </span>
                       </div>
                      <div>
@@ -938,21 +1001,58 @@ export default function DetalleProducto() {
           <Modal
             title="Gestionar módulos"
             open={modalAsignarVisible}
-            onCancel={() => setModalAsignarVisible(false)}
+            onCancel={() => {
+                setModalAsignarVisible(false);
+                setModuloBuscado(null);
+                setErrorAsignacion(null); // 🟢 3. LIMPIAR ERROR AL CERRAR
+            }}
             footer={[
                 <Button key="close" onClick={() => setModalAsignarVisible(false)}>Cerrar</Button>,
-                <Button key="save" type="primary" onClick={handleAsignarModulo} disabled={!moduloBuscado}>Asignar</Button>
+                <Button 
+                    key="save" 
+                    type="primary" 
+                    onClick={handleAsignarModulo} 
+                    // 🟢 4. DESHABILITAR SI HAY ERROR
+                    disabled={!moduloBuscado || !!errorAsignacion}
+                    danger={!!errorAsignacion} 
+                >
+                    Asignar
+                </Button>
             ]}
           >
-             <Select 
-                showSearch 
-                style={{width:'100%'}} 
-                placeholder="Buscar módulo por nombre" 
-                onChange={setModuloBuscado}
-                filterOption={(input, option) => (option?.children as unknown as string).toLowerCase().includes(input.toLowerCase())}
-             >
-                {modulosDisponibles.map(m => <Select.Option key={m.id} value={m.id}>{m.nombre}</Select.Option>)}
-             </Select>
+             <div style={{ marginBottom: 16 }}>
+                 <Select 
+                    showSearch 
+                    style={{width:'100%'}} 
+                    placeholder="Buscar módulo por nombre" 
+                    onChange={setModuloBuscado}
+                    value={moduloBuscado}
+                    filterOption={(input, option) => (option?.children as unknown as string).toLowerCase().includes(input.toLowerCase())}
+                 >
+                    {modulosDisponibles.map(m => (
+                        <Select.Option key={m.id} value={m.id}>
+                            {m.nombre} {m.fechaInicio ? `(${moment(m.fechaInicio).utc().format("DD/MM/YYYY")})` : ''}
+                        </Select.Option>
+                    ))}
+                 </Select>
+             </div>
+
+             {/* 🟢 5. MOSTRAR MENSAJE DE ERROR EN EL MODAL */}
+             {errorAsignacion && (
+                 <div style={{ 
+                     backgroundColor: '#fff2f0', 
+                     border: '1px solid #ffccc7', 
+                     padding: '10px', 
+                     borderRadius: '4px', 
+                     color: '#cf1322',
+                     fontSize: '13px',
+                     display: 'flex',
+                     alignItems: 'center',
+                     gap: '8px'
+                 }}>
+                     {errorAsignacion}
+                 </div>
+             )}
           </Modal>
 
           <ModalProducto
