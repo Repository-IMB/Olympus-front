@@ -25,6 +25,7 @@
   margin: 0 0 20px 0;
   line-height: 1.2;
   font-family: 'Georgia', 'Times New Roman', serif;
+  color: white;
 }
 
 .onboarding-hero-content p {
@@ -33,6 +34,7 @@
   margin: 0;
   opacity: 0.95;
   font-weight: 300;
+  color: white;
 }
 
 /* Main Container */

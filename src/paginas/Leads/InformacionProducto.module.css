@@ -9,12 +9,12 @@
 
 .title {
   margin: 8px 0 0 0;
-  color: #252C35;
+  color: var(--text-primary);
   transition: all 0.2s ease;
 }
 
 .outerContainer {
-  background: #F0F0F0;
+  background: var(--hover-bg);
   border-radius: 10px;
   padding: 10px;
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -51,12 +51,12 @@
 }
 
 .contentCard {
-  background: #FFFFFF;
+  background: var(--card-bg);
   border-radius: 10px;
   height: 420px;
   overflow-y: auto;
   position: relative;
-  border: 1px solid #DCDCDC;
+  border: 1px solid var(--border-color);
   scroll-behavior: smooth;
   transition: all 0.3s ease;
 }
@@ -76,13 +76,13 @@
   padding: 8px;
   border-radius: 6px;
   cursor: pointer;
-  background: #FFFFFF;
+  background: var(--card-bg);
   transition: all 0.2s ease;
   min-height: 44px;
 }
 
 .clickableBox:hover {
-  background: #F7F7F7;
+  background: var(--hover-bg);
   transform: translateX(4px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -174,12 +174,12 @@
   }
 
   .tabCard {
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
   .clickableBox {
     padding: 6px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 }
 
@@ -233,4 +233,30 @@
   .clickableBox {
     padding: 4px;
   }
+}
+
+/* ===================================================================
+   DARK MODE - ESTILOS MODO OSCURO
+   =================================================================== */
+
+:global([data-theme="dark"]) .outerContainer {
+  background: linear-gradient(145deg, #1a1a1a 0%, #141414 100%);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme="dark"]) .contentCard {
+  background: linear-gradient(145deg, #1e1e1e 0%, #171717 100%);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+:global([data-theme="dark"]) .tabCard {
+  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme="dark"]) .tabCard:hover {
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme="dark"]) .clickableBox:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }

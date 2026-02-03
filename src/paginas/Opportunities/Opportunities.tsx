@@ -29,8 +29,8 @@ import styles from "./Opportunities.module.css";
 import type { ColumnsType } from "antd/es/table";
 
 const { Content } = Layout;
-const { Option } = Select;
 const { RangePicker } = DatePicker;
+const { Option } = Select;
 
 interface TokenData {
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
@@ -45,6 +45,7 @@ interface Opportunity {
   codigoLinkedin?: string;
   fechaCreacion: string;
   personaCorreo: string;
+  personaTelefono?: string;
   personalNombre: string;
   pais: string;
   totalMarcaciones?: number;
@@ -94,8 +95,16 @@ export default function OpportunitiesInterface() {
   const token = getCookie("token");
   const [searchParams, setSearchParams] = useSearchParams();
 
-  //const [totalRecords, setTotalRecords] = useState<number>(0);
-  //const [totalPages, setTotalPages] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState(
+    Number(searchParams.get("page")) || 1
+  );
+
+  const [pageSize, setPageSize] = useState(
+    Number(searchParams.get("pageSize")) || 10
+  );
+
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(0);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [filterPais, setFilterPais] = useState<string>(searchParams.get("pais") || "Todos");
@@ -119,14 +128,6 @@ const [total, setTotal] = useState<number>(0);
   const [dateRange, setDateRange] = useState<
     [Moment | null, Moment | null] | null
   >(null);
-
-  const [currentPage, setCurrentPage] = useState(
-    Number(searchParams.get("page")) || 1,
-  );
-
-  const [pageSize, setPageSize] = useState(
-    Number(searchParams.get("pageSize")) || 10,
-  );
 
   const [searchText, setSearchText] = useState(
     searchParams.get("search") || "",
@@ -386,6 +387,7 @@ const [total, setTotal] = useState<number>(0);
       title: "Fecha y Hora",
       dataIndex: "fechaCreacion",
       key: "fechaCreacion",
+      responsive: ["md"],
       sorter: (a, b) => new Date(a.fechaCreacion).getTime() - new Date(b.fechaCreacion).getTime(),
       render: (fechaCreacion: string) => (
         <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
@@ -419,6 +421,7 @@ const [total, setTotal] = useState<number>(0);
       title: "Correo",
       dataIndex: "personaCorreo",
       key: "personaCorreo",
+      responsive: ["md"],
       render: (personaCorreo: string) => personaCorreo || "-",
     },
     {
@@ -426,8 +429,8 @@ const [total, setTotal] = useState<number>(0);
       dataIndex: "personaTelefono",
       key: "personaTelefono",
       sorter: (a: Opportunity, b: Opportunity) =>
-        (a.personaCorreo || "").localeCompare(b.personaCorreo || ""),
-      render: (personaCorreo: string) => personaCorreo || "-",
+        (a.personaTelefono || "").localeCompare(b.personaTelefono || ""),
+      render: (personaTelefono: string) => personaTelefono || "-",
     },
     {
       title: "Estado",
@@ -451,6 +454,7 @@ const [total, setTotal] = useState<number>(0);
       title: "Código LinkedIn",
       dataIndex: "codigoLinkedin",
       key: "codigoLinkedin",
+      responsive: ["md"],
       sorter: (a: Opportunity, b: Opportunity) =>
         (a.codigoLinkedin || "").localeCompare(b.codigoLinkedin || ""),
       render: (codigo: string) =>
@@ -507,6 +511,7 @@ const [total, setTotal] = useState<number>(0);
       title: "Asesor",
       dataIndex: "personalNombre",
       key: "personalNombre",
+      responsive: ["md"],
       sorter: (a, b) => (a.personalNombre || "").localeCompare(b.personalNombre || ""),
       render: (val) => val || "-",
     },
@@ -623,9 +628,10 @@ const [total, setTotal] = useState<number>(0);
         ) : (
           <Table
             columns={columns}
-            dataSource={allData} 
+            dataSource={allData}
             rowKey="id"
             loading={loading}
+            scroll={{ x: 'max-content' }}
             onRow={(record) => ({
                 id: `row-${record.id}`,
                 style: record.id.toString() === highlightedId ? {

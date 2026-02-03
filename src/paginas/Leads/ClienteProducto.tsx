@@ -149,16 +149,25 @@ const ProductoDetalle: React.FC = () => {
             const phone = persona.celular ? String(persona.celular).replace(/\s+/g, "") : "";
             const telefonoConcatenado = prefix || phone ? `${prefix}${phone}` : "-";
 
-            return [
+            const campos: [string, string][] = [
               ["Nombre", persona.nombres || "-"],
               ["Apellidos", persona.apellidos || "-"],
               ["Teléfono", telefonoConcatenado],
               ["País", persona.pais || "-"],
               ["Correo", persona.correo || "-"],
-              ["Área de trabajo", persona.areaTrabajo || "-"],
-              ["Desuscrito", potencialData?.desuscrito ? "Sí" : "No"],
-              ["Industria", persona.industria || "-"],
-            ].map(([label, value], i) => (
+            ];
+
+            if (persona.areaTrabajo) {
+              campos.push(["Área de trabajo", persona.areaTrabajo]);
+            }
+
+            campos.push(["Desuscrito", potencialData?.desuscrito ? "Sí" : "No"]);
+
+            if (persona.industria) {
+              campos.push(["Industria", persona.industria]);
+            }
+
+            return campos.map(([label, value], i) => (
               <div
                 key={i}
                 style={{

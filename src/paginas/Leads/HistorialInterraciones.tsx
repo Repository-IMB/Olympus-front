@@ -474,7 +474,10 @@ const HistorialInteracciones: React.FC = () => {
           <div className={styles.inputContainer}>
             <div
               className={styles.textAreaWrapper}
-              style={{ background: colores[tipoSeleccionado] }}
+              style={{
+                background: colores[tipoSeleccionado],
+                border: "none"
+              }}
             >
               <Input.TextArea
                 placeholder="Escriba una nota"
@@ -488,6 +491,7 @@ const HistorialInteracciones: React.FC = () => {
                   fontSize: 12,
                   fontWeight: 600,
                   resize: "none",
+                  color: "#0D0C11",
                 }}
               />
             </div>
@@ -587,18 +591,20 @@ const HistorialInteracciones: React.FC = () => {
                 const recordatorioDesactivado =
                   tipo === "recordatorio" && item?.estado === false;
 
+                const clasesTipo: Record<string, string> = {
+                  nota: styles.mensajeNota,
+                  whatsapp: styles.mensajeWhatsapp,
+                  recordatorio: styles.mensajeRecordatorio,
+                  desuscrito: styles.mensajeDesuscrito,
+                };
+
                 return (
-                  <Card
+                  <div
                     key={item.id}
-                    size="small"
+                    className={`${styles.mensajeHistorial} ${clasesTipo[tipo] || styles.mensajeNota}`}
                     style={{
-                      background: colores[tipo],
-                      border: `1px solid ${colores[tipo]}`,
-                      borderRadius: 6,
-                      padding: 4,
                       opacity: recordatorioDesactivado ? 0.65 : 1,
                     }}
-                    bodyStyle={{ padding: 4 }}
                   >
                     {/* BOTÓN ARRIBA IZQUIERDA SOLO PARA RECORDATORIO */}
                     {tipo === "recordatorio" && (
@@ -613,7 +619,7 @@ const HistorialInteracciones: React.FC = () => {
                         {item.estado === true ? (
                           <>
                             {/* INDICADOR ACTIVO */}
-                            <div
+                            <div className={styles.indicadorActivo}
                               style={{
                                 fontSize: 10,
                                 fontWeight: 700,
@@ -626,6 +632,7 @@ const HistorialInteracciones: React.FC = () => {
                             {/* BOTÓN DESACTIVAR (SIN CONFIRMACIÓN) */}
                             <Button
                               size="small"
+                              className={styles.botonDesactivar}
                               icon={<StopOutlined />}
                               onClick={() => handleDesactivarRecordatorio(item)}
                               style={{
@@ -640,7 +647,7 @@ const HistorialInteracciones: React.FC = () => {
                           </>
                         ) : (
                           /* INDICADOR DESACTIVADO */
-                          <div
+                          <div className={styles.indicadorDesactivado}
                             style={{
                               fontSize: 10,
                               fontWeight: 700,
@@ -656,10 +663,10 @@ const HistorialInteracciones: React.FC = () => {
                     <div style={{ textAlign: "right" }}>
                       {tipo === "recordatorio" && fechaRecordatorioBonita && (
                         <div
+                          className={styles.textoRecordatorio}
                           style={{
                             fontSize: 11,
                             fontWeight: 600,
-                            color: "#000",
                             marginBottom: 2,
                           }}
                         >
@@ -668,8 +675,8 @@ const HistorialInteracciones: React.FC = () => {
                       )}
 
                       <Text
+                        className={styles.textoMensaje}
                         style={{
-                          color: "#0D0C11",
                           fontSize: 11,
                           display: "block",
                           whiteSpace: "pre-line",
@@ -678,11 +685,11 @@ const HistorialInteracciones: React.FC = () => {
                         {item.detalle}
                       </Text>
 
-                      <Text style={{ fontSize: 10, color: "#5D5D5D" }}>
+                      <Text className={styles.textoFecha} style={{ fontSize: 10 }}>
                         {fechaCreacion} – {item.nombrePersonal ?? "—"}
                       </Text>
                     </div>
-                  </Card>
+                  </div>
                 );
               })
           ) : (

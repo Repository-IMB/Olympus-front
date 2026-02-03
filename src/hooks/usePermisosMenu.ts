@@ -6,6 +6,7 @@ export type PermisosMenu = {
   desarrollo: boolean;
   logistica: boolean;
   usuarios: boolean;
+  recursosHumanos: boolean;
 };
 
 const normalizar = (valor?: string) =>
@@ -22,6 +23,7 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         desarrollo: false,
         logistica: false,
         usuarios: false,
+        recursosHumanos: false,
       };
     }
 
@@ -37,6 +39,7 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         desarrollo: true,
         logistica: true,
         usuarios: true,
+        recursosHumanos: true,
       };
     }
 
@@ -48,6 +51,7 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         desarrollo: false,
         logistica: false,
         usuarios: ROLES_CON_USUARIOS.includes(rol),
+        recursosHumanos: false,
       };
     }
 
@@ -59,6 +63,7 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         desarrollo: ["supervisor", "coordinador"].includes(rol),
         logistica: false,
         usuarios: ROLES_CON_USUARIOS.includes(rol),
+        recursosHumanos: false,
       };
     }
 
@@ -70,6 +75,19 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
         desarrollo: false,
         logistica: true,
         usuarios: ROLES_CON_USUARIOS.includes(rol),
+        recursosHumanos: false,
+      };
+    }
+
+    // ================= RECURSOS HUMANOS =================
+    if (["rrhh", "recursos humanos"].includes(area)) {
+      return {
+        leads: false,
+        asignacion: false,
+        desarrollo: false,
+        logistica: false,
+        usuarios: ROLES_CON_USUARIOS.includes(rol),
+        recursosHumanos: true,
       };
     }
 
@@ -80,6 +98,7 @@ export function usePermisosMenu(userContext: any): PermisosMenu {
       desarrollo: false,
       logistica: false,
       usuarios: false,
+      recursosHumanos: false,
     };
   }, [userContext]);
 }

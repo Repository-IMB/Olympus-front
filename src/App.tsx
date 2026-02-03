@@ -14,6 +14,8 @@ import LoginPage from "./paginas/Login/Login";
 import ForgotPasswordPage from "./paginas/ForgotPassword/ForgotPasswordPage";
 import ResetPasswordPage from "./paginas/ResetPassword/ResetPasswordPage";
 import Forbidden from "./paginas/Forbidden";
+import EnrollmentForm from "./paginas/Form/EnrollmentForm";
+import OnboardingForm from "./paginas/Form/OnboardingForm";
 
 // Layout / guards
 import MainLayout from "./layouts/MainLayout";
@@ -44,6 +46,13 @@ import DetalleModulo from "./paginas/Modulos/DetalleModulo";
 import DetalleAlumno from "./paginas/Alumnos/DetalleAlumno";
 import Dashboard from "./paginas/Dashboard/Dashboard";
 
+// RRHH
+import Personal from "./paginas/Personal/Personal";
+import Contratos from "./paginas/Contratos/Contratos";
+import Permisos from "./paginas/Permisos/Permisos";
+import Vacaciones from "./paginas/Vacaciones/Vacaciones";
+import Asistencia from "./paginas/Asistencia/Asistencia";
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,7 +72,7 @@ function App() {
       }
     };
 
-    const publicRoutes = ["/login", "/forgot-password", "/reset-password"];
+    const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/enrollment", "/onboarding"];
 
     const logout = () => {
       document.cookie =
@@ -127,6 +136,8 @@ const checkToken = () => {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/403" element={<Forbidden />} />
+      <Route path="/enrollment" element={<EnrollmentForm />} />
+      <Route path="/onboarding" element={<OnboardingForm />} />
 
       {/* Privadas */}
       <Route element={<PrivateRoute />}>
@@ -192,6 +203,22 @@ const checkToken = () => {
               </ProtectedContent>
             }
           />
+
+          {/* ======================= RRHH (BLOQUE) ======================= */}
+          <Route
+            path="/rrhh/*"
+            element={
+              <ProtectedContent permiso="recursosHumanos">
+                <Outlet />
+              </ProtectedContent>
+            }
+          >
+            <Route path="personal" element={<Personal />} />
+            <Route path="contratos" element={<Contratos />} />
+            <Route path="permisos" element={<Permisos />} />
+            <Route path="vacaciones" element={<Vacaciones />} />
+            <Route path="asistencia" element={<Asistencia />} />
+          </Route>
         </Route>
       </Route>
 

@@ -269,6 +269,7 @@ export default function Alumnos() {
             <Input
               placeholder="Buscar por nombre, DNI o correo"
               prefix={<SearchOutlined />}
+              className={estilos.searchInput}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
             />
@@ -277,6 +278,7 @@ export default function Alumnos() {
           <div className={estilos.actions}>
             <Button
               type="primary"
+              className={estilos.btnNuevo}
               onClick={() => setModalCrearVisible(true)}
             >
               Nuevo alumno
@@ -286,23 +288,24 @@ export default function Alumnos() {
         </div>
 
         <div className={`${estilos.toolbar} ${estilos.filtersRow}`}>
-          <Select allowClear placeholder="Curso" onChange={setCurso}>
+          <Select allowClear placeholder="Curso" className={estilos.filterSelect} onChange={setCurso}>
             <Option value="PROG-101">Programación</Option>
             <Option value="MKT-301">Marketing</Option>
           </Select>
 
-          <Select allowClear placeholder="Módulo" onChange={setModulo}>
+          <Select allowClear placeholder="Módulo" className={estilos.filterSelect} onChange={setModulo}>
             <Option value="Introducción">Introducción</Option>
             <Option value="SQL Avanzado">SQL Avanzado</Option>
           </Select>
 
-          <Select allowClear placeholder="Departamento" onChange={setDepartamento}>
+          <Select allowClear placeholder="Departamento" className={estilos.filterSelect} onChange={setDepartamento}>
             <Option value="Sistemas">Sistemas</Option>
             <Option value="Marketing">Marketing</Option>
           </Select>
 
           <RangePicker
             value={dateRange}
+            className={estilos.filterSelect}
             onChange={(dates) =>
               setDateRange(dates as [Moment | null, Moment | null] | null)
             }

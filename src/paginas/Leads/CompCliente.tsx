@@ -259,12 +259,16 @@ export default function ModalEditarCliente({ id, onUpdated, onCelularObtenido }:
             <div>
               <strong>Correo:</strong> {cliente.correo || "-"}
             </div>
-            <div>
-              <strong>Área de trabajo:</strong> {cliente.areaTrabajo || "-"}
-            </div>
-            <div>
-              <strong>Industria:</strong> {cliente.industria || "-"}
-            </div>
+            {cliente.areaTrabajo && (
+              <div>
+                <strong>Área de trabajo:</strong> {cliente.areaTrabajo}
+              </div>
+            )}
+            {cliente.industria && (
+              <div>
+                <strong>Industria:</strong> {cliente.industria}
+              </div>
+            )}
             {potencialData && potencialData.desuscrito !== undefined && (
               <div>
                 <strong>Desuscrito:</strong> {potencialData.desuscrito ? "Sí" : "No"}

@@ -511,15 +511,6 @@ export default function HistorialInteraccion() {
           >
             <Space size={4}>
               <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
-                Código lanzamiento:
-              </Text>
-              <Text style={{ color: "#0D0C11", fontSize: 14 }}>
-                {codigoLanzamiento}
-              </Text>
-            </Space>
-
-            <Space size={4}>
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
                 Código Linkedin:
               </Text>
               <Text style={{ color: "#0D0C11", fontSize: 14 }}>
@@ -543,40 +534,6 @@ export default function HistorialInteraccion() {
               <Text style={{ color: "rgba(0,0,0,0.85)", fontSize: 14 }}>
                 {formatearFecha(fechaCreacion)}
               </Text>
-            </Space>
-
-            <Space size={4} align="center">
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
-                Estado:
-              </Text>
-              <Tag
-                style={{
-                  background: "#BAD4FF",
-                  color: "#000",
-                  fontSize: 12,
-                  borderRadius: 4,
-                  padding: "0 10px",
-                }}
-              >
-                {estado}
-              </Tag>
-            </Space>
-
-            <Space size={4} align="center">
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
-                Marcaciones:
-              </Text>
-              <Tag
-                style={{
-                  background: "#FFCDCD",
-                  color: "#000",
-                  fontSize: 12,
-                  borderRadius: 4,
-                  padding: "0 8px",
-                }}
-              >
-                {marcaciones}
-              </Tag>
             </Space>
 
             <Space size={4}>
@@ -801,7 +758,6 @@ export default function HistorialInteraccion() {
           <Button
             onClick={handleSiguiente}
             disabled={!tieneSiguiente}
-            icon={<RightOutlined />}
             style={{
               backgroundColor: "#000000",
               color: "#FFFFFF",
@@ -812,7 +768,7 @@ export default function HistorialInteraccion() {
               fontWeight: 500,
             }}
           >
-            Siguiente oportunidad
+            Siguiente oportunidad <RightOutlined />
           </Button>
         </div>
       </div>

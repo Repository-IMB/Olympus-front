@@ -73,18 +73,11 @@ const SalesCard = memo(({ sale, highlightedId }: { sale: Opportunity; highlighte
     <Card
       id={`card-${sale.id}`}
       size="small"
-      className="client-card"
+      className={`client-card ${isHighlighted ? "client-card-highlighted" : ""}`}
       onClick={handleClick}
-      style={{ 
-        cursor: "pointer",
-        border: isHighlighted ? "2px solid #1677ff" : "1px solid #f0f0f0",
-        backgroundColor: isHighlighted ? "#e6f7ff" : "#ffffff",
-        transition: "all 0.3s ease",
-        transform: isHighlighted ? "scale(1.02)" : "scale(1)",
-        boxShadow: isHighlighted ? "0 4px 12px rgba(22, 119, 255, 0.3)" : undefined
-      }}
+      style={{ cursor: "pointer" }}
     >
-      <div className="client-name" style={{ fontWeight: isHighlighted ? "bold" : "normal" }}>
+      <div className="client-name">
         {sale.personaNombre}
       </div>
 
@@ -202,6 +195,7 @@ export default function SalesProcess() {
     convertido: [],
   }); */
   
+  // Estado para las oportunidades
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("");
@@ -275,89 +269,84 @@ useEffect(() => {
       setLoading(true);
       setError(null);
 
+      console.log("🔍 SalesProcess - Parámetros:", { idUsuario, idRol });
+
       const res = await api.get(
-        "/api/VTAModVentaOportunidad/ObtenerSalesProcess",
-        { params: { idUsuario, idRol } }
-      );
-
-        console.log("📡 API RAW:", res.data);
-        // Extraemos todas las listas que vienen dentro de salesData
-        const list1 = Object.values(res.data?.salesData || {}).flat();
-        // Extraemos todas las listas que vienen dentro de otrosEstados
-        const list2 = Object.values(res.data?.otrosEstados || {}).flat();
-
-        const raw: any[] = [...list1, ...list2];
-
-        console.log("📦 Oportunidades extraídas (Corregido):", raw.length);
-
-        // ✅ Usar Map para mejor rendimiento
-        const grouped = new Map<number, Opportunity>();
-        const recordatoriosSet = new Map<number, Set<number>>();
-
-        // ✅ Procesamiento optimizado en un solo loop
-        for (const row of raw) {
-          const opportunityId = Number(row.idOportunidad ?? row.id ?? 0);
-          if (!opportunityId) continue;
-
-          // Crear oportunidad si no existe
-          if (!grouped.has(opportunityId)) {
-            grouped.set(opportunityId, {
-              id: opportunityId,
-              personaNombre: row.personaNombre,
-              nombreEstado: row.nombreEstado,
-              nombreOcurrencia: row.nombreOcurrencia,
-              productoNombre: row.productoNombre,
-              fechaCreacion: row.fechaCreacion,
-              nombrePais: row.nombrePais,
-              recordatorios: row.recordatorios,
-            });
-            recordatoriosSet.set(opportunityId, new Set());
-          }
-
-          // Procesar recordatorio
-          const idRec =
-            row.idHistorialInteraccion ??
-            row.idRecordatorio ??
-            row.idReminder ??
-            row.pnId ??
-            row.pnIdHis ??
-            row.idHis;
-
-          const fecRec =
-            row.fechaRecordatorio ??
-            row.dFechaRecordatorio ??
-            row.fecha ??
-            row.reminderDate ??
-            row.dFecRec;
-
-          // Usar Set para evitar duplicados (más rápido que .some())
-          if (idRec && fecRec) {
-            const idR = Number(idRec);
-            const recordatoriosSeen = recordatoriosSet.get(opportunityId)!;
-
-            if (!recordatoriosSeen.has(idR)) {
-              recordatoriosSeen.add(idR);
-              grouped.get(opportunityId)!.recordatorios.push({
-                idRecordatorio: idR,
-                fecha: String(fecRec),
-              });
-            }
+        "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
+        {
+          params: {
+            idUsuario,
+            idRol,
+            page: 1,
+            pageSize: 1000, // Traer muchos registros para vista de proceso
+            search: null,
+            estadoFiltro: null,
+            asesorFiltro: null,
+            fechaInicio: null,
+            fechaFin: null
           }
         }
+      );
 
-        // ✅ Ordenar recordatorios solo una vez al final
-        const opportunities = Array.from(grouped.values());
-        opportunities.forEach((op) => {
-          if (op.recordatorios.length > 0) {
-            op.recordatorios.sort(
-              (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-            );
+      console.log("✅ SalesProcess - Respuesta completa:", res.data);
+      console.log("📊 SalesProcess - Oportunidades recibidas:", res.data?.oportunidad);
+
+        const raw = res.data?.oportunidad || [];
+
+        console.log("📦 Total registros recibidos:", raw.length);
+
+        // ✅ Mapear directamente - el endpoint paginado ya devuelve 1 registro por oportunidad
+        const opportunitiesList: Opportunity[] = raw.map((op: any) => {
+          // Parsear recordatorios del JSON
+          let recordatorios: Recordatorio[] = [];
+
+          if (op.recordatoriosJson) {
+            try {
+              const parsed = JSON.parse(op.recordatoriosJson);
+              recordatorios = parsed.map((r: any) => ({
+                idRecordatorio: r.IdRecordatorio ?? r.idRecordatorio ?? 0,
+                fecha: r.FechaRecordatorio ?? r.fechaRecordatorio ?? "",
+              }));
+
+              // Ordenar por fecha
+              recordatorios.sort(
+                (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+              );
+            } catch (e) {
+              console.error("Error parseando recordatorios para oportunidad", op.id, e);
+              recordatorios = [];
+            }
           }
+
+          // Si nombreOcurrencia no viene, usar un valor por defecto basado en nombreEstado
+          let nombreOcurrencia = op.nombreOcurrencia ?? op.ocurrencia ?? "";
+
+          if (!nombreOcurrencia) {
+            // Inferir ocurrencia si no viene
+            const estado = op.nombreEstado ?? "";
+            if (estado === "Promesa") {
+              nombreOcurrencia = "Normal"; // Valor por defecto para promesas normales
+            }
+          }
+
+          return {
+            id: Number(op.id ?? 0),
+            personaNombre: op.personaNombre ?? "",
+            nombreEstado: op.nombreEstado ?? "",
+            nombreOcurrencia,
+            productoNombre: op.productoNombre ?? "",
+            fechaCreacion: op.fechaCreacion ?? "",
+            recordatorios,
+          };
         });
-        console.log("✅ Oportunidades procesadas:", opportunities.length);
-        setOpportunities(opportunities);
+
+        console.log("✅ Oportunidades procesadas:", opportunitiesList.length);
+
+        setOpportunities(opportunitiesList);
       } catch (e: any) {
-        console.error("Error al obtener oportunidades", e);
+        console.error("❌ Error al obtener oportunidades:", e);
+        console.error("❌ Error response:", e?.response);
+        console.error("❌ Error data:", e?.response?.data);
         setError(
           e?.response?.data?.message ??
           "Error al obtener SalesProcess"
@@ -367,6 +356,7 @@ useEffect(() => {
     }
   }
 
+    fetchSalesProcess();
     fetchSalesProcess();
   }, [idUsuario, idRol]);
 
@@ -640,10 +630,10 @@ useEffect(() => {
 
   return (
     <Layout style={{ height: "100vh" }}>
-      <Content style={{ padding: "20px", background: "#f5f5f5" }}>
+      <Content className="sales-process-content" style={{ padding: "20px" }}>
         <div style={{ marginBottom: "20px", display: "flex", justifyContent: "flex-end", gap: "10px" }}>
           {userRole !== "Asesor" && (
-            <Button onClick={() => setIsSelectClientModalVisible(true)}>Agregar Oportunidad</Button>
+            <Button style={{ borderRadius: "6px" }} onClick={() => setIsSelectClientModalVisible(true)}>Agregar Oportunidad</Button>
           )}
           <Button type="primary" style={{ background: "#1f1f1f", borderColor: "#1f1f1f", borderRadius: "6px" }}>Vista de Proceso</Button>
           <Button style={{ borderRadius: "6px" }} onClick={() => navigate("/leads/Opportunities")}>Vista de Tabla</Button>
@@ -712,7 +702,7 @@ useEffect(() => {
                 ))}
               </div>
             </div>
-            <div className="other-states-grid">
+            <div className={`other-states-grid ${activeFilter === "todos" ? "filter-todos-active" : ""}`}>
               {activeFilter === "todos" ? (
                 Object.entries(otrosEstados)
                   .filter(

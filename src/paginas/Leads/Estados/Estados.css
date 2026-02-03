@@ -1,0 +1,246 @@
+/* ===================================================================
+   ESTILOS COMPARTIDOS PARA COMPONENTES DE ESTADOS
+   =================================================================== */
+
+/* ===== BOTONES DE ACCIÓN (OCURRENCIAS) ===== */
+.estado-action-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1.5px 4px rgba(0, 0, 0, 0.12);
+  transition: all 0.14s ease;
+  min-width: 92px;
+  text-align: center;
+  display: inline-block;
+  user-select: none;
+}
+
+.estado-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+.estado-action-btn:active {
+  transform: translateY(0);
+}
+
+.estado-action-btn.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Colores de botones por tipo */
+.estado-action-btn.amarillo {
+  background: #F3E896;
+  color: #0D0C11;
+}
+
+.estado-action-btn.amarillo:hover:not(.disabled) {
+  background: #e6db7e;
+}
+
+.estado-action-btn.verde {
+  background: #B8F3B8;
+  color: #0D0C11;
+}
+
+.estado-action-btn.verde:hover:not(.disabled) {
+  background: #a3e8a3;
+}
+
+.estado-action-btn.rojo {
+  background: #F7B1B1;
+  color: #0D0C11;
+}
+
+.estado-action-btn.rojo:hover:not(.disabled) {
+  background: #f09999;
+}
+
+.estado-action-btn.azul {
+  background: #9CBDFD;
+  color: #0D0C11;
+}
+
+.estado-action-btn.azul:hover:not(.disabled) {
+  background: #85acf7;
+}
+
+.estado-action-btn.gris {
+  background: #D1D1D1;
+  color: #0D0C11;
+}
+
+.estado-action-btn.gris:hover:not(.disabled) {
+  background: #c0c0c0;
+}
+
+/* ===== CONTENEDOR DE ESTADOS ===== */
+.estado-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.estado-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.estado-label {
+  font-size: 12px;
+  color: #666;
+  min-width: 80px;
+}
+
+/* ===================================================================
+   DARK MODE - ESTILOS MODO OSCURO
+   =================================================================== */
+
+/* Contenedor de estados */
+[data-theme="dark"] .estado-container {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .estado-label {
+  color: #a0a0a0;
+}
+
+/* Botones de acción en modo oscuro */
+[data-theme="dark"] .estado-action-btn {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .estado-action-btn.amarillo {
+  background: linear-gradient(145deg, #4a4520 0%, #3a3518 100%);
+  color: #f3e896;
+  border: 1px solid rgba(243, 232, 150, 0.3);
+}
+
+[data-theme="dark"] .estado-action-btn.amarillo:hover:not(.disabled) {
+  background: linear-gradient(145deg, #5a5528 0%, #4a4520 100%);
+}
+
+[data-theme="dark"] .estado-action-btn.verde {
+  background: linear-gradient(145deg, #2d4a2d 0%, #1f3a1f 100%);
+  color: #90ee90;
+  border: 1px solid rgba(144, 238, 144, 0.3);
+}
+
+[data-theme="dark"] .estado-action-btn.verde:hover:not(.disabled) {
+  background: linear-gradient(145deg, #365a36 0%, #2a4a2a 100%);
+}
+
+[data-theme="dark"] .estado-action-btn.rojo {
+  background: linear-gradient(145deg, #4a2020 0%, #3a1818 100%);
+  color: #ff9999;
+  border: 1px solid rgba(247, 177, 177, 0.3);
+}
+
+[data-theme="dark"] .estado-action-btn.rojo:hover:not(.disabled) {
+  background: linear-gradient(145deg, #5a2828 0%, #4a2020 100%);
+}
+
+[data-theme="dark"] .estado-action-btn.azul {
+  background: linear-gradient(145deg, #203a5a 0%, #182a4a 100%);
+  color: #9cbdfd;
+  border: 1px solid rgba(156, 189, 253, 0.3);
+}
+
+[data-theme="dark"] .estado-action-btn.azul:hover:not(.disabled) {
+  background: linear-gradient(145deg, #284a6a 0%, #203a5a 100%);
+}
+
+[data-theme="dark"] .estado-action-btn.gris {
+  background: linear-gradient(145deg, #2a2a2a 0%, #222222 100%);
+  color: #a0a0a0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .estado-action-btn.gris:hover:not(.disabled) {
+  background: linear-gradient(145deg, #333333 0%, #2a2a2a 100%);
+}
+
+[data-theme="dark"] .estado-action-btn.disabled {
+  background: #1a1a1a !important;
+  color: #505050 !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Estilos para botones inline con style attribute (fallback) */
+[data-theme="dark"] div[role="button"][style*="background: rgb(243, 232, 150)"],
+[data-theme="dark"] div[role="button"][style*="background:#F3E896"] {
+  background: linear-gradient(145deg, #4a4520 0%, #3a3518 100%) !important;
+  color: #f3e896 !important;
+  border: 1px solid rgba(243, 232, 150, 0.3) !important;
+}
+
+[data-theme="dark"] div[role="button"][style*="background: rgb(184, 243, 184)"],
+[data-theme="dark"] div[role="button"][style*="background:#B8F3B8"] {
+  background: linear-gradient(145deg, #2d4a2d 0%, #1f3a1f 100%) !important;
+  color: #90ee90 !important;
+  border: 1px solid rgba(144, 238, 144, 0.3) !important;
+}
+
+[data-theme="dark"] div[role="button"][style*="background: rgb(247, 177, 177)"],
+[data-theme="dark"] div[role="button"][style*="background:#F7B1B1"] {
+  background: linear-gradient(145deg, #4a2020 0%, #3a1818 100%) !important;
+  color: #ff9999 !important;
+  border: 1px solid rgba(247, 177, 177, 0.3) !important;
+}
+
+[data-theme="dark"] div[role="button"][style*="background: rgb(156, 189, 253)"],
+[data-theme="dark"] div[role="button"][style*="background:#9CBDFD"] {
+  background: linear-gradient(145deg, #203a5a 0%, #182a4a 100%) !important;
+  color: #9cbdfd !important;
+  border: 1px solid rgba(156, 189, 253, 0.3) !important;
+}
+
+[data-theme="dark"] div[role="button"][style*="background: rgb(209, 209, 209)"],
+[data-theme="dark"] div[role="button"][style*="background:#D1D1D1"] {
+  background: linear-gradient(145deg, #2a2a2a 0%, #222222 100%) !important;
+  color: #a0a0a0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] div[role="button"][style*="background: rgb(240, 240, 240)"],
+[data-theme="dark"] div[role="button"][style*="background:#F0F0F0"] {
+  background: #1a1a1a !important;
+  color: #505050 !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+}
+
+/* ===================================================================
+   RESPONSIVE
+   =================================================================== */
+
+@media (max-width: 767px) {
+  .estado-action-btn {
+    min-width: 80px;
+    font-size: 12px;
+    padding: 5px 8px;
+  }
+
+  .estado-label {
+    font-size: 11px;
+    min-width: 70px;
+  }
+}
+
+@media (max-width: 575px) {
+  .estado-action-btn {
+    min-width: 70px;
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+
+  .estado-label {
+    font-size: 10px;
+    min-width: 60px;
+  }
+}
