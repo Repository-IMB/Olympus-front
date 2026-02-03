@@ -117,7 +117,7 @@ export default function ModalProducto({
         idDepartamento: values.idDepartamento,
         modalidad: values.modalidad,
         estadoProductoTipoId: values.estadoProductoTipoId,
-        fechaPresentacion: values.fechaPresentacion ? moment(values.fechaPresentacion).format("YYYY-MM-DD") : null,
+       fechaPresentacion: values.fechaPresentacion ? moment(values.fechaPresentacion).format("YYYY-MM-DD") : undefined,
         frasePrograma: values.frasePrograma?.trim() || null,
         linkExcel: values.linkExcel || "",
         linkPagWeb: values.linkPagWeb || "",

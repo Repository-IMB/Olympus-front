@@ -146,22 +146,45 @@ export const asignarDocenteAModulo = async (
 /** 🔹 Obtener sesiones de un módulo */
 export const obtenerSesionesPorModulo = async (idModulo: number): Promise<ISesion[]> => {
   try {
+    // 🟢 URL Correcta apuntando al controlador de Módulos
     const response = await api.get(`/api/VTAModVentaModulo/ObtenerSesiones/${idModulo}`);
     
-    // Validar que la respuesta tenga estructura correcta
-    if (response.data && response.data.sesiones && Array.isArray(response.data.sesiones)) {
-      return response.data.sesiones;
+    // 🟢 Extraemos el array de la propiedad correcta
+    const listaSesiones = response.data.sesiones || response.data.Sesiones || [];
+
+    if (!Array.isArray(listaSesiones)) {
+        console.warn("La respuesta no contiene un array de sesiones válido:", response.data);
+        return [];
     }
+
+    const sesiones = listaSesiones.map((sesion: any) => ({
+      id: sesion.id,
+      idModulo: sesion.idModulo,
+      nombreSesion: sesion.nombreSesion || sesion.nombre,
+      
+      // Mapeo robusto de fechas
+      fecha: sesion.fecha || sesion.fechaSesion || sesion.fechaClase,
+      
+      horaInicio: sesion.horaInicio,
+      horaFin: sesion.horaFin,
+      tipoSesion: sesion.tipoSesion || sesion.tipo,
+      idTipoSesion: sesion.idTipoSesion, // Agregado por si acaso
+      esAsincronica: sesion.esAsincronica,
+      
+      nombreDiaSemana: sesion.nombreDiaSemana,
+      diaSemana: sesion.diaSemana, // Agregado por si acaso
+      estado: sesion.estado,
+
+      // 🟢 CORRECCIÓN: Agregar campos de auditoría requeridos por ISesion
+      fechaCreacion: sesion.fechaCreacion,
+      usuarioCreacion: sesion.usuarioCreacion,
+      fechaModificacion: sesion.fechaModificacion,
+      usuarioModificacion: sesion.usuarioModificacion
+    }));
     
-    // Si no tiene la estructura esperada, retornar array vacío
-    console.warn("Respuesta inesperada del endpoint de sesiones:", response.data);
-    return [];
-    
-  } catch (error: any) {
-    // Manejar errores 400 y otros
-    if (error.response?.status === 400 && error.response?.data?.mensaje) {
-      console.error("Error al obtener sesiones:", error.response.data.mensaje);
-    }
+    return sesiones;
+  } catch (error) {
+    console.error("Error en obtenerSesionesPorModulo:", error);
     throw error;
   }
 };

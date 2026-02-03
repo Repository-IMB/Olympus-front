@@ -64,8 +64,6 @@ export default function DetalleProducto() {
       
       try {
           const prodData = await obtenerProductoPorId(Number(id));
-          console.log("📦 Producto obtenido:", prodData);
-          console.log("📚 Módulos en producto:", prodData.modulos?.length || 0);
           
           setProducto(prodData);
           
@@ -76,10 +74,9 @@ export default function DetalleProducto() {
               const modulosConSesiones = await Promise.all(
                   prodData.modulos.map(async (modulo, index) => {
                       const idModulo = modulo.idModulo || modulo.id!;
-                      console.log(`📖 [${index}] Cargando módulo ${idModulo}: ${modulo.moduloNombre}`);
                       
                       try {
-                          // Obtener sesiones frescas del backend
+                          // Obtener sesiones frescas del backend (con fechas reales)
                           const sesionesActualizadas = await obtenerSesionesPorModulo(idModulo);
                           
                           // Contar sesiones sincrónicas activas
@@ -87,27 +84,24 @@ export default function DetalleProducto() {
                               s => !s.esAsincronica && s.estado
                           ).length;
                           
-                          console.log(`✅ [${index}] ${sesionesSincronicas} sesiones sincrónicas activas`);
-                          
-                          // Retornar módulo con contador actualizado
+                          // 🟢 IMPORTANTE: Guardamos 'sesionesDetalle' en el objeto módulo
                           return {
                               ...modulo,
-                              sesionesSincronicas
+                              sesionesSincronicas,
+                              sesionesDetalle: sesionesActualizadas // <--- ESTO ES LA CLAVE
                           };
                       } catch (error) {
                           console.error(`❌ [${index}] Error cargando sesiones:`, error);
-                          return modulo; // Retornar módulo original si falla
+                          return modulo; 
                       }
                   })
               );
               
-              console.log("✅ Todos los módulos actualizados con sesiones frescas");
               setModulos(modulosConSesiones);
           } else {
               setModulos([]);
           }
           
-          console.log("🎉 Recarga completada!");
       } catch (error) {
           console.error("💥 Error recargando datos:", error);
       }
@@ -161,10 +155,7 @@ export default function DetalleProducto() {
         const anio = fechaCalendario.year();
         const fechaInicio = moment(`${anio}-01-01`).toDate();
         const fechaFin = moment(`${anio}-12-31`).toDate();
-
-        // Hardcodeamos "AR" o usamos null para todos. 
-        // Si tu producto tiene país, úsalo aquí: producto?.paisISO || "AR"
-        const data = await obtenerFeriadosRango(fechaInicio, fechaFin, "AR");
+        const data = await obtenerFeriadosRango(fechaInicio, fechaFin, null);
         setFeriados(data);
       } catch (error) {
         console.error("Error cargando feriados:", error);
@@ -584,7 +575,7 @@ export default function DetalleProducto() {
   ];
 
   /* =========================
-     PREPARACIÓN DATOS CALENDARIO
+     PREPARACIÓN DATOS CALENDARIO (LÓGICA ACTUALIZADA)
      ========================= */
   const limpiarHora = (h: any): string => {
     if (!h) return '';
@@ -593,6 +584,7 @@ export default function DetalleProducto() {
     return str.substring(0, 5);
   };
 
+  // Función auxiliar para el fallback (lógica antigua)
   const parsearDetalleHorarios = (cadena: string | undefined | null) => {
       const mapa: Record<number, { inicio: string; fin: string }> = {};
       if (!cadena) return mapa;
@@ -612,38 +604,86 @@ export default function DetalleProducto() {
     const modNombre = modulo.moduloNombre || modulo.nombre || 'Sin nombre';
     const color = coloresModulos[index % coloresModulos.length];
     
-    const { fechas } = calcularCronograma(modulo);
-    const totalReal = obtenerSesionesSincronicas(modulo);
-    const mapaHorarios = parsearDetalleHorarios((modulo as any).detalleHorarios);
+    // 🟢 ESTRATEGIA A (PRIORITARIA): Usar datos reales de la BD
+    // Verificamos si 'recargarTodo' guardó las sesiones reales en 'sesionesDetalle'
+    const sesionesReales = (modulo as any).sesionesDetalle;
 
-    fechas.forEach((info) => {
-      const fechaStr = info.fecha;
-      const diaSemana = moment(fechaStr).day();
-      let hInicio = '';
-      let hFin = '';
+    if (sesionesReales && Array.isArray(sesionesReales) && sesionesReales.length > 0) {
+        let contadorSesion = 0;
+        
+        // Ordenamos por fecha para que el número de sesión (1, 2, 3) sea cronológico
+        const sesionesOrdenadas = [...sesionesReales].sort((a: any, b: any) => {
+             const fa = a.fecha || a.fechaSesion || '';
+             const fb = b.fecha || b.fechaSesion || '';
+             return new Date(fa).getTime() - new Date(fb).getTime();
+        });
 
-      if (mapaHorarios[diaSemana]) {
-          hInicio = mapaHorarios[diaSemana].inicio;
-          hFin = mapaHorarios[diaSemana].fin;
-      } else {
-          hInicio = limpiarHora(modulo.horaInicioSync);
-          hFin = limpiarHora(modulo.horaFinSync);
-      }
+        sesionesOrdenadas.forEach((sesion: any) => {
+            // Solo mostramos sesiones activas y sincrónicas en el calendario
+            if (sesion.estado && !sesion.esAsincronica) {
+                const fechaRaw = sesion.fecha || sesion.fechaSesion;
+                
+                if (fechaRaw) {
+                    // 🟢 IMPORTANTE: Usamos .utc() para evitar el desfasaje de días
+                    const fechaStr = moment.utc(fechaRaw).format("YYYY-MM-DD");
+                    contadorSesion++;
 
-      const textoHorario = (hInicio && hFin) ? `${hInicio} - ${hFin}` : '';
+                    const hInicio = limpiarHora(sesion.horaInicio);
+                    const hFin = limpiarHora(sesion.horaFin);
+                    const textoHorario = (hInicio && hFin) ? `${hInicio} - ${hFin}` : '';
 
-      if (!diasClasesPorFecha[fechaStr]) {
-        diasClasesPorFecha[fechaStr] = [];
-      }
-      diasClasesPorFecha[fechaStr].push({
-        moduloId: modId,
-        nombre: modNombre,
-        color,
-        nroSesion: info.nroSesion,
-        totalSesiones: totalReal,
-        horario: textoHorario
-      });
-    });
+                    if (!diasClasesPorFecha[fechaStr]) {
+                        diasClasesPorFecha[fechaStr] = [];
+                    }
+                    
+                    diasClasesPorFecha[fechaStr].push({
+                        moduloId: modId,
+                        nombre: modNombre,
+                        color,
+                        nroSesion: contadorSesion,
+                        totalSesiones: obtenerSesionesSincronicas(modulo),
+                        horario: textoHorario
+                    });
+                }
+            }
+        });
+    } 
+    else {
+        // 🟡 ESTRATEGIA B (FALLBACK): Cálculo matemático antiguo
+        // Solo se ejecuta si NO hay sesiones cargadas desde la BD (ej: módulo nuevo sin sesiones aún)
+        const { fechas } = calcularCronograma(modulo);
+        const totalReal = obtenerSesionesSincronicas(modulo);
+        const mapaHorarios = parsearDetalleHorarios((modulo as any).detalleHorarios);
+
+        fechas.forEach((info) => {
+            const fechaStr = info.fecha;
+            const diaSemana = moment(fechaStr).day();
+            let hInicio = '';
+            let hFin = '';
+
+            if (mapaHorarios[diaSemana]) {
+                hInicio = mapaHorarios[diaSemana].inicio;
+                hFin = mapaHorarios[diaSemana].fin;
+            } else {
+                hInicio = limpiarHora(modulo.horaInicioSync);
+                hFin = limpiarHora(modulo.horaFinSync);
+            }
+
+            const textoHorario = (hInicio && hFin) ? `${hInicio} - ${hFin}` : '';
+
+            if (!diasClasesPorFecha[fechaStr]) {
+                diasClasesPorFecha[fechaStr] = [];
+            }
+            diasClasesPorFecha[fechaStr].push({
+                moduloId: modId,
+                nombre: modNombre,
+                color,
+                nroSesion: info.nroSesion,
+                totalSesiones: totalReal,
+                horario: textoHorario
+            });
+        });
+    }
   });
 
   return (

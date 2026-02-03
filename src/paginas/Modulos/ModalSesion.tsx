@@ -1,26 +1,17 @@
-import { Modal, Form, Row, Col, Input, Select, Button, TimePicker, Space, message } from "antd";
+import { Modal, Form, Row, Col, Input, Select, Button, TimePicker, DatePicker, message } from "antd";
 import { PlusOutlined, EditOutlined } from "@ant-design/icons";
 import { useEffect, useState, useRef } from "react";
 import moment from "moment";
-import { obtenerTiposSesion, type TipoSesion } from "../../servicios/ModuloService";
+import { obtenerTiposSesion, obtenerSesionesPorModulo, type TipoSesion } from "../../servicios/ModuloService";
 
 interface ModalSesionProps {
   visible: boolean;
   modo: "crear" | "editar";
-  sesion?: any | null; 
+  sesion?: any | null;
+  idModulo: number;
   onCancel: () => void;
   onSave: (payload: any) => void;
 }
-
-const DIAS_BOTONES = [
-  { value: 1, label: "L" },
-  { value: 2, label: "M" },
-  { value: 3, label: "X" },
-  { value: 4, label: "J" },
-  { value: 5, label: "V" },
-  { value: 6, label: "S" },
-  { value: 0, label: "D" },
-];
 
 const MODALIDADES = [
   { value: "sincronica", label: "Sincrónica" },
@@ -31,112 +22,116 @@ export default function ModalSesion({
   visible,
   modo,
   sesion,
+  idModulo,
   onCancel,
   onSave,
 }: ModalSesionProps) {
   const [form] = Form.useForm();
   
-  const [diaSeleccionado, setDiaSeleccionado] = useState<number | null>(null);
   const [listaTiposSesion, setListaTiposSesion] = useState<TipoSesion[]>([]);
   const [loadingTipos, setLoadingTipos] = useState(false);
   const [esAsincronica, setEsAsincronica] = useState(false);
+  const [fechasOcupadas, setFechasOcupadas] = useState<string[]>([]);
+  
   const tiposCargadosRef = useRef(false);
 
-  // Primer useEffect - Cargar tipos de sesión
+  // 1. Cargar datos iniciales (Tipos y Fechas ocupadas)
   useEffect(() => {
     if (visible && !tiposCargadosRef.current) {
-      const cargarTipos = async () => {
+      const cargarDatos = async () => {
         setLoadingTipos(true);
-        const datos = await obtenerTiposSesion();
-        setListaTiposSesion(datos);
-        tiposCargadosRef.current = true;
-        setLoadingTipos(false);
-      };
-      cargarTipos();
-    }
-  }, [visible]);
+        try {
+            const tipos = await obtenerTiposSesion();
+            setListaTiposSesion(tipos);
 
-  // Segundo useEffect - Setear valores del formulario
+            const sesionesExistentes = await obtenerSesionesPorModulo(idModulo);
+            const fechas = sesionesExistentes
+                .filter(s => s.estado === true && (modo === 'crear' || s.id !== sesion?.id))
+                .map(s => {
+                    const fRaw = (s as any).fecha || (s as any).fechaSesion;
+                    return fRaw ? moment(fRaw).format("YYYY-MM-DD") : null;
+                })
+                .filter(f => f !== null) as string[];
+
+            setFechasOcupadas(fechas);
+        } catch (error) {
+            console.error("Error cargando datos iniciales:", error);
+        } finally {
+            setLoadingTipos(false);
+            tiposCargadosRef.current = true;
+        }
+      };
+      cargarDatos();
+    }
+  }, [visible, idModulo, modo, sesion]); // Agregué modo y sesion a dependencias para asegurar refresco
+
+  // 2. Controlar valores del formulario al abrir
   useEffect(() => {
     if (!visible) return;
 
-    // Esperar a que los tipos estén cargados antes de setear valores
-    if (modo === "editar" && sesion && listaTiposSesion.length > 0) {
-      // Lógica de mapeo corregida (Backend -> Frontend)
+    // 🟢 LIMPIEZA ABSOLUTA AL ABRIR
+    form.resetFields(); 
+
+    if (modo === "editar" && sesion) {
+      // --- MODO EDITAR: Llenar datos ---
       let modalidadValor = "sincronica";
-      if (sesion.modalidad) {
-        modalidadValor = sesion.modalidad;
-      } else if (sesion.esAsincronica !== undefined) {
-        modalidadValor = sesion.esAsincronica ? "asincronica" : "sincronica";
-      }
+      if (sesion.modalidad) modalidadValor = sesion.modalidad;
+      else if (sesion.esAsincronica !== undefined) modalidadValor = sesion.esAsincronica ? "asincronica" : "sincronica";
 
       setEsAsincronica(modalidadValor === "asincronica");
-      setDiaSeleccionado(sesion.diaSemana);
 
-      // 🟢 SOLUCIÓN: Buscar el ID del tipo basándose en el nombre
       let tipoValor;
-      
-      if (sesion.idTipoSesion !== undefined && sesion.idTipoSesion !== null) {
-        // Si viene el ID, usarlo directamente
-        tipoValor = sesion.idTipoSesion;
-      } else if (sesion.tipoSesion) {
-        // Si no viene el ID pero sí el nombre, buscarlo en la lista
-        const tipoEncontrado = listaTiposSesion.find(
-          t => t.nombre.toLowerCase() === sesion.tipoSesion.toLowerCase()
-        );
-        tipoValor = tipoEncontrado ? tipoEncontrado.id : undefined;
-        
-        console.log("🔍 Buscando tipo por nombre:", sesion.tipoSesion);
-        console.log("🔍 Tipo encontrado:", tipoEncontrado);
-      } else if (sesion.tipo !== undefined && sesion.tipo !== null) {
-        tipoValor = sesion.tipo;
+      if (sesion.idTipoSesion) tipoValor = sesion.idTipoSesion;
+      else if (sesion.tipoSesion && listaTiposSesion.length > 0) {
+        const t = listaTiposSesion.find(x => x.nombre.toLowerCase() === sesion.tipoSesion.toLowerCase());
+        if (t) tipoValor = t.id;
       }
 
-      console.log("🔍 DEBUG - Sesión:", sesion);
-      console.log("🔍 DEBUG - Tipo final a setear:", tipoValor);
-      console.log("🔍 DEBUG - Lista tipos disponibles:", listaTiposSesion);
-
       form.setFieldsValue({
-        nombre: sesion.nombre || sesion.nombreSesion, 
-        diaSemana: sesion.diaSemana,
+        nombre: sesion.nombre || sesion.nombreSesion,
+        fecha: sesion.fecha ? moment(sesion.fecha) : null,
         horaInicio: sesion.horaInicio ? moment(sesion.horaInicio, "HH:mm") : null,
         horaFin: sesion.horaFin ? moment(sesion.horaFin, "HH:mm") : null,
         modalidad: modalidadValor,
         tipo: tipoValor,
       });
-    } else if (modo === "crear") {
-      // Limpiar formulario
-      form.resetFields();
-      setDiaSeleccionado(null);
+    } 
+    else if (modo === "crear") {
+      // --- MODO CREAR: Dejar todo limpio ---
       setEsAsincronica(false);
+      // 🟢 CORRECCIÓN: Quitamos los valores por defecto de horas. Solo dejamos modalidad.
+      form.setFieldsValue({
+          modalidad: 'sincronica',
+          fecha: null,
+          horaInicio: null,
+          horaFin: null,
+          nombre: null,
+          tipo: null
+      });
     }
   }, [visible, modo, sesion, form, listaTiposSesion]);
 
   const handleCancel = () => {
     form.resetFields();
-    setDiaSeleccionado(null);
     setEsAsincronica(false);
     onCancel();
   };
 
-  // Manejar cambio de modalidad
   const handleModalidadChange = (value: string) => {
     const esAsync = value === "asincronica";
     setEsAsincronica(esAsync);
     
-    // Si es asincrónica, asignar valores por defecto: Domingo (0) y 00:00
     if (esAsync) {
-      setDiaSeleccionado(0); // Domingo
+      const primerDomingo = moment().day(0); 
       form.setFieldsValue({
-        diaSemana: 0,
+        fecha: primerDomingo,
         horaInicio: moment("00:00", "HH:mm"),
         horaFin: moment("00:00", "HH:mm"),
       });
     } else {
-      // Si vuelve a sincrónica, limpiar los campos
-      setDiaSeleccionado(null);
+      // Al volver a sincrónica, limpiamos para que el usuario elija
       form.setFieldsValue({
-        diaSemana: null,
+        fecha: null,
         horaInicio: null,
         horaFin: null,
       });
@@ -145,44 +140,47 @@ export default function ModalSesion({
 
   const handleSave = async () => {
     try {
-        const values = await form.validateFields();
+      const values = await form.validateFields();
 
-        // Validación del día (solo si es sincrónica)
-        if (!esAsincronica && (diaSeleccionado === null || values.diaSemana === undefined || values.diaSemana === null)) {
-        message.error("Debe seleccionar un día de la semana");
+      if (!esAsincronica && !values.fecha) {
+        message.error("Debe seleccionar una fecha");
         return;
-        }
+      }
 
-        // 🟢 Si es asincrónica, forzar valores por defecto
-        const payload = {
+      const payload = {
         ...(modo === "editar" && sesion?.id ? { id: sesion.id } : {}),
         nombre: values.nombre,
-        diaSemana: esAsincronica ? 0 : values.diaSemana, // 🟢 Si es async → 0 (Domingo)
+        fecha: values.fecha ? values.fecha.format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
         horaInicio: esAsincronica ? "00:00:00" : (values.horaInicio ? values.horaInicio.format("HH:mm:ss") : "00:00:00"),
         horaFin: esAsincronica ? "00:00:00" : (values.horaFin ? values.horaFin.format("HH:mm:ss") : "00:00:00"),
         modalidad: values.modalidad,
         tipo: values.tipo,
-        };
+      };
 
-        console.log("📤 Payload a enviar:", payload);
-
-        await onSave(payload);
-        handleCancel();
+      await onSave(payload);
+      handleCancel();
     } catch (error: any) {
-        console.error("Error validación:", error);
+      console.error("Error validación:", error);
     }
-    };
-  const handleDiaClick = (valorDia: number) => {
-    // Solo permitir selección manual si NO es asincrónica
-    if (!esAsincronica) {
-      setDiaSeleccionado(valorDia);
-      form.setFieldsValue({ diaSemana: valorDia });
+  };
+
+  const disabledDate = (current: moment.Moment) => {
+    if (!current) return false;
+    const fechaStr = current.format('YYYY-MM-DD');
+    
+    if (modo === "editar" && sesion?.fecha) {
+        const fechaOriginal = moment(sesion.fecha).format("YYYY-MM-DD");
+        if (fechaStr === fechaOriginal) return false;
     }
+    
+    return fechasOcupadas.includes(fechaStr);
   };
 
   return (
     <Modal
       open={visible}
+      // 🟢 IMPORTANTE: destroyOnClose asegura que el componente se reinicie totalmente al cerrar
+      destroyOnClose={true} 
       title={modo === "editar" ? "Editar Sesión" : "Crear nueva sesión"}
       onCancel={handleCancel}
       width={600}
@@ -201,7 +199,6 @@ export default function ModalSesion({
     >
       <Form form={form} layout="vertical">
         
-        {/* Renglón 1: Nombre */}
         <Row gutter={16}>
           <Col span={24}>
             <Form.Item
@@ -220,7 +217,6 @@ export default function ModalSesion({
           </Col>
         </Row>
 
-        {/* Renglón 1.5: Modalidad */}
         <Row gutter={16}>
           <Col span={24}>
             <Form.Item
@@ -242,7 +238,6 @@ export default function ModalSesion({
           </Col>
         </Row>
 
-        {/* Mostrar nota si es asincrónica */}
         {esAsincronica && (
           <Row gutter={16}>
             <Col span={24}>
@@ -257,45 +252,64 @@ export default function ModalSesion({
                   color: "#0050b3",
                 }}
               >
-                <strong>ℹ️ Modalidad Asincrónica:</strong> Se asignará automáticamente día Domingo y horario 00:00.
+                <strong>ℹ️ Modalidad Asincrónica:</strong> La fecha y horarios son referenciales.
               </div>
             </Col>
           </Row>
         )}
 
-        {/* Renglón 2: Selector de Días */}
         {!esAsincronica && (
           <Row gutter={16}>
             <Col span={24}>
-              <Form.Item name="diaSemana" style={{ display: 'none' }}>
-                  <Input />
-              </Form.Item>
+              <Form.Item
+                label="Fecha de la sesión"
+                name="fecha"
+                validateTrigger={['onChange', 'onBlur']}
+                rules={[
+                    { required: true, message: "Debe seleccionar una fecha" },
+                    ({ getFieldValue }) => ({
+                        validator(_, value) {
+                            if (!value) return Promise.resolve();
+                            const fechaStr = value.format('YYYY-MM-DD');
+                            
+                            if (modo === 'editar' && sesion?.fecha) {
+                                const original = moment(sesion.fecha).format('YYYY-MM-DD');
+                                if (fechaStr === original) return Promise.resolve();
+                            }
 
-              <Form.Item 
-                  label="Día de la semana" 
-                  required 
-                  help={diaSeleccionado === null ? "Seleccione un día" : ""}
-                  validateStatus={diaSeleccionado === null ? "" : "success"}
+                            if (fechasOcupadas.includes(fechaStr)) {
+                                return Promise.reject(new Error("⚠️ Ya existe una sesión en esta fecha"));
+                            }
+                            return Promise.resolve();
+                        },
+                    }),
+                ]}
               >
-                <Space size="middle">
-                  {DIAS_BOTONES.map((d) => (
-                    <Button
-                      key={d.value}
-                      type={diaSeleccionado === d.value ? "primary" : "default"}
-                      onClick={() => handleDiaClick(d.value)}
-                      shape="circle"
-                      style={{ minWidth: '40px' }}
-                    >
-                      {d.label}
-                    </Button>
-                  ))}
-                </Space>
+                <DatePicker
+                  format="DD/MM/YYYY"
+                  placeholder="Seleccionar fecha"
+                  style={{ width: "100%" }}
+                  disabledDate={disabledDate} 
+                  dateRender={(current) => {
+                    const fechaStr = current.format('YYYY-MM-DD');
+                    const estaOcupada = fechasOcupadas.includes(fechaStr);
+                    
+                    if (estaOcupada) {
+                      return (
+                        <div className="ant-picker-cell-inner" style={{ position: 'relative', color: '#ff4d4f', fontWeight: 'bold' }}>
+                          {current.date()}
+                          <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', backgroundColor: '#ff4d4f' }} />
+                        </div>
+                      );
+                    }
+                    return <div className="ant-picker-cell-inner">{current.date()}</div>;
+                  }}
+                />
               </Form.Item>
             </Col>
           </Row>
         )}
 
-        {/* Renglón 3: Horarios */}
         {!esAsincronica && (
           <Row gutter={16}>
             <Col span={12}>
@@ -340,7 +354,6 @@ export default function ModalSesion({
           </Row>
         )}
 
-        {/* Renglón 4: Tipo de sesión */}
         <Row gutter={16}>
           <Col span={24}>
             <Form.Item
@@ -364,20 +377,20 @@ export default function ModalSesion({
           </Col>
         </Row>
 
-        {/* Nota informativa */}
         {!esAsincronica && (
           <div style={{ marginTop: 8 }}>
             <div
               style={{
                 padding: "12px",
-                backgroundColor: "#f5f5f5",
+                backgroundColor: "#fff2f0",
+                border: "1px solid #ffccc7",
                 borderRadius: "4px",
                 fontSize: "12px",
-                color: "#8c8c8c",
+                color: "#ff4d4f",
                 textAlign: "center"
               }}
             >
-              <strong>Nota:</strong> Verifique que el día coincida con el cronograma general.
+              <strong>Nota:</strong> Las fechas en <span style={{color: '#ff4d4f', fontWeight: 'bold'}}>rojo</span> ya están ocupadas.
             </div>
           </div>
         )}

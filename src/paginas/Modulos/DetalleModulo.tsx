@@ -1,4 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
+import moment from "moment";
 import {
   Button,
   Card,
@@ -168,6 +169,9 @@ export default function DetalleModulo() {
         try {
             setLoadingSesiones(true);
             const sesiones = await obtenerSesionesPorModulo(data.id);
+            console.log("📅 Sesiones recibidas del backend:", sesiones);
+            console.log("📅 Primera sesión (ejemplo):", sesiones[0]);
+            console.log("📅 Campos de la primera sesión:", Object.keys(sesiones[0] || {}));
             setSessionesData(sesiones);
         } catch (errorSesiones) {
             console.error("Error al cargar sesiones:", errorSesiones);
@@ -229,30 +233,27 @@ export default function DetalleModulo() {
   const handleGuardarSesion = async (payload: any) => {
     try {
       setLoadingSesiones(true);
-      if (payload.diaSemana === null || payload.diaSemana === undefined) {
-        message.error("El día de la semana es requerido");
+      
+      // 🟢 Ya no validamos diaSemana, ahora es fecha
+      if (!payload.fecha) {
+        message.error("La fecha es requerida");
         return;
       }
 
       const dataToSend = {
         id: payload.id ? Number(payload.id) : 0,
         idModulo: Number(id),
-        
         nombreSesion: payload.nombre,
         idTipoSesion: Number(payload.tipo),
-        
-        diaSemana: Number(payload.diaSemana), // Ya validado arriba
-        
-        horaInicio: payload.horaInicio || "00:00:00", // Fallback
-        horaFin: payload.horaFin || "00:00:00",       // Fallback
-        
+        fecha: payload.fecha, // 🟢 NUEVO: enviar fecha
+        horaInicio: payload.horaInicio || "00:00:00",
+        horaFin: payload.horaFin || "00:00:00",
         esAsincronica: payload.modalidad === 'asincronica'
       };
 
       console.log("📤 Enviando al backend:", dataToSend);
 
       const response = await api.post('/api/VTAModVentaSesion/Guardar', dataToSend);
-
       const respData = response.data || response;
 
       if (respData.codigo === "SIN ERROR" || respData.codigo === "OK" || respData.codigo === "200") {
@@ -265,7 +266,6 @@ export default function DetalleModulo() {
         const sesionesActualizadas = await obtenerSesionesPorModulo(Number(id));
         setSessionesData(sesionesActualizadas);
         
-        // 🆕 NUEVO: Notificar a DetalleProducto que el módulo fue actualizado
         window.dispatchEvent(new CustomEvent('moduloActualizado', { 
           detail: { moduloId: Number(id) } 
         }));
@@ -655,6 +655,33 @@ export default function DetalleModulo() {
     dataIndex: 'nombreSesion',
     key: 'nombreSesion',
     sorter: (a, b) => a.nombreSesion.localeCompare(b.nombreSesion),
+  },
+  {
+    title: 'Fecha',
+    dataIndex: 'fecha',
+    key: 'fecha',
+    render: (fecha: string, record: any) => {
+      // Intentar múltiples campos por si el backend usa otro nombre
+      const fechaActual = fecha || record.fechaSesion || record.fechaClase || record.date;
+      
+      if (!fechaActual || fechaActual === '0001-01-01T00:00:00' || fechaActual === '0001-01-01') {
+        return <span style={{color: 'red'}}>Sin fecha</span>;
+      }
+      
+      try {
+        // 🟢 CORRECCIÓN: Usar .utc() para interpretar la fecha tal cual viene del servidor
+        // sin restarle las 3 horas de Argentina (evitando que 00:00:00 pase a 21:00:00 del día anterior)
+        return moment.utc(fechaActual).format('DD/MM/YYYY');
+      } catch (error) {
+        return <span style={{color: 'orange'}}>Formato inválido</span>;
+      }
+    },
+    sorter: (a, b) => {
+      const fechaA = a.fecha || '';
+      const fechaB = b.fecha || '';
+      if (!fechaA || !fechaB) return 0;
+      return new Date(fechaA).getTime() - new Date(fechaB).getTime();
+    },
   },
   {
     title: 'Día de la semana',
@@ -1145,6 +1172,7 @@ const formatearFechaAmigable = (fecha: string | Date | undefined) => {
         visible={modalSesionVisible}
         modo={modoSesion}
         sesion={sesionEditando}
+        idModulo={Number(id)}
         onCancel={handleCancelarModalSesion}
         onSave={handleGuardarSesion}
       />

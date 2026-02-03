@@ -188,7 +188,12 @@ export const descargarPDFProducto = async (id: number): Promise<void> => {
   }
 };
 
-export const sincronizarCalendarioProducto = async (idProducto: number, emailResponsable: string) => {
+export const sincronizarCalendarioProducto = async (idProducto: number, emailResponsable: string, timeZone: string) => {
+  const params = new URLSearchParams({
+    idProducto: idProducto.toString(),
+    emailResponsable: emailResponsable,
+    timeZone: timeZone
+  })
   const url = `/api/VTAModVentaProducto/SincronizarCalendario`; 
   const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   
