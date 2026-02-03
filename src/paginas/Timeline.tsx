@@ -5,47 +5,66 @@ import {
   PlusCircleOutlined,
 } from "@ant-design/icons";
 import moment from "moment";
-import styles from "./Timeline.module.css";
+import type { ReactNode } from "react";
 
-interface Evento {
+/* =========================
+   TIPOS
+========================= */
+
+export type EventoTimeline = {
   id: number;
-  tipo: string;
+  tipo: "create" | "update" | "assignment";
   detalle: string;
   fechaHora: string;
   responsable?: string;
+};
+
+interface AntdTimelineWrapperProps {
+  eventos: EventoTimeline[];
 }
 
-interface Props {
-  eventos: Evento[];
-}
+/* =========================
+   UI MAPS
+========================= */
 
-const iconByType = {
+const iconByType: Record<EventoTimeline["tipo"], ReactNode> = {
   assignment: <UserSwitchOutlined />,
   update: <EditOutlined />,
   create: <PlusCircleOutlined />,
 };
 
-const colorByType = {
+const colorByType: Record<EventoTimeline["tipo"], string> = {
   assignment: "blue",
   update: "orange",
   create: "green",
 };
 
-export default function Timeline({ eventos }: Props) {
-  if (!eventos.length) {
-    return <div className={styles.empty}>Sin historial registrado</div>;
+/* =========================
+   COMPONENT
+========================= */
+
+export default function AntdTimelineWrapper({
+  eventos,
+}: AntdTimelineWrapperProps) {
+  if (!eventos || eventos.length === 0) {
+    return (
+      <div style={{ textAlign: "center", color: "#999" }}>
+        Sin historial registrado
+      </div>
+    );
   }
 
   return (
-    <AntTimeline
-      mode="left"
-      items={eventos.map((e) => ({
-        dot: iconByType[e.tipo as keyof typeof iconByType],
-        color: colorByType[e.tipo as keyof typeof colorByType],
-        label: moment(e.fechaHora).format("DD/MM/YYYY HH:mm"),
-        children: (
-          <div className={styles.item}>
-            <Tag color={colorByType[e.tipo as keyof typeof colorByType]}>
+    <AntTimeline mode="left">
+      {eventos.map((e) => (
+        <AntTimeline.Item
+          key={e.id}
+          dot={iconByType[e.tipo]}
+          color={colorByType[e.tipo]}
+          label={moment(e.fechaHora).format("DD/MM/YYYY HH:mm")}
+        >
+          <div>
+            <Tag color={colorByType[e.tipo]}>
               {e.tipo === "assignment"
                 ? "Asignación"
                 : e.tipo === "update"
@@ -53,16 +72,16 @@ export default function Timeline({ eventos }: Props) {
                 : "Creación"}
             </Tag>
 
-            <div className={styles.detalle}>{e.detalle}</div>
+            <div style={{ marginTop: 4 }}>{e.detalle}</div>
 
             {e.responsable && (
-              <div className={styles.responsable}>
+              <div style={{ marginTop: 4, fontSize: 12, color: "#666" }}>
                 Responsable: <b>{e.responsable}</b>
               </div>
             )}
           </div>
-        ),
-      }))}
-    />
+        </AntTimeline.Item>
+      ))}
+    </AntTimeline>
   );
 }

@@ -19,7 +19,7 @@ interface ModalAsignarResponsableProps {
     idActivo: number;
     nombre: string;
     ip?: string | null;
-    ubicacionSede: string;
+    ubicacionSede?: string;
     estacion: number;
   } | null;
 }

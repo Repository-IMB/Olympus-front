@@ -40,6 +40,8 @@ interface DashboardItem {
   leadsProcesados: number;
   convertidos: number;
   enCobranza: number;
+  perdido: number;
+  noCalificado: number;
   porcentajeConversion: number;
   diasActivos: number;
   totalLlamadas: number;
@@ -64,6 +66,23 @@ interface DashboardProductoVenta {
 interface Asesor {
   idPersonal: number; // OJO: tu select manda "idUsuario del personal" según tu comentario
   nombre: string;
+}
+
+interface ConversionPais {
+  pais: string;
+  totalLeads: number;
+  convertidos: number;
+  enCobranza: number;
+  perdidos: number;
+  noCalificados: number;
+  tasaConversion: number;
+}
+
+interface CursoTopPais {
+  pais: string;
+  codigoLanzamiento: string;
+  nombreCurso: string;
+  totalVendidos: number;
 }
 
 const getCategoria = (item: DashboardItem) => {
@@ -138,9 +157,14 @@ export default function Dashboard() {
   // =========================
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingAsesores, setLoadingAsesores] = useState<boolean>(true);
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState(10);
+  const [maxLlamadasGlobal, setMaxLlamadasGlobal] = useState<number>(1);
+  const [cursoTopPorPais, setCursoTopPorPais] = useState<CursoTopPais[]>([]);
 
   const [data, setData] = useState<DashboardItem[]>([]);
   const [asesores, setAsesores] = useState<Asesor[]>([]);
+  const puedeVerDetallePais = idRol !== 1;
 
   //“Todos” como string estable (no uses null dentro de Select)
   const [asesorFiltro, setAsesorFiltro] = useState<string>("ALL");
@@ -164,7 +188,9 @@ export default function Dashboard() {
     useState<DashboardResumenGeneral | null>(null);
 
   const [productos, setProductos] = useState<DashboardProductoVenta[]>([]);
-
+  const [conversionPorPais, setConversionPorPais] = useState<ConversionPais[]>(
+    [],
+  );
   const [paises, setPaises] = useState<Pais[]>([]);
   const [paisFiltro, setPaisFiltro] = useState<string>("ALL");
   const [loadingPaises, setLoadingPaises] = useState(false);
@@ -275,16 +301,28 @@ export default function Dashboard() {
     doc.save("dashboard-rendimiento.pdf");
   };
 
+  const rankingGlobal = useMemo(() => {
+    return [...data].sort(
+      (a, b) => (b.llamadasPorDia ?? 0) - (a.llamadasPorDia ?? 0),
+    );
+  }, [data]);
+
   // =========================
   // DERIVADOS
   // =========================
-  const dataGrafico = useMemo(
-    () =>
-      [...data].sort(
-        (a, b) => (b.llamadasPorDia ?? 0) - (a.llamadasPorDia ?? 0),
-      ),
-    [data],
-  );
+  const dataGrafico = useMemo(() => {
+    const start = (tablePage - 1) * tablePageSize;
+    const end = start + tablePageSize;
+
+    return rankingGlobal.slice(start, end);
+  }, [rankingGlobal, tablePage, tablePageSize]);
+
+  useEffect(() => {
+    if (rankingGlobal.length === 0) return;
+
+    const max = rankingGlobal[0].llamadasPorDia ?? 1;
+    setMaxLlamadasGlobal(max > 0 ? max : 1);
+  }, [rankingGlobal]);
 
   const alertasCriticas = useMemo(
     () => data.filter((d) => getCategoria(d).nivel === "CRITICO"),
@@ -342,9 +380,6 @@ export default function Dashboard() {
 
         const list: Asesor[] =
           res.data?.usuarios?.map((u: any) => ({
-            // ⚠️ tu comentario: "el idpersonal que manda es el idusuario del personal"
-            // entonces aquí guardamos ID = u.id (usuario) si es lo que realmente manda el endpoint.
-            // Si tu endpoint ya devuelve idPersonal real, cambia a u.idPersonal.
             idPersonal: safeNumber(u.id ?? u.idUsuario ?? u.idPersonal, 0),
             nombre: String(u.nombre ?? "").trim(),
           })) ?? [];
@@ -402,26 +437,30 @@ export default function Dashboard() {
 
         setLoading(true);
 
-        const personalFiltro = asesorFiltro === "ALL" ? null : asesorFiltro;
-        const res = await api.post(
-          "/api/CFGModDashboard/ObtenerRendimientoPersonal",
-          {
-            idUsuario,
-            idRol,
-            paisFiltro: paisFiltro === "ALL" ? null : paisFiltro,
-            personalFiltro, // <-- string o null
-            fechaInicioHistorial,
-            fechaFinHistorial,
+        const payloadBase = {
+          idUsuario,
+          idRol,
+          paisFiltro: paisFiltro === "ALL" ? null : paisFiltro,
+          personalFiltro: asesorFiltro === "ALL" ? null : asesorFiltro,
+          fechaInicioHistorial,
+          fechaFinHistorial,
+          fechaInicioFormulario,
+          fechaFinFormulario,
+        };
 
-            fechaInicioFormulario,
-            fechaFinFormulario,
-          },
+        // =========================
+        // DASHBOARD ACTUAL (NO SE TOCA)
+        // =========================
+        const resDashboard = await api.post(
+          "/api/CFGModDashboard/ObtenerRendimientoPersonal",
+          payloadBase,
           {
             headers: { Authorization: `Bearer ${token}` },
           },
         );
 
-        const raw = res.data?.datos ?? [];
+        const raw = resDashboard.data?.datos ?? [];
+
         const mapped: DashboardItem[] = raw.map((x: any) => ({
           personal_Id: safeNumber(
             x.personal_Id ?? x.personalId ?? x.personal_id,
@@ -434,6 +473,8 @@ export default function Dashboard() {
           leadsProcesados: safeNumber(x.leadsProcesados, 0),
           convertidos: safeNumber(x.convertidos, 0),
           enCobranza: safeNumber(x.enCobranza, 0),
+          perdido: safeNumber(x.perdidos, 0),
+          noCalificado: safeNumber(x.noCalificados, 0),
           porcentajeConversion: safeNumber(x.porcentajeConversion, 0),
           diasActivos: safeNumber(x.diasActivos, 0),
           totalLlamadas: safeNumber(x.totalLlamadas, 0),
@@ -442,32 +483,47 @@ export default function Dashboard() {
         }));
 
         setData(mapped);
-        setResumenBackend(res.data?.resumen ?? null);
-        const productosRaw = res.data?.productos ?? [];
+        setResumenBackend(resDashboard.data?.resumen ?? null);
 
+        const productosRaw = resDashboard.data?.productos ?? [];
         const maxVendidos = Math.max(
           ...productosRaw.map((p: any) => safeNumber(p.totalOportunidades, 0)),
           0,
         );
 
-        const productosMapped: DashboardProductoVenta[] = productosRaw.map(
-          (p: any) => ({
+        setProductos(
+          productosRaw.map((p: any) => ({
             codigoLanzamiento: p.codigoLanzamiento,
             nombre: p.nombre,
             totalOportunidades: safeNumber(p.totalOportunidades, 0),
             esTop:
               safeNumber(p.totalOportunidades, 0) === maxVendidos &&
               maxVendidos > 0,
-          }),
+          })),
         );
 
-        setProductos(productosMapped);
+        // =========================
+        // 2️⃣ NUEVO ENDPOINT – LEADS POR PAÍS
+        // =========================
+        const resPaises = await api.post(
+          "/api/CFGModDashboard/ObtenerDashboardRendimientoPersonalPaises",
+          payloadBase,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+
+        setConversionPorPais(resPaises.data?.conversionPorPais ?? []);
+        setCursoTopPorPais(resPaises.data?.cursoTopPorPais ?? []);
+
       } catch (e: any) {
         console.error("Error cargando dashboard", e);
+
         const msg =
           e?.response?.data?.mensaje ||
           e?.message ||
           "Error al cargar dashboard";
+
         setError(msg);
         message.error(msg);
         setData([]);
@@ -524,6 +580,18 @@ export default function Dashboard() {
       align: "center",
       sorter: (a, b) => a.enCobranza - b.enCobranza,
     },
+        {
+      title: "Perdidos",
+      dataIndex: "perdido",
+      align: "center",
+      sorter: (a, b) => a.enCobranza - b.enCobranza,
+    },
+        {
+      title: "No Calificado",
+      dataIndex: "noCalificado",
+      align: "center",
+      sorter: (a, b) => a.enCobranza - b.enCobranza,
+    },
     {
       title: "% Conversión",
       dataIndex: "porcentajeConversion",
@@ -565,10 +633,6 @@ export default function Dashboard() {
   // MINI “GRÁFICA” SIN RECHARTS
   // (porque te daba error de módulo)
   // =========================
-  const maxLlamadas = useMemo(() => {
-    const max = Math.max(...dataGrafico.map((d) => d.llamadasPorDia ?? 0), 0);
-    return max > 0 ? max : 1;
-  }, [dataGrafico]);
 
   const alertasVisibles = useMemo(() => {
     const start = alertasPage * ALERTAS_PAGE_SIZE;
@@ -770,6 +834,91 @@ export default function Dashboard() {
         </Card>
       )}
 
+      {puedeVerDetallePais && conversionPorPais.length > 0 && (
+        <Card title="Leads por país" style={{ marginBottom: 16 }}>
+          <Table
+            rowKey="pais"
+            pagination={false}
+            dataSource={conversionPorPais}
+            columns={[
+              {
+                title: "País",
+                dataIndex: "pais",
+              },
+              {
+                title: "Total Leads",
+                dataIndex: "totalLeads",
+                align: "center",
+              },
+              {
+                title: "Convertidos",
+                dataIndex: "convertidos",
+                align: "center",
+              },
+              {
+                title: "Cobranza",
+                dataIndex: "enCobranza",
+                align: "center",
+              },
+              {
+                title: "Perdidos",
+                dataIndex: "perdidos",
+                align: "center",
+                render: (v: number) => <Tag color="red">{v}</Tag>,
+              },
+              {
+                title: "No calificados",
+                dataIndex: "noCalificados",
+                align: "center",
+                render: (v: number) => <Tag color="volcano">{v}</Tag>,
+              },
+              {
+                title: "% Conversión",
+                dataIndex: "tasaConversion",
+                align: "center",
+                render: (v: number) => (
+                  <Tag color={v >= 30 ? "green" : v >= 15 ? "gold" : "red"}>
+                    {v.toFixed(2)}%
+                  </Tag>
+                ),
+              },
+            ]}
+          />
+        </Card>
+      )}
+
+      {puedeVerDetallePais && cursoTopPorPais.length > 0 && (
+        <Card title="Curso más vendido por país" style={{ marginBottom: 16 }}>
+          <Table
+            rowKey={(r) => `${r.pais}-${r.codigoLanzamiento}`}
+            pagination={false}
+            dataSource={cursoTopPorPais}
+            columns={[
+              {
+                title: "País",
+                dataIndex: "pais",
+              },
+              {
+                title: "Curso / Programa",
+                dataIndex: "cursoPrograma",
+                ellipsis: true,
+              },
+              {
+                title: "Código",
+                dataIndex: "codigoLanzamiento",
+                width: 140,
+              },
+              {
+                title: "Vendidos",
+                dataIndex: "totalVendidos",
+                align: "center",
+                render: (v: number) => <Tag color="green">{v}</Tag>,
+              },
+            ]}
+          />
+        </Card>
+      )}
+
       {/* RESUMEN */}
       {resumen && (
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
@@ -907,9 +1056,14 @@ export default function Dashboard() {
                 columns={columns}
                 dataSource={data}
                 pagination={{
-                  pageSize: 10,
+                  current: tablePage,
+                  pageSize: tablePageSize,
                   showSizeChanger: true,
                   pageSizeOptions: ["10", "20", "50", "100"],
+                  onChange: (page, pageSize) => {
+                    setTablePage(page);
+                    setTablePageSize(pageSize ?? 10);
+                  },
                 }}
               />
             )}
@@ -937,7 +1091,11 @@ export default function Dashboard() {
               >
                 {dataGrafico.slice(0, 15).map((d) => {
                   const pct =
-                    Math.max(0, (d.llamadasPorDia ?? 0) / maxLlamadas) * 100;
+                    Math.min(
+                      100,
+                      Math.max(0, (d.llamadasPorDia ?? 0) / maxLlamadasGlobal),
+                    ) * 100;
+
                   const cat = getCategoria(d);
 
                   return (

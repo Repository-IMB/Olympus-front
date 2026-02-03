@@ -10,7 +10,6 @@ import {
   Col,
   Form,
   Select,
-  DatePicker,
   message,
   Modal,
 } from "antd";
@@ -28,9 +27,9 @@ import ModalActivo from "./ModalActivo";
 import { getCookie } from "../../utils/cookies";
 import moment from "moment";
 import { jwtDecode } from "jwt-decode";
+import type { Evento } from "./TipoActivos";
 
 const { Content } = Layout;
-const { Option } = Select;
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -70,14 +69,6 @@ interface PersonalDetalle {
   areaTrabajo: string;
 }
 
-interface Evento {
-  id: number;
-  tipo: "create" | "update" | "assignment";
-  detalle: string;
-  fechaHora: string;
-  responsable?: string;
-}
-
 /* =========================
    COMPONENT
 ========================= */
@@ -85,10 +76,10 @@ interface Evento {
 export default function DetalleActivo() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [form] = Form.useForm();
 
   const [activo, setActivo] = useState<ActivoDetalle | null>(null);
-  const [personalDetalle, setPersonalDetalle] = useState<PersonalDetalle | null>(null);
+  const [personalDetalle, setPersonalDetalle] =
+    useState<PersonalDetalle | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
 
   const [qrVisible, setQrVisible] = useState(false);
@@ -96,7 +87,6 @@ export default function DetalleActivo() {
 
   const [loading, setLoading] = useState(true);
   const [loadingPersonal, setLoadingPersonal] = useState(false);
-  const [loadingEvento, setLoadingEvento] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
@@ -133,12 +123,12 @@ export default function DetalleActivo() {
             h.tipoCambio === "Asignación"
               ? "assignment"
               : h.tipoCambio === "Actualización"
-              ? "update"
-              : "create",
+                ? "update"
+                : "create",
           detalle: h.detalle ?? "—",
           fechaHora: h.fechaCambio,
           responsable: h.responsable ?? undefined,
-        })
+        }),
       );
 
       setEventos(historial);
@@ -158,7 +148,9 @@ export default function DetalleActivo() {
   const cargarPersonal = async (idPersonal: number) => {
     try {
       setLoadingPersonal(true);
-      const res = await api.get(`/api/VTAModVentaPersonal/ObtenerPorId/${idPersonal}`);
+      const res = await api.get(
+        `/api/VTAModVentaPersonal/ObtenerPorId/${idPersonal}`,
+      );
       setPersonalDetalle(res.data);
     } finally {
       setLoadingPersonal(false);
@@ -170,7 +162,9 @@ export default function DetalleActivo() {
     try {
       const decoded: any = jwtDecode(token);
       return Number(
-        decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ],
       );
     } catch {
       return 0;
@@ -193,7 +187,7 @@ export default function DetalleActivo() {
       const res = await api.post(
         `/api/VTAModActivos/GenerarQr/${activo.idActivo}`,
         { idUsuario: getUserIdFromToken() },
-        { headers: { "Content-Type": "application/json" } }
+        { headers: { "Content-Type": "application/json" } },
       );
 
       setQrUrl(res.data.qrUrl);
@@ -277,7 +271,10 @@ export default function DetalleActivo() {
 
           {isAuthenticated && (
             <div className={styles.headerButtons}>
-              <Button icon={<EditOutlined />} onClick={() => setModalEditarVisible(true)}>
+              <Button
+                icon={<EditOutlined />}
+                onClick={() => setModalEditarVisible(true)}
+              >
                 Editar
               </Button>
 
@@ -294,41 +291,69 @@ export default function DetalleActivo() {
 
         <Row gutter={24}>
           <Col md={12}>
-            <h3>Detalles del activo</h3>
-            <div className={styles.detailGrid}>
-              <div><b>ID:</b> {activo.idActivo}</div>
-              <div><b>Tipo:</b> {activo.nombreTipo}</div>
-              <div><b>Fabricante:</b> {activo.nombreFabricante}</div>
-              <div><b>Modelo:</b> {activo.modelo || "-"}</div>
-              <div><b>Estado:</b> {activo.estado}</div>
-              <div>
-                <b>Última actualización:</b>{" "}
-                {moment(activo.fechaActualizacion).format("DD/MM/YYYY HH:mm")}
+            <Card
+              className={styles.subCard}
+              title="🖥️ Detalles del activo"
+              bordered
+            >
+              <div className={styles.detailGrid}>
+                <div>
+                  <b>ID:</b> {activo.idActivo}
+                </div>
+                <div>
+                  <b>Tipo:</b> {activo.nombreTipo}
+                </div>
+                <div>
+                  <b>Fabricante:</b> {activo.nombreFabricante}
+                </div>
+                <div>
+                  <b>Modelo:</b> {activo.modelo || "-"}
+                </div>
+                <div>
+                  <b>Estado:</b> {activo.estado}
+                </div>
+                <div>
+                  <b>Última actualización:</b>{" "}
+                  {moment(activo.fechaActualizacion).format("DD/MM/YYYY HH:mm")}
+                </div>
               </div>
-            </div>
+            </Card>
           </Col>
 
           <Col md={12}>
-            <h3>Responsable actual</h3>
-            {loadingPersonal ? (
-              <Spin />
-            ) : personalDetalle ? (
-              <div className={styles.detailGrid}>
-                <div><b>Nombre:</b> {personalDetalle.nombres} {personalDetalle.apellidos}</div>
-                <div><b>Correo:</b> {personalDetalle.correo}</div>
-                <div><b>Área:</b> {personalDetalle.areaTrabajo}</div>
-              </div>
-            ) : (
-              <div className={styles.noResponsable}>Responsable no asignado</div>
-            )}
+            <Card
+              className={styles.subCard}
+              title="👤 Responsable asignado"
+              bordered
+            >
+              {loadingPersonal ? (
+                <Spin />
+              ) : personalDetalle ? (
+                <div className={styles.detailGrid}>
+                  <div>
+                    <b>Nombre:</b> {personalDetalle.nombres}{" "}
+                    {personalDetalle.apellidos}
+                  </div>
+                  <div>
+                    <b>Correo:</b> {personalDetalle.correo}
+                  </div>
+                  <div>
+                    <b>Área:</b> {personalDetalle.areaTrabajo}
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.noResponsable}>
+                  Sin responsable asignado
+                </div>
+              )}
+            </Card>
           </Col>
         </Row>
       </Card>
 
-      <Row style={{ marginTop: 24 }}>
-        <Col span={24}>
-          <Card>
-            <h3>Historial del activo</h3>
+      <Row style={{ marginTop: 32 }}>
+        <Col md={16}>
+          <Card className={styles.timelineCard} title="🕒 Historial del activo">
             <Timeline eventos={eventos} />
           </Card>
         </Col>
@@ -371,9 +396,7 @@ export default function DetalleActivo() {
                 href={`${API_URL}${qrUrl}`}
                 download={`activo_${activo.idActivo}.png`}
               >
-                <Button style={{ marginLeft: 8 }}>
-                  Descargar
-                </Button>
+                <Button style={{ marginLeft: 8 }}>Descargar</Button>
               </a>
             </div>
           </div>

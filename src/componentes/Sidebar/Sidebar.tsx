@@ -16,6 +16,7 @@ import {
   SafetyCertificateOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
+  BlockOutlined
 } from "@ant-design/icons";
 import styles from "./Sidebar.module.css";
 import type { PermisosMenu } from "../../hooks/usePermisosMenu";
@@ -241,82 +242,6 @@ export default function Sidebar({
                   onClick={() => onNavigate("/logistica/personal")}
                 >
                   <TeamOutlined /> Personal
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ================= RECURSOS HUMANOS ================= */}
-        {permisos.recursosHumanos && (
-          <div className={styles.menuSection}>
-            <div
-              className={styles.menuHeader}
-              onClick={() =>
-                onToggleMenu(openMenu === "RRHH" ? null : "RRHH")
-              }
-            >
-              <span className={styles.menuHeaderContent}>
-                <TeamOutlined /> Recursos humanos
-              </span>
-              {openMenu === "RRHH" ? (
-                <CaretUpOutlined />
-              ) : (
-                <CaretDownOutlined />
-              )}
-            </div>
-
-            {openMenu === "RRHH" && (
-              <div className={styles.menuItems}>
-                <div
-                  className={`${styles.menuItem} ${
-                    isActive("/rrhh/personal")
-                      ? styles.menuItemActive
-                      : ""
-                  }`}
-                  onClick={() => onNavigate("/rrhh/personal")}
-                >
-                  <UserOutlined /> Personal
-                </div>
-                <div
-                  className={`${styles.menuItem} ${
-                    isActive("/rrhh/contratos")
-                      ? styles.menuItemActive
-                      : ""
-                  }`}
-                  onClick={() => onNavigate("/rrhh/contratos")}
-                >
-                  <FileTextOutlined /> Contratos
-                </div>
-                <div
-                  className={`${styles.menuItem} ${
-                    isActive("/rrhh/permisos")
-                      ? styles.menuItemActive
-                      : ""
-                  }`}
-                  onClick={() => onNavigate("/rrhh/permisos")}
-                >
-                  <SafetyCertificateOutlined /> Permisos
-                </div>
-                <div
-                  className={`${styles.menuItem} ${
-                    isActive("/rrhh/vacaciones")
-                      ? styles.menuItemActive
-                      : ""
-                  }`}
-                  onClick={() => onNavigate("/rrhh/vacaciones")}
-                >
-                  <CalendarOutlined /> Vacaciones
-                </div>
-                <div
-                  className={`${styles.menuItem} ${
-                    isActive("/rrhh/asistencia")
-                      ? styles.menuItemActive
-                      : ""
-                  }`}
-                  onClick={() => onNavigate("/rrhh/asistencia")}
-                >
-                  <ClockCircleOutlined /> Asistencia
                 </div>
               </div>
             )}

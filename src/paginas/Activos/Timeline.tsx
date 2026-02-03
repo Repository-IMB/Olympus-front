@@ -1,36 +1,28 @@
 import { ClockCircleOutlined } from "@ant-design/icons";
 import styles from "./Timeline.module.css";
-
-interface Evento {
-  id: number;
-  tipo: string;
-  detalle: string;
-  fechaHora: string;
-  color: string;
-}
+import type { Evento } from "./TipoActivos";
 
 interface TimelineProps {
   eventos: Evento[];
 }
 
-const getEventoIcon = (tipo: string, color: string) => {
+const colorByTipo: Record<Evento["tipo"], string> = {
+  create: "green",
+  update: "orange",
+  assignment: "blue",
+};
+
+
+const getEventoIcon = (tipo: Evento["tipo"]) => {
   const colorMap: Record<string, string> = {
     blue: "#1677ff",
     green: "#52c41a",
-    red: "#ff4d4f",
     orange: "#faad14",
+    red: "#ff4d4f",
     default: "#8c8c8c",
   };
 
-  const iconColor = colorMap[color] || colorMap.default;
-
-  if (tipo === "description" || tipo === "testing") {
-    return (
-      <div className={styles.iconContainer} style={{ color: iconColor }}>
-        <ClockCircleOutlined />
-      </div>
-    );
-  }
+  const iconColor = colorMap[colorByTipo[tipo]] ?? colorMap.default;
 
   return (
     <div
@@ -39,6 +31,7 @@ const getEventoIcon = (tipo: string, color: string) => {
     />
   );
 };
+
 
 export default function Timeline({ eventos }: TimelineProps) {
   if (eventos.length === 0) {
@@ -62,7 +55,7 @@ export default function Timeline({ eventos }: TimelineProps) {
         return (
           <div key={evento.id} className={styles.timelineItem}>
             <div className={styles.timelineLine}>
-              {getEventoIcon(evento.tipo, evento.color)}
+              {getEventoIcon(evento.tipo)}
               {index < eventos.length - 1 && (
                 <div className={styles.timelineConnector} />
               )}
