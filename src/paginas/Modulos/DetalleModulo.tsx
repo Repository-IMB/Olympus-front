@@ -1,4 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
+import moment from "moment";
 import {
   Button,
   Card,
@@ -15,92 +16,31 @@ import {
 import {
   ArrowLeftOutlined,
   EditOutlined,
-  EyeOutlined,
   DeleteOutlined,
   PrinterOutlined,
-  StopOutlined
+  StopOutlined,
+  CheckCircleOutlined
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import styles from "./DetalleModulo.module.css";
 import { useState, useEffect } from "react";
 import ModalEditarProducto from "../Productos/ModalProducto";
 import ModalModulo from "./ModalModulo";
-import { obtenerModuloPorId, actualizarModulo, type IModulo } from "../../servicios/ModuloService";
-
-const departamentos = [
-  { id: 1, nombre: "Ventas" },
-  { id: 2, nombre: "Marketing" },
-  { id: 3, nombre: "Administración" },
-];
-
-const modalidad = [
-  { id: 1, nombre: "Sincrónica" },
-  { id: 2, nombre: "Asincrónica" },
-  { id: 3, nombre: "Híbrida" },
-];
-
-const estados = [
-  { id: 1, nombre: "En curso" },
-  { id: 2, nombre: "Cancelado" },
-  { id: 3, nombre: "Postergado" },
-  { id: 4, nombre: "Finalizado" },
-  { id: 5, nombre: "No llamar nuevos" },
-  { id: 6, nombre: "Piloto" },
-  { id: 7, nombre: "En curso" },
-  { id: 8, nombre: "Preventa" },
-  { id: 9, nombre: "En venta" },
-  { id: 10, nombre: "Grupo completo" },
-];
-
-// Datos mock temporales para productos, docentes y sesiones
-const productosAsociados = [
-  {
-    id: 1,
-    nombre: "Auditoría Financiera",
-    codigoEdicion: "IMP02052G1",
-    edicionSesion: "Setiembre G1",
-    estadoProducto: "Activo",
-    idProducto: 1,
-    orden: 1,
-  },
-];
-
-const docentesAsociados = [
-  {
-    id: 1,
-    nombre: "Ana Pérez",
-    apellido: "Sánchez",
-    correo: "ana.perez@email.com",
-    pais: "México",
-    alias: "Ana P.",
-    areaTematica: "Finanzas",
-    estado: "Activo",
-  },
-];
-
-const sesionesVivo = [
-  {
-    id: 1,
-    evento: "Presentación",
-    fecha: "lunes, 27 de octubre",
-    horaInicio: "9:00 AM",
-    horaFin: "10:30 AM",
-    tipo: "Teórica",
-  },
-];
-
-const obtenerLetraDia = (nombreCompleto: string): string => {
-  const mapeo: Record<string, string> = {
-    "Domingo": "D",
-    "Lunes": "L",
-    "Martes": "M",
-    "Miércoles": "X",
-    "Jueves": "J",
-    "Viernes": "V",
-    "Sábado": "S",
-  };
-  return mapeo[nombreCompleto] || nombreCompleto;
-};
+import { 
+  obtenerModuloPorId, 
+  actualizarModulo, 
+  asignarDocenteAModulo, 
+  obtenerProductosPorModulo, 
+  obtenerSesionesPorModulo,
+  type IModulo, 
+  type ProductoAsociadoModulo,
+  type ISesion
+} from "../../servicios/ModuloService";
+import { obtenerDocentes, type Docente } from "../../servicios/DocenteService";
+import { obtenerProductos, type Producto, obtenerTiposEstadoProducto, type TipoEstadoProducto } from "../../servicios/ProductoService";
+import { obtenerDepartamentos } from "../../servicios/DepartamentosService";
+import api from "../../servicios/api";
+import ModalSesion from "./ModalSesion";
 
 const obtenerNombreCompletoDia = (numero: string): string => {
   const mapeo: Record<string, string> = {
@@ -111,45 +51,146 @@ const obtenerNombreCompletoDia = (numero: string): string => {
     "5": "Viernes",
     "6": "Sábado",
     "7": "Domingo",
+    "0": "Domingo", // Por si acaso llega 0
   };
   return mapeo[numero] || numero;
 };
 
+// --- COMPONENTE PRINCIPAL ---
 export default function DetalleModulo() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
+  // Estados de datos
   const [modulo, setModulo] = useState<IModulo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingAsignacion, setLoadingAsignacion] = useState(false);
+  const [filtroEstadoSesion, setFiltroEstadoSesion] = useState<"todas" | "activas" | "inactivas">("activas");
 
+
+  // Estados de listas auxiliares
+  const [listaDocentes, setListaDocentes] = useState<Docente[]>([]);
+  const [loadingDocentes, setLoadingDocentes] = useState(false);
+  const [productosData, setProductosData] = useState<ProductoAsociadoModulo[]>([]);
+  const [loadingProductos, setLoadingProductos] = useState(false);
+  const [listaProductosDisponibles, setListaProductosDisponibles] = useState<Producto[]>([]);
+  const [loadingProductosSelect, setLoadingProductosSelect] = useState(false);
+  
+  // Estados de Sesiones
+  const [sesionesData, setSessionesData] = useState<ISesion[]>([]);
+  const [loadingSesiones, setLoadingSesiones] = useState(false);
+  const [modalSesionVisible, setModalSesionVisible] = useState(false);
+  const [modoSesion, setModoSesion] = useState<"crear" | "editar">("crear");
+  const [sesionEditando, setSesionEditando] = useState<ISesion | null>(null);
+
+  const [departamentos, setDepartamentos] = useState<{ id: number; nombre: string }[]>([]);
+  const [tiposEstadoProducto, setTiposEstadoProducto] = useState<TipoEstadoProducto[]>([]);
+
+  // Estados de Modales
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
   const [modalAsociarProductoVisible, setModalAsociarProductoVisible] = useState(false);
   const [formAsociarProducto] = Form.useForm();
+  
   const [modalAsignarDocenteVisible, setModalAsignarDocenteVisible] = useState(false);
   const [formAsignarDocente] = Form.useForm();
+  
   const [modalEditarProductoVisible, setModalEditarProductoVisible] = useState(false);
   const [productoEditando, setProductoEditando] = useState<any | null>(null);
 
-  // Cargar datos del módulo
+  // --- EFECTOS ---
+
+  // 1. Cargar módulo al iniciar
   useEffect(() => {
     if (id) {
       cargarModulo();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // 2. Si el módulo tiene docente, asegurarnos de tener la lista para mostrar detalles
+  useEffect(() => {
+    if (modulo?.idDocente && listaDocentes.length === 0) {
+       cargarListaDocentes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modulo]);
+
+  // 3. Cargar departamentos y tipos de estado al iniciar
+  useEffect(() => {
+    const cargarDatosIniciales = async () => {
+      try {
+        const deptData = await obtenerDepartamentos();
+        setDepartamentos(deptData.map((d: any) => ({ id: d.id, nombre: d.nombre })));
+
+        const tiposData = await obtenerTiposEstadoProducto();
+        setTiposEstadoProducto(tiposData);
+      } catch (error) {
+        console.error("Error cargando datos iniciales", error);
+      }
+    };
+    cargarDatosIniciales();
+  }, []);
+
+  // --- FUNCIONES DE CARGA ---
+
+  const cargarListaDocentes = async () => {
+    try {
+      setLoadingDocentes(true);
+      const docentesData = await obtenerDocentes();
+      setListaDocentes(docentesData);
+    } catch (error) {
+      console.error("Error cargando docentes", error);
+    } finally {
+      setLoadingDocentes(false);
+    }
+  };
 
   const cargarModulo = async () => {
     try {
-      setLoading(true);
+      setLoading(true); 
+      
       const data = await obtenerModuloPorId(Number(id));
       setModulo(data);
+
+      // Cargar productos asociados si el módulo existe
+      if (data.id) {
+        try {
+            setLoadingProductos(true); 
+            const prods = await obtenerProductosPorModulo(data.id);
+            setProductosData(prods);
+        } catch (errorProductos) {
+            console.error("Error al cargar productos asociados:", errorProductos);
+            message.warning("No se pudieron cargar los productos asociados");
+        } finally {
+            setLoadingProductos(false);
+        }
+
+        // Cargar sesiones asociadas
+        try {
+            setLoadingSesiones(true);
+            const sesiones = await obtenerSesionesPorModulo(data.id);
+            console.log("📅 Sesiones recibidas del backend:", sesiones);
+            console.log("📅 Primera sesión (ejemplo):", sesiones[0]);
+            console.log("📅 Campos de la primera sesión:", Object.keys(sesiones[0] || {}));
+            setSessionesData(sesiones);
+        } catch (errorSesiones) {
+            console.error("Error al cargar sesiones:", errorSesiones);
+            message.warning("No se pudieron cargar las sesiones del módulo");
+        } finally {
+            setLoadingSesiones(false);
+        }
+      }
+
     } catch (error) {
       message.error("Error al cargar el módulo");
       console.error("Error:", error);
-      navigate(-1); // Volver si hay error
+      navigate(-1); 
     } finally {
-      setLoading(false);
+      setLoading(false); 
     }
   };
+
+  // --- HANDLERS DE MODALES ---
 
   const abrirModalEditar = () => {
     setModalEditarVisible(true);
@@ -158,9 +199,10 @@ export default function DetalleModulo() {
   const handleSubmitModalEditar = async (values: any) => {
     try {
       if (modulo) {
-        await actualizarModulo(modulo.id!, values, true);
+        const preserveSessions = values.preserveSessions === true;
+        await actualizarModulo(modulo.id!, values, preserveSessions);
         message.success("Módulo actualizado correctamente");
-        await cargarModulo(); // Recargar datos
+        await cargarModulo(); 
       }
       setModalEditarVisible(false);
     } catch (error: any) {
@@ -174,37 +216,304 @@ export default function DetalleModulo() {
     setModalEditarVisible(false);
   };
 
-  const abrirModalAsociarProducto = () => {
+  // --- HANDLERS DE SESIONES ---
+
+  const abrirModalCrearSesion = () => {
+    setSesionEditando(null);
+    setModoSesion("crear");
+    setModalSesionVisible(true);
+  };
+
+  const abrirModalEditarSesion = (sesion: ISesion) => {
+    setSesionEditando(sesion);
+    setModoSesion("editar");
+    setModalSesionVisible(true);
+  };
+
+  const handleGuardarSesion = async (payload: any) => {
+    try {
+      setLoadingSesiones(true);
+      
+      // 🟢 Ya no validamos diaSemana, ahora es fecha
+      if (!payload.fecha) {
+        message.error("La fecha es requerida");
+        return;
+      }
+
+      const dataToSend = {
+        id: payload.id ? Number(payload.id) : 0,
+        idModulo: Number(id),
+        nombreSesion: payload.nombre,
+        idTipoSesion: Number(payload.tipo),
+        fecha: payload.fecha, // 🟢 NUEVO: enviar fecha
+        horaInicio: payload.horaInicio || "00:00:00",
+        horaFin: payload.horaFin || "00:00:00",
+        esAsincronica: payload.modalidad === 'asincronica'
+      };
+
+      console.log("📤 Enviando al backend:", dataToSend);
+
+      const response = await api.post('/api/VTAModVentaSesion/Guardar', dataToSend);
+      const respData = response.data || response;
+
+      if (respData.codigo === "SIN ERROR" || respData.codigo === "OK" || respData.codigo === "200") {
+        message.success(
+          modoSesion === "crear" ? "Sesión creada correctamente" : "Sesión actualizada correctamente"
+        );
+        
+        setModalSesionVisible(false);
+        await cargarModulo();
+        const sesionesActualizadas = await obtenerSesionesPorModulo(Number(id));
+        setSessionesData(sesionesActualizadas);
+        
+        window.dispatchEvent(new CustomEvent('moduloActualizado', { 
+          detail: { moduloId: Number(id) } 
+        }));
+      } else {
+        message.error(respData.mensaje || "Ocurrió un error al guardar la sesión.");
+      }
+
+    } catch (error: any) {
+      console.error("Error al guardar sesión:", error);
+      const errorMsg = error.response?.data?.mensaje || error.response?.data?.errors || "Error de conexión con el servidor";
+      message.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
+    } finally {
+      setLoadingSesiones(false);
+    }
+  };
+
+  const handleCancelarModalSesion = () => {
+    setModalSesionVisible(false);
+    setSesionEditando(null);
+  };
+
+  const handleCancelarSesion = async (idSesion: number) => {
+    Modal.confirm({
+      title: '¿Está seguro de cancelar esta sesión?',
+      content: 'La sesión pasará a estado inactivo y no se mostrará en el cronograma.',
+      okText: 'Sí, cancelar',
+      cancelText: 'No',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          setLoadingSesiones(true);
+          const response = await api.post(`/api/VTAModVentaSesion/CancelarSesion/${idSesion}`);
+          
+          if (response.data.codigo === "OK") {
+            message.success("Sesión cancelada correctamente");
+            await cargarModulo(); // Recargar datos
+          } else {
+            message.error(response.data.mensaje || "Error al cancelar sesión");
+          }
+        } catch (error: any) {
+          console.error("Error:", error);
+          message.error("Error al cancelar la sesión");
+        } finally {
+          setLoadingSesiones(false);
+        }
+      }
+    });
+  };
+
+  const handleDescancelarSesion = async (idSesion: number) => {
+    Modal.confirm({
+      title: '¿Desea reactivar esta sesión?',
+      content: 'La sesión volverá a estar activa y visible en el cronograma.',
+      okText: 'Sí, activar',
+      cancelText: 'No',
+      // Cambiamos el estilo del botón a verde para diferenciarlo del "danger" (rojo)
+      okButtonProps: { style: { backgroundColor: '#52c41a', borderColor: '#52c41a' } },
+      onOk: async () => {
+        try {
+          setLoadingSesiones(true);
+          // Llamamos al endpoint nuevo
+          const response = await api.post(`/api/VTAModVentaSesion/DescancelarSesion/${idSesion}`);
+          
+          // Validamos OK o SIN ERROR (por si el backend devuelve uno u otro)
+          const codigo = response.data.codigo;
+          if (codigo === "OK" || codigo === "SIN ERROR" || codigo === "SIN_ERROR" || codigo === "200") {
+            message.success("Sesión activada correctamente");
+            await cargarModulo(); // Recargamos todo igual que en el cancelar
+          } else {
+            message.error(response.data.mensaje || "Error al activar sesión");
+          }
+        } catch (error: any) {
+          console.error("Error:", error);
+          message.error("Error al activar la sesión");
+        } finally {
+          setLoadingSesiones(false);
+        }
+      }
+    });
+  };
+  // Filtrar sesiones según el estado seleccionado
+  const sesionesFiltradas = sesionesData.filter(sesion => {
+    if (filtroEstadoSesion === "activas") return sesion.estado === true;
+    if (filtroEstadoSesion === "inactivas") return sesion.estado === false;
+    return true; // "todas"
+  });
+
+  // --- OTROS HANDLERS ---
+
+  const descargarPDFModulo = async () => {
+    try {
+      if (!modulo?.id) {
+        message.error("No se puede generar el PDF sin un módulo válido");
+        return;
+      }
+
+      message.loading({ content: 'Generando PDF...', key: 'pdf' });
+
+      const response = await api.get(`/api/VTAModVentaModulo/GenerarPDF/${modulo.id}`, {
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      const fileName = `Modulo_${modulo.codigo || modulo.id}_${new Date().toISOString().split('T')[0]}.pdf`;
+      link.download = fileName;
+      
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      message.success({ content: 'PDF descargado correctamente', key: 'pdf' });
+      
+    } catch (error: any) {
+      console.error('Error al descargar PDF:', error);
+      message.error({ 
+        content: error?.response?.data?.message || 'Error al generar el PDF del módulo',
+        key: 'pdf'
+      });
+    }
+  };
+
+  const abrirModalAsociarProducto = async () => {
     formAsociarProducto.resetFields();
     setModalAsociarProductoVisible(true);
+
+    if (listaProductosDisponibles.length === 0) {
+      try {
+        setLoadingProductosSelect(true);
+        const data = await obtenerProductos("", 1, 1000); 
+        if (data && data.productos) {
+            setListaProductosDisponibles(data.productos);
+        }
+      } catch (error) {
+        console.error("Error al cargar productos para el select:", error);
+        message.error("No se pudieron cargar los productos disponibles");
+      } finally {
+        setLoadingProductosSelect(false);
+      }
+    }
   };
 
   const asignarProductoAlModulo = () => {
     formAsociarProducto
       .validateFields()
-      .then((values) => {
-        console.log("Producto asignado al módulo:", values);
-        // Acá iría el POST al backend
-        setModalAsociarProductoVisible(false);
+      .then(async (values) => {
+        try {
+            setLoading(true); 
+            await api.post('/api/VTAModVentaModulo/VincularModuloAProducto', {
+                idProducto: values.productoId,
+                idModulo: Number(id)
+            });
+
+            message.success("Producto asignado correctamente");
+            setModalAsociarProductoVisible(false);
+            cargarModulo();
+
+        } catch (error) {
+            console.error(error);
+            message.error("Error al asignar producto");
+        } finally {
+            setLoading(false);
+        }
       });
   };
 
-  const abrirModalAsignarDocente = () => {
+  const abrirModalAsignarDocente = async () => {
     formAsignarDocente.resetFields();
     setModalAsignarDocenteVisible(true);
+    
+    if (listaDocentes.length === 0) {
+        await cargarListaDocentes();
+    }
+    
+    if (modulo?.idDocente) {
+        formAsignarDocente.setFieldsValue({ docenteId: modulo.idDocente });
+    }
   };
 
   const asignarDocenteAlModulo = () => {
     formAsignarDocente
       .validateFields()
-      .then((values) => {
-        console.log("Docente asignado al módulo:", values);
-        // POST / PUT al backend
-        setModalAsignarDocenteVisible(false);
+      .then(async (values) => {
+        try {
+            const idModulo = modulo?.id;
+            if (!idModulo) return;
+
+            setLoadingAsignacion(true); 
+            
+            const resp = await asignarDocenteAModulo(idModulo, values.docenteId);
+            
+            const codigoStr = String(resp.codigo).toUpperCase();
+            const mensajeStr = String(resp.mensaje || "").toLowerCase();
+            
+            const esExito = 
+                codigoStr === "0" || 
+                codigoStr === "SIN_ERROR" || 
+                codigoStr === "200" || 
+                codigoStr === "OK" ||
+                mensajeStr.includes("correctamente");
+
+            if (esExito) {
+                message.success("Docente asignado correctamente");
+                setModalAsignarDocenteVisible(false);
+                await cargarModulo(); 
+            } else {
+                message.error(resp.mensaje || "Error al asignar");
+            }
+
+        } catch (error: any) {
+            console.error(error);
+            const msgError = error?.response?.data?.mensaje || "";
+            if (msgError.toLowerCase().includes("correctamente")) {
+                 message.success("Docente asignado correctamente");
+                 setModalAsignarDocenteVisible(false);
+                 await cargarModulo();
+            } else {
+                 message.error(msgError || "Error de conexión");
+            }
+        } finally {
+            setLoadingAsignacion(false); 
+        }
       });
   };
 
-  // Columnas para productos asociados
+  const obtenerColorEstado = (estadoNombre: string | undefined): string => {
+    if (!estadoNombre) return "default";
+    const estadoLower = estadoNombre.toLowerCase();
+    
+    if (estadoLower === "en curso") return "blue";
+    if (estadoLower === "en venta") return "green";
+    if (estadoLower === "finalizado") return "red";
+    if (estadoLower === "grupo completo") return "orange";
+    if (estadoLower === "piloto") return "purple";
+    if (estadoLower === "postergado") return "volcano";
+    if (estadoLower === "cancelado") return "default";
+    if (estadoLower === "no llamar nuevos") return "magenta";
+    
+    return "default";
+  };
+
+  // --- COLUMNAS DE TABLAS ---
+
   const columnasProductos: ColumnsType<any> = [
     {
       title: 'Nombre del producto',
@@ -225,13 +534,14 @@ export default function DetalleModulo() {
       sorter: (a, b) => a.orden - b.orden,
     },
     {
-      title: 'Estado del producto',
+      title: 'Estado de producto',
       dataIndex: 'estadoProducto',
       key: 'estadoProducto',
       sorter: (a, b) => a.estadoProducto.localeCompare(b.estadoProducto),
-      render: (estado: string) => (
-        <Tag color={estado === 'Activo' ? 'green' : 'red'}>{estado}</Tag>
-      ),
+      render: (estadoNombre: string | undefined) => {
+        if (!estadoNombre) return <Tag>-</Tag>;
+        return <Tag color={obtenerColorEstado(estadoNombre)}>{estadoNombre}</Tag>;
+      },
     },
     {
       title: 'Acciones',
@@ -239,20 +549,6 @@ export default function DetalleModulo() {
       align: 'center',
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="Ver detalle">
-            <Button
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => {
-                navigate(`/producto/productos/detalle/${record.idProducto}`);
-              }}
-              style={{
-                backgroundColor: '#1f1f1f',
-                borderColor: '#1f1f1f',
-                color: 'white'
-              }}
-            />
-          </Tooltip>
           <Tooltip title="Editar">
             <Button
               size="small"
@@ -273,10 +569,41 @@ export default function DetalleModulo() {
     },
   ];
 
-  // Columnas para docentes asociados
+  let datosDocenteTabla: Record<string, any>[] = []; 
+  
+  if (modulo?.idDocente) {
+      const docenteCompleto = listaDocentes.find(d => d.id === modulo.idDocente);
+      const docenteAny = docenteCompleto as any;
+      const moduloAny = modulo as any;
+
+      if (docenteCompleto) {
+          datosDocenteTabla = [{
+              id: docenteCompleto.id,
+              nombre: docenteCompleto.nombres,
+              apellido: docenteCompleto.apellidos,
+              correo: docenteCompleto.correo,
+              pais: docenteAny.pais || moduloAny.docentePais || '-',
+              alias: docenteAny.alias || '-',
+              areaTematica: docenteAny.areaTematica || '-',
+              estado: 'Asignado'
+          }];
+      } else {
+          datosDocenteTabla = [{
+              id: modulo.idDocente,
+              nombre: modulo.docenteNombre || 'Cargando...',
+              apellido: moduloAny.docenteApellido || '-', 
+              correo: '-', 
+              pais: moduloAny.docentePais || '-',
+              alias: '-',
+              areaTematica: '-',
+              estado: 'Asignado'
+          }];
+      }
+  }
+
   const columnasDocentes: ColumnsType<any> = [
     {
-      title: 'Nombre',
+      title: 'DocenteAsignado',
       dataIndex: 'nombre',
       key: 'nombre',
       sorter: (a, b) => a.nombre.localeCompare(b.nombre),
@@ -317,87 +644,143 @@ export default function DetalleModulo() {
       key: 'estado',
       sorter: (a, b) => a.estado.localeCompare(b.estado),
       render: (estado: string) => (
-        <Tag color={estado === 'Activo' ? 'green' : 'red'}>{estado}</Tag>
+        <Tag color={estado === 'Asignado' ? 'green' : 'red'}>{estado}</Tag>
       ),
     },
   ];
 
-  // Columnas para sesiones en vivo
   const columnasSesiones: ColumnsType<any> = [
-    {
-      title: 'Evento',
-      dataIndex: 'evento',
-      key: 'evento',
-      sorter: (a, b) => a.evento.localeCompare(b.evento),
+  {
+    title: 'Sesión',
+    dataIndex: 'nombreSesion',
+    key: 'nombreSesion',
+    sorter: (a, b) => a.nombreSesion.localeCompare(b.nombreSesion),
+  },
+  {
+    title: 'Fecha',
+    dataIndex: 'fecha',
+    key: 'fecha',
+    render: (fecha: string, record: any) => {
+      // Intentar múltiples campos por si el backend usa otro nombre
+      const fechaActual = fecha || record.fechaSesion || record.fechaClase || record.date;
+      
+      if (!fechaActual || fechaActual === '0001-01-01T00:00:00' || fechaActual === '0001-01-01') {
+        return <span style={{color: 'red'}}>Sin fecha</span>;
+      }
+      
+      try {
+        // 🟢 CORRECCIÓN: Usar .utc() para interpretar la fecha tal cual viene del servidor
+        // sin restarle las 3 horas de Argentina (evitando que 00:00:00 pase a 21:00:00 del día anterior)
+        return moment.utc(fechaActual).format('DD/MM/YYYY');
+      } catch (error) {
+        return <span style={{color: 'orange'}}>Formato inválido</span>;
+      }
     },
-    {
-      title: 'Fecha',
-      dataIndex: 'fecha',
-      key: 'fecha',
-      sorter: (a, b) => a.fecha.localeCompare(b.fecha),
+    sorter: (a, b) => {
+      const fechaA = a.fecha || '';
+      const fechaB = b.fecha || '';
+      if (!fechaA || !fechaB) return 0;
+      return new Date(fechaA).getTime() - new Date(fechaB).getTime();
     },
-    {
-      title: 'Hora Inicio',
-      dataIndex: 'horaInicio',
-      key: 'horaInicio',
-      sorter: (a, b) => a.horaInicio.localeCompare(b.horaInicio),
-    },
-    {
-      title: 'Hora Fin',
-      dataIndex: 'horaFin',
-      key: 'horaFin',
-      sorter: (a, b) => a.horaFin.localeCompare(b.horaFin),
-    },
-    {
-      title: 'Tipo',
-      dataIndex: 'tipo',
-      key: 'tipo',
-      sorter: (a, b) => a.tipo.localeCompare(b.tipo),
-    },
-    {
-      title: 'Acciones',
-      key: 'acciones',
-      align: 'center',
-      render: () => (
-        <Space size="small">
-          <Tooltip title="Ver detalle">
-            <Button
-              size="small"
-              icon={<EyeOutlined />}
-              style={{
-                backgroundColor: '#1f1f1f',
-                borderColor: '#1f1f1f',
-                color: 'white'
-              }}
-            />
-          </Tooltip>
-          <Tooltip title="Cancelar">
-            <Button
-              size="small"
-              icon={<StopOutlined />}
-              style={{
-                backgroundColor: '#1f1f1f',
-                borderColor: '#1f1f1f',
-                color: 'white'
-              }}
-            />
-          </Tooltip>
-          <Tooltip title="Eliminar">
-            <Button
-              size="small"
-              icon={<DeleteOutlined />}
-              style={{
-                backgroundColor: '#1f1f1f',
-                borderColor: '#1f1f1f',
-                color: 'white'
-              }}
-            />
-          </Tooltip>
-        </Space>
-      ),
-    },
-  ];
-
+  },
+  {
+    title: 'Día de la semana',
+    dataIndex: 'nombreDiaSemana',
+    key: 'nombreDiaSemana',
+    sorter: (a, b) => (a.nombreDiaSemana || '').localeCompare(b.nombreDiaSemana || ''),
+  },
+  {
+    title: 'Hora Inicio',
+    dataIndex: 'horaInicio',
+    key: 'horaInicio',
+    render: (horaInicio: string | null | undefined) => horaInicio || '-',
+    sorter: (a, b) => (a.horaInicio || '').localeCompare(b.horaInicio || ''),
+  },
+  {
+    title: 'Hora Fin',
+    dataIndex: 'horaFin',
+    key: 'horaFin',
+    render: (horaFin: string | null | undefined) => horaFin || '-',
+    sorter: (a, b) => (a.horaFin || '').localeCompare(b.horaFin || ''),
+  },
+  {
+    title: 'Tipo',
+    dataIndex: 'tipoSesion',
+    key: 'tipoSesion',
+    render: (tipoSesion: string) => tipoSesion || '-',
+    sorter: (a, b) => (a.tipoSesion || '').localeCompare(b.tipoSesion || ''),
+  },
+  {
+    title: 'Modalidad',
+    dataIndex: 'esAsincronica',
+    key: 'esAsincronica',
+    render: (esAsincronica: boolean) => (
+      <Tag color={esAsincronica ? 'blue' : 'green'}>
+        {esAsincronica ? 'Asincrónica' : 'Sincrónica'}
+      </Tag>
+    ),
+  },
+  {
+    title: 'Acciones',
+    key: 'acciones',
+    align: 'center',
+    render: (_, record) => (
+      <Space size="small">
+        <Tooltip title="Editar">
+          <Button
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => abrirModalEditarSesion(record)}
+            disabled={!record.estado} // 🆕 Deshabilitar si está inactiva
+            style={{
+              backgroundColor: '#1f1f1f',
+              borderColor: '#1f1f1f',
+              color: 'white'
+            }}
+          />
+        </Tooltip>
+        {record.estado ? (
+            // SI ESTÁ ACTIVA (TRUE) -> MOSTRAR BOTÓN CANCELAR (ROJO)
+            <Tooltip title="Cancelar sesión">
+              <Button
+                size="small"
+                icon={<StopOutlined />}
+                onClick={() => handleCancelarSesion(record.id)}
+                danger // Color rojo nativo de Antd
+                type="primary" // Para que se vea sólido el rojo si quieres, o quítalo para outline
+                ghost // Opcional: para que sea borde rojo y fondo blanco
+              />
+            </Tooltip>
+          ) : (
+            // SI ESTÁ INACTIVA (FALSE) -> MOSTRAR BOTÓN DESCANCELAR (VERDE)
+            <Tooltip title="Reactivar sesión">
+              <Button
+                size="small"
+                icon={<CheckCircleOutlined />}
+                onClick={() => handleDescancelarSesion(record.id)}
+                style={{
+                  backgroundColor: '#52c41a', // Verde éxito
+                  borderColor: '#52c41a',
+                  color: 'white'
+                }}
+              />
+            </Tooltip>
+          )}
+        <Tooltip title="Eliminar">
+          <Button
+            size="small"
+            icon={<DeleteOutlined />}
+            style={{
+              backgroundColor: '#1f1f1f',
+              borderColor: '#1f1f1f',
+              color: 'white'
+            }}
+          />
+        </Tooltip>
+      </Space>
+    ),
+  },
+];
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -423,18 +806,40 @@ export default function DetalleModulo() {
     );
   }
 
-  // Convertir días de semana de números a nombres
-  const diasClaseNombres = modulo.diasSemana
-    ? modulo.diasSemana.split(',').map(d => obtenerNombreCompletoDia(d.trim())).join(', ')
-    : '-';
-
-  // Preparar el módulo para editar
   const moduloParaEditar = {
     ...modulo,
     modulo: modulo.nombre,
-    // diasClase: modulo.diasSemana ? modulo.diasSemana.split(',').map(d => d.trim()) : []
   };
 
+  // Función para formatear fechas de forma amigable (Ej: Lunes, 25 de octubre de 2025)
+const formatearFechaAmigable = (fecha: string | Date | undefined) => {
+  if (!fecha) return '-';
+  
+  const fechaObj = new Date(fecha);
+  // Validar que sea una fecha válida
+  if (isNaN(fechaObj.getTime())) return '-';
+
+  // Opciones de formato
+  const opciones: Intl.DateTimeFormatOptions = { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    timeZone: 'UTC' // Importante para que no reste un día por la zona horaria si viene solo fecha
+  };
+
+  const fechaFormateada = new Intl.DateTimeFormat('es-ES', opciones).format(fechaObj);
+  
+  return fechaFormateada.charAt(0).toUpperCase() + fechaFormateada.slice(1);
+};
+
+  const rawDias = modulo.diasSemana || (modulo as any).diasClase || '';
+  
+  const diasClaseNombres = rawDias
+    ? rawDias.toString().split(',').map((d: string) => obtenerNombreCompletoDia(d.trim())).join(', ')
+    : '-';
+
+  // --- RENDERIZADO PRINCIPAL ---
   return (
     <div className={styles.container}>
       {/* HEADER / VOLVER */}
@@ -455,12 +860,20 @@ export default function DetalleModulo() {
           <Item label="Código del módulo" value={modulo.codigo || '-'} />
           <Item label="Título del certificado" value={modulo.tituloCertificado || '-'} />
           <Item label="Descripción" value={modulo.descripcion || '-'} />
-          <Item label="Fecha de presentación" value={modulo.fechaPresentacion || '-'} />
-          <Item label="Fecha final" value={modulo.fechaFinPorSesiones || '-'} />
+          <Item 
+            label="Fecha de inicio" 
+            value={formatearFechaAmigable(modulo.fechaInicio)} 
+          />
+          <Item 
+             label="Fecha final (estimada)" 
+             value={formatearFechaAmigable(modulo.fechaFinPorSesiones || (modulo as any).fechaFin)} 
+          />
           <Item label="Horas sincrónicas" value={modulo.horasSincronicas || 0} />
-          <Item label="Horas asincrónicas" value={modulo.horasAsincronicas || 0} />
           <Item label="Días de clase" value={diasClaseNombres} />
-          <Item label="Código de producto relacionado" value={modulo.productosCodigoLanzamiento || '-'} />
+          <Item 
+            label="Código de producto relacionado" 
+            value={modulo.productosCodigoLanzamiento || (modulo as any).codigoProducto || '-'} 
+          />
           <Item
             label="Estado"
             value={<Tag color={modulo.estado ? 'green' : 'red'}>
@@ -496,6 +909,7 @@ export default function DetalleModulo() {
               alignItems: 'center',
               justifyContent: 'center'
             }}
+            onClick={descargarPDFModulo}
           >
             Imprimir cronograma de clases
           </Button>
@@ -511,7 +925,7 @@ export default function DetalleModulo() {
           marginBottom: 16
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
-            Productos asociados al módulo ({productosAsociados.length})
+            Productos asociados al módulo ({productosData.length})
           </h4>
           <Button
             type="primary"
@@ -527,11 +941,13 @@ export default function DetalleModulo() {
         </div>
 
         <Table
-          dataSource={productosAsociados}
+          dataSource={productosData}
           columns={columnasProductos}
           rowKey="id"
           pagination={false}
           size="small"
+          loading={loadingProductos}
+          locale={{ emptyText: "Este módulo no está asociado a ningún producto aún." }}
         />
       </Card>
 
@@ -544,7 +960,7 @@ export default function DetalleModulo() {
           marginBottom: 16
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
-            Docentes asociados al módulo
+            Docente responsable
           </h4>
           <Button
             type="primary"
@@ -555,16 +971,18 @@ export default function DetalleModulo() {
             }}
             onClick={abrirModalAsignarDocente}
           >
-            Cambiar docente asignado al módulo
+            {modulo?.idDocente ? "Cambiar docente" : "Asignar docente"}
           </Button>
         </div>
 
         <Table
-          dataSource={docentesAsociados}
+          dataSource={datosDocenteTabla}
           columns={columnasDocentes}
           rowKey="id"
           pagination={false}
           size="small"
+          loading={loadingDocentes}
+          locale={{ emptyText: "No hay docente asignado a este módulo" }}
         />
       </Card>
 
@@ -577,9 +995,20 @@ export default function DetalleModulo() {
           marginBottom: 16
         }}>
           <h4 className={styles.title} style={{ margin: 0 }}>
-            Cronograma de sesiones ({sesionesVivo.length})
+            Cronograma de sesiones ({sesionesFiltradas.length})
           </h4>
           <Space>
+            {/* 🆕 Filtro de estado */}
+            <Select
+              value={filtroEstadoSesion}
+              onChange={setFiltroEstadoSesion}
+              style={{ width: 150 }}
+            >
+              <Select.Option value="activas">Activas</Select.Option>
+              <Select.Option value="inactivas">Inactivas</Select.Option>
+              <Select.Option value="todas">Todas</Select.Option>
+            </Select>
+            
             <Button
               type="primary"
               style={{
@@ -587,6 +1016,7 @@ export default function DetalleModulo() {
                 borderColor: '#1f1f1f',
                 color: 'white'
               }}
+              onClick={descargarPDFModulo}
             >
               Imprimir cronograma de clases
             </Button>
@@ -596,6 +1026,7 @@ export default function DetalleModulo() {
                 borderColor: '#1f1f1f',
                 color: 'white'
               }}
+              onClick={abrirModalCrearSesion}
             >
               Nueva sesión
             </Button>
@@ -603,15 +1034,18 @@ export default function DetalleModulo() {
         </div>
 
         <Table
-          dataSource={sesionesVivo}
+          dataSource={sesionesFiltradas} // 🆕 Usar datos filtrados
           columns={columnasSesiones}
           rowKey="id"
           pagination={false}
           size="small"
+          loading={loadingSesiones}
+          locale={{ emptyText: "No hay sesiones con este filtro." }}
         />
       </Card>
 
-      {/* MODAL EDITAR MÓDULO - REUTILIZABLE */}
+      {/* --- MODALES --- */}
+
       <ModalModulo
         visible={modalEditarVisible}
         onCancel={handleCancelModalEditar}
@@ -639,20 +1073,18 @@ export default function DetalleModulo() {
             rules={[{ required: true, message: "Seleccione un producto" }]}
           >
             <Select
-              placeholder="Seleccione un producto"
+              placeholder="Busque y seleccione un producto"
               showSearch
-              optionFilterProp="label"
-            >
-              <Select.Option value={1} label="Auditoría Financiera">
-                Auditoría Financiera
-              </Select.Option>
-              <Select.Option value={2} label="PET Contabilidad Financiera">
-                PET Contabilidad Financiera
-              </Select.Option>
-              <Select.Option value={3} label="PET Auditoría">
-                PET Auditoría
-              </Select.Option>
-            </Select>
+              loading={loadingProductosSelect}
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={listaProductosDisponibles.map(prod => ({
+                value: prod.id,
+                label: `${prod.nombre} ${prod.codigoLanzamiento ? `(${prod.codigoLanzamiento})` : ''}` 
+              }))}
+            />
           </Form.Item>
 
           <Button
@@ -688,32 +1120,31 @@ export default function DetalleModulo() {
             rules={[{ required: true, message: "Seleccione un docente" }]}
           >
             <Select
-              placeholder="Seleccione un docente"
+              placeholder="Busque y seleccione un docente"
               showSearch
-              optionFilterProp="label"
-            >
-              <Select.Option value={1} label="Ana Pérez">
-                Ana Pérez
-              </Select.Option>
-              <Select.Option value={2} label="Juan Gómez">
-                Juan Gómez
-              </Select.Option>
-              <Select.Option value={3} label="Brookelyn Price">
-                Brookelyn Price
-              </Select.Option>
-            </Select>
+              loading={loadingDocentes}
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={listaDocentes.map(doc => ({
+                value: doc.id,
+                label: `${doc.nombres} ${doc.apellidos} ${doc.tituloProfesional ? `(${doc.tituloProfesional})` : ''}`
+              }))}
+            />
           </Form.Item>
 
           <Button
             type="primary"
             htmlType="submit"
             block
+            loading={loading}
             style={{
               backgroundColor: "#1677ff",
               borderColor: "#1677ff",
             }}
           >
-            Asignar docente
+            Confirmar Asignación
           </Button>
         </Form>
       </Modal>
@@ -723,7 +1154,7 @@ export default function DetalleModulo() {
         visible={modalEditarProductoVisible}
         producto={productoEditando}
         departamentos={departamentos}
-        tiposEstadoProducto={[]}
+        tiposEstadoProducto={tiposEstadoProducto}
         modo="editar"
         onCancel={() => {
           setModalEditarProductoVisible(false);
@@ -731,10 +1162,19 @@ export default function DetalleModulo() {
         }}
         onSave={async (productoEditado) => {
           console.log("Producto editado:", productoEditado);
-          // await ProductoService.editarProducto(productoEditado);
           setModalEditarProductoVisible(false);
           setProductoEditando(null);
         }}
+      />
+      
+      {/* 🟢 NUEVO MODAL SESIÓN */}
+      <ModalSesion
+        visible={modalSesionVisible}
+        modo={modoSesion}
+        sesion={sesionEditando}
+        idModulo={Number(id)}
+        onCancel={handleCancelarModalSesion}
+        onSave={handleGuardarSesion}
       />
     </div>
   );

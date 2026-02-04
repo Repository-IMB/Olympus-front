@@ -7,7 +7,6 @@ import {
   DatePicker,
   TimePicker,
   InputNumber,
-  Select,
   Space,
   Button,
   message,
@@ -46,44 +45,103 @@ export default function ModalModulo({
   const [form] = Form.useForm();
   const [diasClase, setDiasClase] = useState<string[]>([]);
 
-  // Observamos los valores para cálculos y lógica de visualización
+  // Observamos los valores para cálculos
+  const fechaInicio = Form.useWatch("fechaInicio", form);
   const horaInicio = Form.useWatch("horaInicio", form);
   const horaFin = Form.useWatch("horaFin", form);
+  const horaInicioSabado = Form.useWatch("horaInicioSabado", form);
+  const horaFinSabado = Form.useWatch("horaFinSabado", form);
   const nroSesiones = Form.useWatch("nroSesiones", form);
   const gestionSesiones = Form.useWatch("gestionSesiones", form);
 
-  // Lógica para mostrar/ocultar campos
-  // Se muestran si: NO es edición (creación) O si es edición y eligió "regenerar"
   const mostrarProgramacion = !modoEdicion || gestionSesiones === "regenerar";
 
-  // Efecto para calcular horas sincrónicas automáticamente
+  // ==============================================================================
+  // 🟢 CÁLCULO DE HORAS (Soporte para sábados con horario diferente)
+  // ==============================================================================
   useEffect(() => {
-    if (horaInicio && horaFin && nroSesiones) {
-      // 1. Clonamos y limpiamos segundos/milisegundos para precisión exacta
-      const inicio = moment(horaInicio).second(0).millisecond(0);
-      const fin = moment(horaFin).second(0).millisecond(0);
+    // Si no se muestran los campos, no recalculamos para no pisar datos ocultos
+    if (!mostrarProgramacion) return;
 
-      // 2. Calculamos diferencia en minutos y pasamos a horas
-      const diffHoras = fin.diff(inicio, "minute") / 60;
-      
-      // 3. Calculamos total
-      const total = diffHoras > 0 ? diffHoras * Number(nroSesiones) : 0;
+    // Validación mínima: Horarios semana y Nro sesiones son obligatorios para empezar
+    if (!horaInicio || !horaFin || !nroSesiones) {
+      form.setFieldsValue({ duracionHoras: 0 });
+      return;
+    }
 
-      form.setFieldsValue({
-        duracionHoras: Number(total.toFixed(2)),
-      });
-    } else {
-      // Solo resetear si estamos viendo los campos, para evitar sobrescribir datos ocultos innecesariamente
-      if (mostrarProgramacion) {
-          form.setFieldsValue({ duracionHoras: 0 });
+    // 1. Calcular duración de una sesión "Semana" (L-V + D)
+    const inicioSemana = moment(horaInicio).second(0).millisecond(0);
+    const finSemana = moment(horaFin).second(0).millisecond(0);
+    const duracionSemana = Math.max(0, finSemana.diff(inicioSemana, "minute") / 60);
+
+    // 2. Calcular duración de sesión "Sábado"
+    let duracionSabado = duracionSemana; // Por defecto igual
+    const tieneSabado = diasClase.includes("6");
+
+    if (tieneSabado && horaInicioSabado && horaFinSabado) {
+      const inicioSab = moment(horaInicioSabado).second(0).millisecond(0);
+      const finSab = moment(horaFinSabado).second(0).millisecond(0);
+      duracionSabado = Math.max(0, finSab.diff(inicioSab, "minute") / 60);
+    }
+
+    // 3. Lógica de conteo
+    let totalHoras = 0;
+    const duracionesSonIguales = Math.abs(duracionSemana - duracionSabado) < 0.01;
+
+    // CASO A: Cálculo simple
+    if (!tieneSabado || duracionesSonIguales) {
+      totalHoras = duracionSemana * Number(nroSesiones);
+    } 
+    // CASO B: Cálculo complejo (Calendario simulado)
+    else {
+      if (fechaInicio) {
+        let sesionesContadas = 0;
+        let sabadosContados = 0;
+        const fechaIteracion = moment(fechaInicio);
+        const diasValidosMoment = diasClase.map(d => d === "7" ? 0 : parseInt(d));
+
+        let seguridad = 0;
+        while (sesionesContadas < Number(nroSesiones) && seguridad < 1000) {
+          const diaSemanaActual = fechaIteracion.day();
+
+          if (diasValidosMoment.includes(diaSemanaActual)) {
+            sesionesContadas++;
+            if (diaSemanaActual === 6) {
+              sabadosContados++;
+            }
+          }
+          fechaIteracion.add(1, 'days');
+          seguridad++;
+        }
+
+        const sesionesSemana = Number(nroSesiones) - sabadosContados;
+        totalHoras = (sesionesSemana * duracionSemana) + (sabadosContados * duracionSabado);
+      } else {
+        totalHoras = duracionSemana * Number(nroSesiones);
       }
     }
-  }, [horaInicio, horaFin, nroSesiones, form, mostrarProgramacion]);
 
-  // Efecto para cargar datos cuando se edita
+    form.setFieldsValue({
+      duracionHoras: Number(totalHoras.toFixed(2)),
+    });
+
+  }, [
+    horaInicio, 
+    horaFin, 
+    horaInicioSabado, 
+    horaFinSabado, 
+    nroSesiones, 
+    fechaInicio,
+    diasClase,
+    form, 
+    mostrarProgramacion
+  ]);
+
+  // ==============================================================================
+  // 🟢 EFECTO PARA CARGAR DATOS AL EDITAR
+  // ==============================================================================
   useEffect(() => {
     if (visible && modoEdicion && moduloEditar) {
-      // ... (Lógica de extracción de datos existente igual que antes) ...
       // Extraer días desde sesionesHorarios
       const diasArray: string[] = [];
       let primeraHoraInicio: string | null = null;
@@ -113,48 +171,28 @@ export default function ModalModulo({
       // Buscar horario asincrónico
       const horarioAsync = moduloEditar.sesionesHorarios?.find((h: ISesionHorario) => h.esAsincronica);
 
-      // Contar sesiones
-      const sesionesSincronicas = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 22) || [];
-      const sesionesAsincronicas = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 26) || [];
-
-      const totalSesionesSincronicas = sesionesSincronicas.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
-      const totalSesionesAsincronicas = sesionesAsincronicas.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
-
       const valoresFormulario = {
         nombre: moduloEditar.nombre,
         codigo: moduloEditar.codigo || "",
         tituloCertificado: moduloEditar.tituloCertificado || "",
         descripcion: moduloEditar.descripcion || "",
-        // Default a mantener cuando se abre editar
         gestionSesiones: "mantener", 
-        fechaPresentacion: moduloEditar.fechaPresentacion
-          ? moment(moduloEditar.fechaPresentacion)
-          : null,
         fechaInicio: moduloEditar.fechaInicio ? moment(moduloEditar.fechaInicio) : null,
-        horaInicio: primeraHoraInicio
-          ? moment(primeraHoraInicio, "HH:mm:ss")
-          : null,
-        horaFin: primeraHoraFin
-          ? moment(primeraHoraFin, "HH:mm:ss")
-          : null,
-        horaInicioSabado: horaInicioSabado
-          ? moment(horaInicioSabado, "HH:mm:ss")
-          : null,
-        horaFinSabado: horaFinSabado
-          ? moment(horaFinSabado, "HH:mm:ss")
-          : null,
-        nroSesiones: totalSesionesSincronicas,
+        horaInicio: primeraHoraInicio ? moment(primeraHoraInicio, "HH:mm:ss") : null,
+        horaFin: primeraHoraFin ? moment(primeraHoraFin, "HH:mm:ss") : null,
+        horaInicioSabado: horaInicioSabado ? moment(horaInicioSabado, "HH:mm:ss") : null,
+        horaFinSabado: horaFinSabado ? moment(horaFinSabado, "HH:mm:ss") : null,
+        
+        // ✅ CALCULAR SÍNCRONAS: Total - Asíncronas
+        // El backend guarda numeroSesiones como TOTAL
+        // Pero el formulario muestra solo las SÍNCRONAS en el campo "Nro de sesiones"
+        nroSesiones: (moduloEditar.numeroSesiones || 0) - (moduloEditar.numeroSesionesAsincronicas || 0),
         duracionHoras: moduloEditar.duracionHoras || 0,
-        nroSesionesAsync: totalSesionesAsincronicas,
-        diaAsync: horarioAsync && horarioAsync.diaSemana > 0
-          ? String(horarioAsync.diaSemana)
-          : undefined,
-        horaInicioAsync: horarioAsync?.horaInicio
-          ? moment(horarioAsync.horaInicio, "HH:mm:ss")
-          : null,
-        horaFinAsync: horarioAsync?.horaFin
-          ? moment(horarioAsync.horaFin, "HH:mm:ss")
-          : null,
+        nroSesionesAsync: moduloEditar.numeroSesionesAsincronicas || 0,
+        
+        diaAsync: horarioAsync && horarioAsync.diaSemana > 0 ? String(horarioAsync.diaSemana) : undefined,
+        horaInicioAsync: horarioAsync?.horaInicio ? moment(horarioAsync.horaInicio, "HH:mm:ss") : null,
+        horaFinAsync: horarioAsync?.horaFin ? moment(horarioAsync.horaFin, "HH:mm:ss") : null,
       };
 
       setDiasClase(diasArray);
@@ -212,32 +250,20 @@ export default function ModalModulo({
         // =================================================================================
         
         if (esEdicionMantener) {
-            // 🟠 CASO A: MANTENER (Lógica existente - respeta lo que ya está en BD)
+            // 🟠 CASO A: MANTENER - Usar valores directos del backend
             console.log("🔒 MODO MANTENER");
 
             payload.duracionHoras = moduloEditar.duracionHoras || 0;
-            payload.fechaPresentacion = moduloEditar.fechaPresentacion 
-                ? moment(moduloEditar.fechaPresentacion).format("YYYY-MM-DD") 
-                : null;
-              payload.fechaInicio = moduloEditar.fechaInicio 
+            payload.fechaInicio = moduloEditar.fechaInicio 
                 ? moment(moduloEditar.fechaInicio).format("YYYY-MM-DD") 
                 : null;
 
-            // Recalcular totales originales
-            const sesionesSinc = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 22) || [];
-            const sesionesAsync = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 26) || [];
-            const sesionesPres = moduloEditar.sesiones?.filter((s: ISesion) => s.idTipoSesion === 27) || [];
-            
-            const totalSync = sesionesSinc.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
-            const totalAsync = sesionesAsync.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
-            const totalPres = sesionesPres.reduce((sum: number, s: ISesion) => sum + (s.numeroSesiones || 0), 0);
+            // ✅ El backend almacena numeroSesiones como TOTAL
+            // Usamos directamente los valores originales del módulo
+            payload.numeroSesiones = moduloEditar.numeroSesiones || 0;
+            payload.numeroSesionesAsincronicas = moduloEditar.numeroSesionesAsincronicas || 0;
 
-            // Aquí sumamos todo porque estamos leyendo lo que YA existe para no perder datos
-            payload.numeroSesiones = totalSync + totalAsync + totalPres; 
-            payload.numeroSesionesAsincronicas = totalAsync;
-            payload.numeroSesionesPresentacion = totalPres;
-
-            // Horarios Originales...
+            // Horarios Originales
             let horaInicioSync = "00:00:00";
             let horaFinSync = "00:00:00";
             const diasOriginales: string[] = [];
@@ -261,39 +287,38 @@ export default function ModalModulo({
             payload.horaFinAsync = horarioAsync?.horaFin || "00:00:00";
 
         } else {
-            // 🟢 CASO B: REGENERAR O NUEVO (LÓGICA CORREGIDA)
+            // 🟢 CASO B: REGENERAR O NUEVO
             
-            // 1. INPUT DEL USUARIO = TOTAL ABSOLUTO
-            const inputTotal = Number(values.nroSesiones || 0);
+            // El usuario ingresa:
+            // - nroSesiones: Número de sesiones SÍNCRONAS que quiere
+            // - nroSesionesAsync: Número de sesiones ASÍNCRONAS que quiere
+            const inputSync = Number(values.nroSesiones || 0);
             const inputAsync = Number(values.nroSesionesAsync || 0);
-
-            // 2. DETECTAR PRESENTACIÓN
-            let inputPres = 0;
-            if (values.fechaPresentacion && moment(values.fechaPresentacion).isValid()) {
-                 inputPres = 1;
-                 payload.fechaPresentacion = moment(values.fechaPresentacion).format("YYYY-MM-DD");
-            } else {
-                 payload.fechaPresentacion = null;
-            }
 
             if (values.fechaInicio && moment(values.fechaInicio).isValid()) {
                 payload.fechaInicio = moment(values.fechaInicio).format("YYYY-MM-DD");
             }
 
-            // 3. ASIGNACIÓN DIRECTA
-            // No sumamos nada. El usuario ingresó el Total y nosotros le decimos al SP cómo desglosarlo.
-            payload.numeroSesiones = inputTotal; 
+            // El backend espera:
+            // - numeroSesiones: TOTAL de sesiones (Síncronas + Asíncronas)
+            // - numeroSesionesAsincronicas: Solo las asíncronas
+            // El SP calcula: Síncronas = Total - Asíncronas
+            payload.numeroSesiones = inputSync + inputAsync; 
             payload.numeroSesionesAsincronicas = inputAsync;
-            payload.numeroSesionesPresentacion = inputPres;
-
             payload.duracionHoras = Number(values.duracionHoras || 0);
 
-            // 4. DATOS SÍNCRONOS
+            // DATOS SÍNCRONOS
             payload.diasClase = diasClase.join(",");
             payload.horaInicioSync = values.horaInicio ? moment(values.horaInicio).format("HH:mm:ss") : "00:00:00";
             payload.horaFinSync = values.horaFin ? moment(values.horaFin).format("HH:mm:ss") : "00:00:00";
 
-            // 5. DATOS ASÍNCRONOS
+            // DATOS SÁBADO
+            if (diasClase.includes("6")) {
+                 payload.horaInicioSabado = values.horaInicioSabado ? moment(values.horaInicioSabado).format("HH:mm:ss") : "00:00:00";
+                 payload.horaFinSabado = values.horaFinSabado ? moment(values.horaFinSabado).format("HH:mm:ss") : "00:00:00";
+            }
+
+            // DATOS ASÍNCRONOS
             if (inputAsync > 0) {
                 payload.diasAsync = ""; 
                 payload.horaInicioAsync = values.horaInicioAsync ? moment(values.horaInicioAsync).format("HH:mm:ss") : "00:00:00";
@@ -317,7 +342,7 @@ export default function ModalModulo({
       });
   };
 
-  // Validadores (se mantienen igual)
+  // Validadores
   const validarHoraInicio = (_: any, value: Moment) => {
     if (!value) return Promise.resolve();
     const horaFinValue = form.getFieldValue("horaFin");
@@ -364,7 +389,7 @@ export default function ModalModulo({
       okText={modoEdicion ? "Guardar cambios" : "Crear módulo"}
     >
       <Form form={form} layout="vertical">
-        {/* 1er renglón (Siempre visible) */}
+        {/* 1er renglón */}
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
@@ -390,7 +415,7 @@ export default function ModalModulo({
           </Col>
         </Row>
 
-        {/* 2do renglón (Siempre visible) */}
+        {/* 2do renglón */}
         <Row gutter={16}>
           <Col span={24}>
             <Form.Item label="Título del certificado" name="tituloCertificado">
@@ -399,7 +424,7 @@ export default function ModalModulo({
           </Col>
         </Row>
 
-        {/* 3er renglón (Siempre visible) */}
+        {/* 3er renglón */}
         <Row gutter={16}>
           <Col span={24}>
             <Form.Item
@@ -412,7 +437,7 @@ export default function ModalModulo({
           </Col>
         </Row>
 
-        {/* RADIO BUTTONS PARA GESTIÓN DE SESIONES - Solo en modo edición */}
+        {/* RADIO BUTTONS - Solo en modo edición */}
         {modoEdicion && (
           <>
             <Row gutter={16} style={{ marginTop: 16 }}>
@@ -465,19 +490,11 @@ export default function ModalModulo({
             </Form.Item>
           </>
         )}
+        
         {mostrarProgramacion && (
           <>
             {/* 4to renglón */}
             <Row gutter={16}>
-              <Col span={8}>
-                <Form.Item
-                  label="Fecha de presentación"
-                  name="fechaPresentacion"
-                >
-                  <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
-                </Form.Item>
-              </Col>
-
               <Col span={6}>
                 <Form.Item 
                     label="Fecha de Inicio" 
@@ -566,7 +583,7 @@ export default function ModalModulo({
               </Col>
             </Row>
 
-            {/* 7mo renglón - Horarios especiales para sábado */}
+            {/* 7mo renglón - Horarios sábado */}
             {diasClase.includes("6") && (
               <Row gutter={16}>
                 <Col span={12}>

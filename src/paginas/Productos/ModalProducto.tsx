@@ -1,7 +1,9 @@
-import { Modal, Form, Row, Col, Input, Select, Button, Popconfirm, Collapse, Space, InputNumber } from "antd";
+import { Modal, Form, Row, Col, Input, Select, Button, Popconfirm, Collapse, Space, InputNumber, DatePicker } from "antd";
 import { PlusOutlined, DeleteOutlined, UpOutlined, DownOutlined, EditOutlined } from "@ant-design/icons";
 import { useEffect, useState } from "react";
+import moment from "moment";
 import type { Producto, TipoEstadoProducto } from "../../interfaces/IProducto";
+import { obtenerPersonalDesarrollo, type PersonalCombo } from "../../servicios/ProductoService";
 
 interface ModalProductoProps {
   visible: boolean;
@@ -28,6 +30,7 @@ export default function ModalProducto({
   const [objetivos, setObjetivos] = useState<string[]>([]);
   const [inputEstadistica, setInputEstadistica] = useState("");
   const [inputObjetivo, setInputObjetivo] = useState("");
+  const [personalList, setPersonalList] = useState<PersonalCombo[]>([]);
 
   useEffect(() => {
     console.log("ModalProducto recibió departamentos:", departamentos);
@@ -36,6 +39,14 @@ export default function ModalProducto({
   useEffect(() => {
     console.log("ModalProducto recibió tiposEstadoProducto:", tiposEstadoProducto);
   }, [tiposEstadoProducto]);
+
+  useEffect(() => {
+    if (visible) {
+      obtenerPersonalDesarrollo().then((data) => {
+        setPersonalList(data);
+      });
+    }
+  }, [visible]);
 
   useEffect(() => {
     if (!visible) return;
@@ -49,12 +60,14 @@ export default function ModalProducto({
         idDepartamento: producto.idDepartamento,
         modalidad: producto.modalidad,
         estadoProductoTipoId: producto.estadoProductoTipoId,
+        fechaPresentacion: producto.fechaPresentacion ? moment(producto.fechaPresentacion) : null,
         frasePrograma: producto.frasePrograma || "",
         linkExcel: producto.linkExcel || "",
         linkPagWeb: producto.linkPagWeb || "",
         brochure: producto.brochure || "",
         horasAsincronicas: producto.horasAsincronicas || 0,
         horasSincronicas: producto.horasSincronicas || 0,
+        personalCreacion: producto.personalCreacion,
       });
       // Cargar estadísticas y objetivos desde producto si existen
       if (producto.estadisticas && Array.isArray(producto.estadisticas)) {
@@ -104,12 +117,14 @@ export default function ModalProducto({
         idDepartamento: values.idDepartamento,
         modalidad: values.modalidad,
         estadoProductoTipoId: values.estadoProductoTipoId,
+       fechaPresentacion: values.fechaPresentacion ? moment(values.fechaPresentacion).format("YYYY-MM-DD") : undefined,
         frasePrograma: values.frasePrograma?.trim() || null,
         linkExcel: values.linkExcel || "",
         linkPagWeb: values.linkPagWeb || "",
         brochure: values.brochure || "",
         horasAsincronicas: values.horasAsincronicas || 0,
         horasSincronicas: values.horasSincronicas || 0,
+        personalCreacion: values.personalCreacion,
         // Incluir estadísticas y objetivos con índices como orden
         estadisticas: estadisticas.map((texto, idx) => ({
           texto,
@@ -257,6 +272,14 @@ export default function ModalProducto({
             </Form.Item>
 
             <Form.Item
+              label="Fecha de presentación"
+              name="fechaPresentacion"
+              rules={[{ required: true, message: "Seleccione un responsable" }]}
+            >
+              <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
+            </Form.Item>
+
+            <Form.Item
               label="Departamento"
               name="idDepartamento"
               rules={[{ required: true, message: "Campo requerido" }]}
@@ -268,6 +291,25 @@ export default function ModalProducto({
                   </Select.Option>
                 ))}
               </Select>
+            </Form.Item>
+
+            {/* 🟢 CAMPO SELECT PERSONAL */}
+            <Form.Item label="Personal responsable" name="personalCreacion" rules={[{ required: true, message: "Seleccione un responsable" }]}>
+               <Select 
+                 placeholder="Selecciona personal por Nombre, apellido o DNI"
+                 showSearch
+                 allowClear
+                 optionFilterProp="children"
+                 filterOption={(input, option) =>
+                    (option?.children as unknown as string ?? "").toLowerCase().includes(input.toLowerCase())
+                 }
+               >
+                 {personalList.map((p) => (
+                    <Select.Option key={p.id} value={p.id}>
+                        {`${p.nombres} ${p.apellidos}`}
+                    </Select.Option>
+                 ))}
+               </Select>
             </Form.Item>
 
             <Form.Item

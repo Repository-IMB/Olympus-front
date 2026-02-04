@@ -1,3 +1,5 @@
+import type { IModulo } from "./IModulo";
+
 export interface Estadistica {
   id?: number;
   texto: string;
@@ -42,12 +44,17 @@ export interface Producto {
   idDepartamento: number | null;
   departamentoNombre: string;
 
+  personalNombre?: string;
+  personalEmail?: string;
+
   modalidad: string;
 
   linkExcel: string;
   linkPagWeb: string;
 
   frasePrograma: string;
+
+  personalCreacion?: number | null;
 
   horasAsincronicas: number;
   horasSincronicas: number;
@@ -58,6 +65,7 @@ export interface Producto {
   usuarioCreacion: string;
   fechaModificacion: string | null;
   usuarioModificacion: string | null;
+  modulos?: IModulo[];
 
   estadisticas?: Estadistica[];
   objetivos?: Objetivo[];

@@ -1,19 +1,27 @@
 import { Table, Button, Input, Space, Tag, Tooltip, message, Modal, Spin, Select } from "antd";
+import moment from "moment";
 import { SearchOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import estilos from "./Productos.module.css";
 import type { ColumnsType } from "antd/es/table";
-import { EditOutlined, DeleteOutlined, EyeOutlined, CalendarOutlined } from "@ant-design/icons";
+import { 
+  EditOutlined, 
+  DeleteOutlined, 
+  EyeOutlined, 
+  FilePdfOutlined
+} from "@ant-design/icons";
 import ModalProducto from "./ModalProducto";
 import {
   obtenerProductos,
   crearProducto,
   actualizarProducto,
-  // eliminarProducto,
   obtenerProductoPorId,
   obtenerTiposEstadoProducto,
+  obtenerPersonalDesarrollo,
+  descargarPDFProducto
 } from "../../servicios/ProductoService";
+import type { PersonalCombo } from "../../servicios/ProductoService";
 import type { Producto, TipoEstadoProducto } from "../../interfaces/IProducto";
 import { obtenerDepartamentos } from "../../servicios/DepartamentosService";
 
@@ -23,8 +31,13 @@ export default function Productos() {
   const [searchText, setSearchText] = useState("");
   const [filterEstadoProducto, setFilterEstadoProducto] = useState<number | null>(null);
   const searchInputRef = useRef<any>(null);
+  const [sortField, setSortField] = useState<string>("Nombre");
+  const [sortOrder, setSortOrder] = useState<string>("ascend");
+  const lastRequestRef = useRef<number>(0);
+  const [filterDepartamento, setFilterDepartamento] = useState<number | null>(null);
+  const [filterResponsable, setFilterResponsable] = useState<number | null>(null);
+  const [personalList, setPersonalList] = useState<PersonalCombo[]>([]);
   
-  // Estado para la paginación del servidor
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -44,40 +57,7 @@ export default function Productos() {
   
   const navigate = useNavigate();
 
-  /* =========================================================
-      EFECTO DE BÚSQUEDA EN TIEMPO REAL (DEBOUNCE)
-     ========================================================= */
-  useEffect(() => {
-    // Cuando el usuario escribe, esperamos 500ms antes de llamar a la API
-    const delayDebounceFn = setTimeout(() => {
-      // Siempre que se busca, volvemos a la página 1
-      cargarProductos(1, pagination.pageSize);
-    }, 500);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchText]); // Se ejecuta cada vez que cambia el texto
-
-  // Efecto para filtro de estado
-  useEffect(() => {
-    cargarProductos(1, pagination.pageSize);
-  }, [filterEstadoProducto]);
-
-  // Mantener el foco en el input de búsqueda después de cargar
-  useEffect(() => {
-    if (!loading && searchText && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [loading]);
-
-  // Carga de combos auxiliares solo al inicio
-  useEffect(() => {
-    const cargarAuxiliares = async () => {
-      await cargarDepartamentos();
-      await cargarTiposEstadoProducto();
-    };
-    cargarAuxiliares();
-  }, []);
-
+  // ... (Funciones de carga iguales)
   const cargarDepartamentos = async () => {
     try {
       const data = await obtenerDepartamentos();
@@ -97,52 +77,113 @@ export default function Productos() {
     }
   };
 
-  /* =========================================================
-      LÓGICA DE CARGA DE PRODUCTOS (PAGINADA)
-     ========================================================= */
-  const cargarProductos = async (page: number, pageSize: number) => {
+  const cargarProductos = useCallback(async (page: number, pageSize: number) => {
+    // 1. Generamos un ID único para esta petición
+    const currentRequestId = Date.now();
+    lastRequestRef.current = currentRequestId;
+
     setLoading(true);
     try {
-      // Llamamos al servicio pasando búsqueda, página, tamaño y filtro de estado
+      const ordenBackend = sortOrder === 'ascend' ? 'ASC' : sortOrder === 'descend' ? 'DESC' : sortOrder;
+      
       const data: any = await obtenerProductos(
         searchText, 
         page, 
         pageSize, 
-        filterEstadoProducto
+        filterEstadoProducto,
+        filterDepartamento,
+        filterResponsable,
+        sortField,
+        ordenBackend
       );
       
-      // Verificamos si viene en formato paginado { total, productos }
+      if (lastRequestRef.current !== currentRequestId) {
+          return; 
+      }
+      
       if (data && Array.isArray(data.productos)) {
          setProductos(data.productos);
          setPagination({
-            current: page,
-            pageSize: pageSize,
-            total: data.total // Total real desde BD
+           current: page,
+           pageSize: pageSize,
+           total: data.total
          });
-      } else if (Array.isArray(data)) {
-         // Fallback por si la API devolviera array plano
-         setProductos(data);
-         setPagination({ ...pagination, total: data.length });
       } else {
          setProductos([]);
+         setPagination(prev => ({ ...prev, current: page, pageSize: pageSize, total: 0 }));
       }
     } catch (error) {
-      console.error("Error cargando productos:", error);
-      message.error("Error al cargar los productos");
-      setProductos([]);
+      // También verificamos aquí para no mostrar errores de peticiones canceladas
+      if (lastRequestRef.current === currentRequestId) {
+        console.error("Error cargando productos:", error);
+        message.error("Error al cargar los productos");
+        setProductos([]);
+      }
     } finally {
-      setLoading(false);
+      // Solo quitamos el loading si es la última petición
+      if (lastRequestRef.current === currentRequestId) {
+        setLoading(false);
+      }
+    }
+  }, [searchText, filterEstadoProducto, filterDepartamento,
+      filterResponsable, sortField, sortOrder]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      cargarProductos(1, pagination.pageSize);
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchText, filterEstadoProducto, filterDepartamento, filterResponsable]);
+
+  useEffect(() => {
+    cargarProductos(pagination.current, pagination.pageSize);
+  }, [sortField, sortOrder]);
+
+  const handleTableChange = (newPagination: any, filters: any, sorter: any) => {
+    if (newPagination.current !== pagination.current || newPagination.pageSize !== pagination.pageSize) {
+       cargarProductos(newPagination.current, newPagination.pageSize);
+       return; 
+    }
+
+    if (!sorter.order) {
+        setSortField("FechaCreacion");
+        setSortOrder("DESC");
+    } else {
+        const fieldMap: Record<string, string> = {
+            'nombre': 'Nombre',
+            'id': 'Id',
+            'codigoLanzamiento': 'CodigoLanzamiento',
+            'departamentoNombre': 'DepartamentoNombre',
+            'personalNombre': 'PersonalNombre',
+            'fechaPresentacion': 'FechaPresentacion',
+            'horasSincronicas': 'HorasSincronicas',
+            'estadoProductoTipoNombre': 'EstadoProductoTipoNombre'
+        };
+        
+        const nuevoCampo = fieldMap[sorter.field] || sorter.field;
+        setSortField(nuevoCampo);
+        setSortOrder(sorter.order === 'ascend' ? 'ASC' : 'DESC');
     }
   };
 
-  const handleTableChange = (newPagination: any) => {
-    // Al cambiar de página, mantenemos el texto de búsqueda actual
-    cargarProductos(newPagination.current, newPagination.pageSize);
-  };
+  useEffect(() => {
+    if (!loading && searchText && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [loading, searchText]);
 
-  /* =========================
-      GUARDAR (CREAR / EDITAR)
-     ========================= */
+  useEffect(() => {
+    const cargarInicial = async () => {
+      await cargarDepartamentos();
+      await cargarTiposEstadoProducto();
+      const personalData = await obtenerPersonalDesarrollo();
+      setPersonalList(personalData)
+      await cargarProductos(1, pagination.pageSize);
+    };
+    cargarInicial();
+  }, []);
+
+  // ... (Funciones de guardar y modales iguales)
   const guardarProducto = async (producto: any) => {
     try {
       if (modoModal === "crear") {
@@ -161,7 +202,6 @@ export default function Productos() {
       setModalVisible(false);
       setErrorModal(null);
       setProductoSeleccionado(null);
-      // Recargar manteniendo búsqueda y página actual
       cargarProductos(pagination.current, pagination.pageSize);
     } catch (error: any) {
       const mensajeError = error?.response?.data?.message || "Error al guardar";
@@ -170,9 +210,6 @@ export default function Productos() {
     }
   };
 
-  /* =========================
-      MODALES
-     ========================= */
   const abrirModalCrear = () => {
     setModoModal("crear");
     setProductoSeleccionado(null);
@@ -192,28 +229,15 @@ export default function Productos() {
     }
   };
 
-  /* =========================
-      ELIMINAR
-     ========================= */
   const handleEliminar = (id: number) => {
     setProductoAEliminar(id);
     setModalEliminarVisible(true);
   };
 
   const confirmarEliminacion = async () => {
-    /* if (!productoAEliminar) return;
-    try {
-      await eliminarProducto(productoAEliminar);
-      message.success("Producto eliminado");
-      cargarProductos(pagination.current, pagination.pageSize);
-      setModalEliminarVisible(false);
-      setProductoAEliminar(null);
-    } catch (error: any) {
-      message.error("Error al eliminar");
-    } 
-    */
     setModalEliminarVisible(false);
     message.info("Eliminación pendiente de habilitar en servicio");
+    setProductoAEliminar(null);
   };
 
   const cancelarEliminacion = () => {
@@ -221,13 +245,8 @@ export default function Productos() {
     setProductoAEliminar(null);
   };
 
-  // Filtrar productos en el frontend después de cargar
-  const productosFiltrados = productos;
-
-  // Función para obtener el color del tag según el estado
   const obtenerColorEstado = (estadoNombre: string | undefined): string => {
     if (!estadoNombre) return "default";
-    
     const estadoLower = estadoNombre.toLowerCase();
     
     if (estadoLower === "en curso") return "blue";
@@ -238,34 +257,76 @@ export default function Productos() {
     if (estadoLower === "postergado") return "volcano";
     if (estadoLower === "cancelado") return "default";
     if (estadoLower === "no llamar nuevos") return "magenta";
-    
     return "default";
   };
 
-  /* =========================
-      COLUMNAS
-     ========================= */
+  // 🟢 NUEVA FUNCIÓN: DESCARGAR PDF
+  const handleDescargarPDF = async (idProducto: number) => {
+    try {
+        message.loading({ content: 'Generando PDF...', key: 'pdfGen', duration: 0 });
+        await descargarPDFProducto(idProducto);
+        message.success({ content: 'PDF descargado correctamente', key: 'pdfGen', duration: 3 });
+    } catch (error: any) {
+        message.error({ content: error.message || 'Error al descargar PDF', key: 'pdfGen', duration: 3 });
+    }
+  };
+
   const columnas: ColumnsType<Producto> = [
-    { title: "Id", dataIndex: "id", key: "id", width: 80, sorter: (a, b) => a.id - b.id },
-    { title: "Producto", dataIndex: "nombre", key: "nombre", sorter: (a, b) => a.nombre.localeCompare(b.nombre) },
-    { title: "Código", dataIndex: "codigoLanzamiento", key: "codigoLanzamiento" },
-    { title: "Departamento", dataIndex: "departamentoNombre", key: "departamentoNombre" },
     { 
-      title: "Horas en vivo", 
-      dataIndex: "horasSincronicas", 
-      align: "center", 
-      render: (v: number | undefined) => v ?? "-" 
+      title: "Id", 
+      dataIndex: "id", 
+      key: "id", 
+      width: 80, 
+      sorter: true 
     },
     { 
-      title: "Horas asincrónicas", 
-      dataIndex: "horasAsincronicas", 
-      align: "center", 
-      render: (v: number | undefined) => v ?? "-" 
+      title: "Producto", 
+      dataIndex: "nombre", 
+      key: "nombre", 
+      sorter: true 
+    },
+    { 
+      title: "Código", 
+      dataIndex: "codigoLanzamiento", 
+      key: "codigoLanzamiento",
+      sorter: true
+    },
+    { 
+      title: "Departamento", 
+      dataIndex: "departamentoNombre", 
+      key: "departamentoNombre",
+      sorter: true
+    },
+    { 
+      title: "Responsable", 
+      dataIndex: "personalNombre",
+      key: "personalNombre", 
+      sorter: true,
+      render: (v: string | undefined) => v ?? "-" 
+    },
+    { 
+      title: "Fecha presentación", 
+      dataIndex: "fechaPresentacion", 
+      key: "fechaPresentacion", 
+      sorter: true,
+      render: (fecha: string | undefined) => {
+        if (!fecha) return "-";
+        return moment(fecha).format("DD/MM/YYYY");
+      }
+    },
+    { 
+      title: "Horas en vivo", 
+      dataIndex: "horasSincronicas", // Este campo ya viene calculado del SP
+      key: "horasSincronicas",
+      align: "center",
+      sorter: true,
+      render: (v: number | undefined) => v ? Number(v).toFixed(2) : "-" 
     },
     {
       title: "Estado de producto",
       dataIndex: "estadoProductoTipoNombre",
       key: "estadoProductoTipoNombre",
+      sorter: true,
       render: (estadoNombre: string | undefined) => {
         if (!estadoNombre) return <Tag>-</Tag>;
         return <Tag color={obtenerColorEstado(estadoNombre)}>{estadoNombre}</Tag>;
@@ -274,6 +335,7 @@ export default function Productos() {
     {
       title: "Acciones",
       key: "acciones",
+      width: 180,
       render: (_, record) => (
         <Space size="middle">
           <Tooltip title="Ver detalle">
@@ -281,9 +343,17 @@ export default function Productos() {
               <EyeOutlined />
             </span>
           </Tooltip>
+          
+          {/* 🟢 BOTÓN PDF ACTUALIZADO */}
           <Tooltip title="Imprimir PDF">
-            <span className={estilos.actionIcon}><CalendarOutlined /></span>
+            <span 
+                className={estilos.actionIcon} 
+                onClick={() => handleDescargarPDF(record.id)}
+            >
+                <FilePdfOutlined />
+            </span>
           </Tooltip>
+
           <Tooltip title="Editar">
             <span className={estilos.actionIcon} onClick={() => abrirModalEditar(record)}>
               <EditOutlined />
@@ -308,7 +378,6 @@ export default function Productos() {
 
         <div className={estilos.toolbar}>
           <div className={estilos.searchBar}>
-            {/* Input de búsqueda automática */}
             <Input
               ref={searchInputRef}
               placeholder="Buscar producto, código o departamento"
@@ -326,8 +395,7 @@ export default function Productos() {
           </div>
         </div>
 
-        {/* Filtro de estado de producto */}
-        <div className={estilos.toolbar} style={{ marginTop: '16px' }}>
+        <div className={estilos.toolbar} style={{ marginTop: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
           <Select
             value={filterEstadoProducto}
             onChange={(value) => setFilterEstadoProducto(value)}
@@ -344,19 +412,61 @@ export default function Productos() {
                 </Option>
               ))}
           </Select>
+          {/* 2. Filtro Departamento (Nuevo) */}
+          <Select
+            value={filterDepartamento}
+            onChange={setFilterDepartamento}
+            style={{ width: 220 }}
+            placeholder="Departamento"
+            allowClear
+            showSearch
+            optionFilterProp="label" // Importante para que busque por el texto visible
+            filterOption={(input, option) =>
+                ((option?.label as string) ?? "").toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            <Option value={null} label="Todos los departamentos">Todos los departamentos</Option>
+            {departamentos.map((d) => (
+               <Option key={d.id} value={d.id} label={d.nombre}>{d.nombre}</Option>
+            ))}
+          </Select>
+          {/* 3. Filtro Responsable (Nuevo) */}
+          <Select
+            value={filterResponsable}
+            onChange={setFilterResponsable}
+            style={{ width: 220 }}
+            placeholder="Responsable"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            filterOption={(input, option) =>
+                ((option?.label as string) ?? "").toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            <Option value={null} label="Todos los responsables">Todos los responsables</Option>
+            {personalList.map((p) => {
+               const nombreCompleto = `${p.nombres} ${p.apellidos}`;
+               return (
+                   <Option key={p.id} value={p.id} label={nombreCompleto}>
+                       {nombreCompleto}
+                   </Option>
+               );
+            })}
+          </Select>
         </div>
 
         <div className={estilos.tableWrapper}>
           <Spin spinning={loading}>
             <Table
               columns={columnas}
-              dataSource={productosFiltrados}
+              dataSource={productos}
               rowKey="id"
               pagination={{
                 current: pagination.current,
                 pageSize: pagination.pageSize,
                 total: pagination.total,
-                showSizeChanger: true
+                showSizeChanger: true,
+                showTotal: (total, range) => `${range[0]}-${range[1]} de ${total} productos`
               }}
               loading={loading}
               onChange={handleTableChange}
