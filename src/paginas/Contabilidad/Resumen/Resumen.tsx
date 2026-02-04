@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Row, Col, Card, Statistic, Table, Button, Tag, Modal, Form, Input, Select, DatePicker, InputNumber, message } from "antd";
+import React, { useEffect, useState, useMemo } from "react";
+import { Row, Col, Card, Statistic, Table, Button, Tag, Modal, Form, Input, Select, DatePicker, InputNumber, message, Space } from "antd";
 import ECharts from "../../../componentes/Grafico/ECharts";
 import estilos from "./Resumen.module.css";
 import contabilidadService from '../../../servicios/contabilidadService';
@@ -22,6 +22,49 @@ const Resumen: React.FC = () => {
   const [showIngresoModal, setShowIngresoModal] = useState(false);
   const [areasTrabajoList, setAreasTrabajoList] = useState<any[]>([]);
   const [responsablesList, setResponsablesList] = useState<any[]>([]);
+  const [cursosData, setCursosData] = useState<any[]>([]);
+  const [tipoCursoSeleccionado, setTipoCursoSeleccionado] = useState<number>(20);
+  const [metricaSeleccionada, setMetricaSeleccionada] = useState<'ingresos' | 'ventas'>('ingresos');
+  const [loadingCursos, setLoadingCursos] = useState(false);
+  const [buscadorCurso, setBuscadorCurso] = useState<string>('');
+  const [cursoEspecificoData, setCursoEspecificoData] = useState<any>(null);
+  const [modoCursoEspecifico, setModoCursoEspecifico] = useState<boolean>(false);
+  const [loadingCursoEspecifico, setLoadingCursoEspecifico] = useState(false);
+
+  useEffect(()=>{ 
+    fetchResumen(); 
+  }, []);
+
+  useEffect(()=>{
+    const loadLookups = async () => {
+      try {
+        const token = getCookie('token');
+
+        const areasRes = await fetch(`${import.meta.env.VITE_API_URL}/api/CFGModUsuarios/ObtenerAreaTrabajo`, { headers: { accept: '*/*', Authorization: `Bearer ${token}` } });
+        if (areasRes.ok) {
+          const data = await areasRes.json();
+          const lista = Array.isArray(data.areaTrabajo) ? data.areaTrabajo.filter((a:any)=>a.estado) : [];
+          setAreasTrabajoList(lista.map((a:any)=>({ id: a.id ?? a.Id, nombre: a.Nombre ?? a.nombre ?? a.areaTrabajo ?? a.AreaTrabajo })));
+        }
+
+        const usuariosRes = await fetch(`${import.meta.env.VITE_API_URL}/api/CFGModUsuarios/ListarConUsuario?page=1&pageSize=1000`, { headers: { accept: '*/*', Authorization: `Bearer ${token}` } });
+        if (usuariosRes.ok) {
+          const udata = await usuariosRes.json();
+          const usuarios = Array.isArray(udata.usuarios) ? udata.usuarios : [];
+          setResponsablesList(usuarios.map((u:any)=>({ id: u.idPersonall ?? u.idPersonal ?? u.id, nombre: `${u.nombres || ''} ${u.apellidos || ''}`.trim() })));
+        }
+      } catch(e){
+        console.warn('Error loading lookup lists', e);
+      }
+    };
+    loadLookups();
+  },[]);
+
+  useEffect(() => {
+    if (!modoCursoEspecifico) {
+      fetchCursos();
+    }
+  }, [tipoCursoSeleccionado, metricaSeleccionada, modoCursoEspecifico]);
 
   const fetchResumen = async () => {
     setLoading(true);
@@ -68,33 +111,70 @@ const Resumen: React.FC = () => {
     }
   };
 
-  useEffect(()=>{ fetchResumen(); }, []);
+  const fetchCursos = async () => {
+    setLoadingCursos(true);
+    try {
+        const response = await contabilidadService.obtenerEstadisticasCursos(tipoCursoSeleccionado);
+        const data = response?.data ?? response;
+        setCursosData(data?.cursos || data?.Cursos || []);
+    } catch (error) {
+        console.error('Error cargando estadísticas de cursos:', error);
+        message.error('No se pudieron cargar los cursos');
+        setCursosData([]);
+    } finally {
+        setLoadingCursos(false);
+    }
+  };
 
-  useEffect(()=>{
-    const loadLookups = async () => {
-      try {
-        const token = getCookie('token');
+  const fetchCursoEspecifico = async () => {
+    if (!buscadorCurso.trim()) {
+      setModoCursoEspecifico(false);
+      setCursoEspecificoData(null);
+      return;
+    }
 
-        const areasRes = await fetch(`${import.meta.env.VITE_API_URL}/api/CFGModUsuarios/ObtenerAreaTrabajo`, { headers: { accept: '*/*', Authorization: `Bearer ${token}` } });
-        if (areasRes.ok) {
-          const data = await areasRes.json();
-          const lista = Array.isArray(data.areaTrabajo) ? data.areaTrabajo.filter((a:any)=>a.estado) : [];
-          setAreasTrabajoList(lista.map((a:any)=>({ id: a.id ?? a.Id, nombre: a.Nombre ?? a.nombre ?? a.areaTrabajo ?? a.AreaTrabajo })));
-        }
-
-        const usuariosRes = await fetch(`${import.meta.env.VITE_API_URL}/api/CFGModUsuarios/ListarConUsuario?page=1&pageSize=1000`, { headers: { accept: '*/*', Authorization: `Bearer ${token}` } });
-        if (usuariosRes.ok) {
-          const udata = await usuariosRes.json();
-          const usuarios = Array.isArray(udata.usuarios) ? udata.usuarios : [];
-          setResponsablesList(usuarios.map((u:any)=>({ id: u.idPersonall ?? u.idPersonal ?? u.id, nombre: `${u.nombres || ''} ${u.apellidos || ''}`.trim() })));
-        }
-      } catch(e){
-        console.warn('Error loading lookup lists', e);
+    setLoadingCursoEspecifico(true);
+    try {
+      // Cambiar nombre del método si es necesario
+      const response = await contabilidadService.obtenerEstadisticasCursoEspecifico(
+        buscadorCurso.trim(), 
+        tipoCursoSeleccionado
+      );
+      const data = response?.data ?? response;
+      
+      if (data.exito && data.resumen?.length > 0 && data.ventasDiarias?.length > 0) {
+        setCursoEspecificoData(data);
+        setModoCursoEspecifico(true);
+        
+        // Calcular ranking
+        const todosCursosResponse = await contabilidadService.obtenerEstadisticasCursos(tipoCursoSeleccionado);
+        const cursos = todosCursosResponse?.data?.cursos || todosCursosResponse?.cursos || [];
+        const cursoEncontrado = data.resumen[0];
+        
+        const rankingIngresos = cursos
+          .sort((a: any, b: any) => (b.ingresos || b.Ingresos || 0) - (a.ingresos || a.Ingresos || 0))
+          .findIndex((c: any) => (c.nombre || c.Nombre) === cursoEncontrado.nombre) + 1;
+          
+        const rankingVentas = cursos
+          .sort((a: any, b: any) => (b.ventas || b.Ventas || 0) - (a.ventas || a.Ventas || 0))
+          .findIndex((c: any) => (c.nombre || c.Nombre) === cursoEncontrado.nombre) + 1;
+        
+        message.success(`#${rankingIngresos} Ingresos | #${rankingVentas} Ventas`);
+        console.log(`📊 ${cursoEncontrado.nombre}: #${rankingIngresos} Ingresos | #${rankingVentas} Ventas`);
+      } else {
+        message.warning('Curso no encontrado');
+        setModoCursoEspecifico(false);
       }
-    };
-    loadLookups();
-  },[]);
+    } catch (error) {
+      console.error('Error buscando curso específico:', error);
+      message.error('Error al buscar curso');
+      setModoCursoEspecifico(false);
+    } finally {
+      setLoadingCursoEspecifico(false);
+    }
+  };
 
+  // Graficos
   const opcionesBarrasIngresos = {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     legend: { data: ['Ventas Cursos', 'Certificados', 'Otros Servicios'] },
@@ -122,6 +202,199 @@ const Resumen: React.FC = () => {
       }
     ]
   };
+
+  const cursosBarOption = (() => {
+    if (!cursosData || cursosData.length === 0) {
+      return {
+        title: { text: 'Ingresos generales por tipo', left: 'center' },
+        xAxis: { type: 'value'},
+        yAxis: { type: 'category', data: [] },
+        series: [{ type: 'bar', data: [], label: { show: true, position: 'right' } }]
+      };
+    }
+
+    // Top 10 cursos con más ingresos
+    const top10 = cursosData
+      .sort((a: any, b: any) => {
+        const valorA = metricaSeleccionada === 'ingresos' 
+          ? (a.ingresos || a.Ingresos || 0)
+          : (a.ventas || a.Ventas || 0);
+        const valorB = metricaSeleccionada === 'ingresos' 
+          ? (b.ingresos || b.Ingresos || 0)
+          : (b.ventas || b.Ventas || 0);
+        return valorB - valorA;
+      })
+      .slice(0, 10);
+    const nombres = top10.map((c: any) => c.nombre || c.Nombre || 'Sin nombre');
+    const valores = top10.map((c: any) => 
+      metricaSeleccionada === 'ingresos' 
+        ? (c.ingresos || c.Ingresos || 0)
+        : (c.ventas || c.Ventas || 0)
+    );
+    const unidad = metricaSeleccionada === 'ingresos' ? '$/.' : '';
+
+    return {
+      tooltip: { 
+        trigger: 'item', 
+        formatter: (params: any) => {
+          const valor = metricaSeleccionada === 'ingresos' ? `$/. ${params.value?.toLocaleString('es-PE')}` : params.value;
+          return `${params.name}<br/>${metricaSeleccionada === 'ingresos' ? 'Ingresos' : 'Ventas'}: ${valor}`;
+        }
+      },
+      grid: { left: '2%', top: '15%', right: '15%', bottom: '15%', containLabel: true },
+      xAxis: { 
+        type: 'value', 
+        axisLabel: { 
+          show: false,
+          formatter: (value: number) => value.toLocaleString('es-PE')
+        }
+      },
+      yAxis: { 
+        type: 'category',
+        data: nombres,
+        inverse: true,
+        axisLabel: {
+        fontSize: 11,
+        rotate: 0,
+        width: 300,
+        overflow: 'truncate',
+        interval: 0
+      }
+      },
+      series: [{
+        name: metricaSeleccionada.toUpperCase(),
+        type: 'bar',
+        data: valores,
+        itemStyle: { 
+          color: '#1890ff'
+        },
+        label: { 
+          show: true, 
+          position: 'right',
+          formatter: (params: any) => {
+            const valor = metricaSeleccionada === 'ingresos' 
+              ? `$/. ${params.value?.toLocaleString('es-PE')}`
+              : params.value;
+            return valor;
+          },
+          fontSize: 10,
+          color: '#1f2937'
+        }
+      }]
+    };
+  })();
+
+  const cursoAreaOption = useMemo(() => {
+    if (!cursoEspecificoData?.ventasDiarias?.length) {
+      return {
+        title: { text: 'Evolución del curso', left: 'left' },
+        tooltip: { trigger: 'axis' },
+        grid: { left: '10%', right: '10%', bottom: '15%', top: '15%' },
+        xAxis: { type: 'category', data: [] },
+        yAxis: { type: 'value' },
+        series: []
+      };
+    }
+
+    const ventasDiarias = cursoEspecificoData.ventasDiarias;
+    const nombreCurso = cursoEspecificoData.resumen?.[0]?.nombre || 'Curso';
+
+    const fechas = ventasDiarias.map((v: any) => v.fechaFormateada);
+    const ingresos = ventasDiarias.map((v: any) => parseFloat(v.ingresoVenta) || 0);
+
+    return {
+      title: { 
+        text: `${nombreCurso} - Evolución (${ventasDiarias.length} ventas)`, 
+        left: 'left',
+        textStyle: { fontSize: 14, fontWeight: 'bold' }
+      },
+      tooltip: { 
+        trigger: 'axis',
+        formatter: (params: any) => {
+          const idx = params[0]?.dataIndex;
+          const venta = ventasDiarias[idx];
+          if (!venta) return 'Sin datos';
+          const ingresoFormateado = parseFloat(venta.ingresoVenta).toLocaleString('es-PE', { 
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2 
+          });
+          return `
+            <strong>${venta.fechaFormateada}</strong><br/>
+            ${venta.diaSemana}<br/>
+            <strong>$/. ${ingresoFormateado}</strong><br/>
+            Venta ID: ${venta.ventaId}
+          `;
+        },
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        borderColor: '#1890ff',
+        borderWidth: 1,
+        textStyle: { fontSize: 12 }
+      },
+      grid: { left: '10%', right: '10%', bottom: '20%', top: '20%', containLabel: true },
+      xAxis: { 
+        type: 'category', 
+        data: fechas,
+        axisLabel: { rotate: -45, fontSize: 10, interval: 0, color: '#666' },
+        axisLine: {
+          lineStyle: { color: '#ddd' }
+        }
+      },
+      yAxis: { 
+        type: 'value',
+        nameLocation: 'middle',
+        nameGap: 45,
+        nameTextStyle: { fontSize: 12, fontWeight: 'bold', color: '#333' },
+        axisLabel: {
+          formatter: (value: number) => `S/. ${value.toFixed(0)}`,
+          fontSize: 11,
+          color: '#666'
+        },
+        axisLine: {
+          lineStyle: { color: '#ddd' }
+        },
+        splitLine: {
+          lineStyle: { type: 'dashed', color: '#f0f0f0' }
+        }
+      },
+      series: [{
+        name: 'Ingresos diarios',
+        type: 'line',
+        symbol: 'circle',
+        symbolSize: 8,
+        itemStyle: {
+          color: '#1890ff',
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        areaStyle: { 
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(24, 144, 255, 0.6)' },
+              { offset: 1, color: 'rgba(24, 144, 255, 0.1)' }
+            ]
+          }
+        },
+        lineStyle: { 
+          color: '#1890ff', 
+          width: 3 ,
+          shadowColor: 'rgba(24, 144, 255, 0.3)',
+          shadowBlur: 10
+        },
+        data: ingresos,
+        smooth: 0.3,
+        emphasis: {
+          focus: 'series',
+          itemStyle: {
+            shadowBlur: 10,
+            shadowColor: 'rgba(24, 144, 255, 0.5)'
+          }
+        }
+      }]
+    };
+  },[cursoEspecificoData]);
+
 
   const ingresosOption = (() => {
     if (!ingresosPorTipo || ingresosPorTipo.length === 0) return opcionesBarrasIngresos;
@@ -176,10 +449,96 @@ const Resumen: React.FC = () => {
 
         {/* Ingresos vs gastos por tipo / área */}
         <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
-          <Col xs={24} md={16}>
-            <Card className={estilos.chartCard} title="Ingresos generales por tipo" extra={<Tag color="blue">Cursos · Certificados · Otros</Tag>}>
-              <div style={{ height: '300px' }}>
-                <ECharts option={ingresosOption} />
+          <Col xs={16}>
+            <Card 
+              className={estilos.chartCard} 
+              title={
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <span>Ingresos generales por tipo</span>
+                  <Input.Search
+                    placeholder="Buscar curso específico (ej: Power BI)..." 
+                    value={buscadorCurso} 
+                    onChange={(e) => setBuscadorCurso(e.target.value)} 
+                    onSearch={fetchCursoEspecifico} 
+                    enterButton={
+                      <Space> 
+                        Buscar 
+                        {modoCursoEspecifico && ( 
+                          <Button 
+                          size="small" 
+                          type="text" 
+                          onClick={() => { 
+                            setBuscadorCurso(''); 
+                            setModoCursoEspecifico(false); 
+                            setCursoEspecificoData(null); 
+                          }} 
+                          /> 
+                        )} 
+                      </Space>
+                    }
+                    loading={loadingCursoEspecifico} 
+                    allowClear 
+                    style={{ width: '100%' }}
+                  />
+
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    <Button 
+                      size="small" 
+                      type={tipoCursoSeleccionado === 20 ? 'primary' : 'default'}
+                      onClick={() => setTipoCursoSeleccionado(20)}
+                    >
+                      En venta
+                    </Button>
+                    <Button 
+                      size="small" 
+                      type={tipoCursoSeleccionado === 19 ? 'primary' : 'default'}
+                      onClick={() => setTipoCursoSeleccionado(19)}
+                    >
+                      Preventa
+                    </Button>
+                    <Button 
+                      size="small" 
+                      type={tipoCursoSeleccionado === 17 ? 'primary' : 'default'}
+                      onClick={() => setTipoCursoSeleccionado(17)}
+                    >
+                      Piloto
+                    </Button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <Button 
+                      size="small" 
+                      type={metricaSeleccionada === 'ingresos' ? 'primary' : 'default'}
+                      onClick={() => setMetricaSeleccionada('ingresos')}
+                    >
+                      Ingresos
+                    </Button>
+                    <Button 
+                      size="small" 
+                      type={metricaSeleccionada === 'ventas' ? 'primary' : 'default'}
+                      onClick={() => setMetricaSeleccionada('ventas')}
+                    >
+                      Ventas
+                    </Button>
+                  </div>
+                </div>
+              }
+              loading={loadingCursos || loadingCursoEspecifico}
+            >
+              <div style={{ height: '400px' }}>
+                {modoCursoEspecifico ? (
+                  <ECharts
+                    key={`curso-${cursoEspecificoData?.resumen?.[0]?.nombre || 'default'}`}
+                    option={cursoAreaOption}
+                    style={{ height: '100%', width: '100%' }}
+                  />
+                ) : (
+                  <ECharts 
+                    key="cursos-general"
+                    option={cursosBarOption} 
+                    style={{ height: '100%', width: '100%' }}
+                  />
+                )}
               </div>
             </Card>
           </Col>

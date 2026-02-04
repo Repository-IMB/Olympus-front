@@ -602,7 +602,7 @@ const Facturacion: React.FC = () => {
                   min={0}
                   step={1}
                   precision={0}
-                  formatter={(value) => value ? `S/. ${value.toLocaleString()}` : 'S/. 0'}
+                  formatter={(value) => value ? `$/. ${value.toLocaleString()}` : '$/. 0'}
                   parser={(displayValue) => {
                     if (!displayValue) return 0;
                     const cleaned = displayValue.replace(/[^\d]/g, '');
@@ -624,7 +624,7 @@ const Facturacion: React.FC = () => {
                   min={0}
                   step={1}
                   precision={0}
-                  formatter={(value) => value ? `S/. ${value.toLocaleString()}` : 'S/. 0'}
+                  formatter={(value) => value ? `$/. ${value.toLocaleString()}` : '$/. 0'}
                   parser={(displayValue) => {
                     if (!displayValue) return 0;
                     const cleaned = displayValue.replace(/[^\d]/g, '');

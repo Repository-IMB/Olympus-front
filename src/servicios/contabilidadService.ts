@@ -149,6 +149,33 @@ export const crearIngreso = async (payload: any) => {
   }
 };
 
+export const obtenerEstadisticasCursos = async (estadoProductoTipoId?: number) => {
+    try {
+        const response = await api.get(`${basePath}/EstadisticasCursosPorTipo`, {
+            params: { estadoProductoTipoId }
+        });
+        return response.data ?? response;
+    } catch (error) {
+        console.error("ContabilidadService.obtenerEstadisticasCursos error:", error);
+        throw error;
+    }
+};
+
+export const obtenerEstadisticasCursoEspecifico = async (nombreCurso: string, estadoProductoTipoId: number) => {
+    try {
+        const response = await api.get(`${basePath}/EstadisticasCursoEspecifico`, {
+            params: { 
+                nombreCurso, 
+                estadoProductoTipoId 
+            }
+        });
+        return response.data ?? response;
+    } catch (error) {
+        console.error("ContabilidadService.obtenerEstadisticasCursoEspecifico error:", error);
+        throw error;
+    }
+};
+
 export default {
 	obtenerResumenFinanciero,
 	listarFacturas,
@@ -161,4 +188,6 @@ export default {
 	crearIngresoManual,
     crearGasto,
     crearIngreso,
+	obtenerEstadisticasCursos,
+    obtenerEstadisticasCursoEspecifico,
 };
