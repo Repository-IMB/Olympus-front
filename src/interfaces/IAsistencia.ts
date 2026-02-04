@@ -42,3 +42,11 @@ export interface IAsistenciaPaginadaResponse {
   codigo: string;
   mensaje?: string;
 }
+
+
+export interface IEstadoBotonesResponse {
+  codigo: string;
+  estado: string; // 'entrada', 'inicioAlmuerzo', 'finAlmuerzo', 'salida', 'completo', 'error'
+  mensaje: string;
+  personal?: string;
+}

@@ -6,6 +6,7 @@ import {
     marcarInicioAlmuerzo,
     marcarFinAlmuerzo,
     marcarSalida,
+    obtenerEstadoBotones,
 } from '../../servicios/AsistenciaService';
 
 type TipoAsistencia = 'entrada' | 'inicioAlmuerzo' | 'finAlmuerzo' | 'salida';
@@ -25,60 +26,11 @@ function AsistenciaPage() {
     const [mensajeExito, setMensajeExito] = useState('');
     const [mostrarError, setMostrarError] = useState(false);
     const [mensajeError, setMensajeError] = useState('');
+
+    const [mensajeBoton, setMensajeBoton] = useState(''); // New state for backend message
     const [slideIndex, setSlideIndex] = useState(0);
 
-    // Lógica de selección automática (Turno Completo)
-    const determineButtonState = (date: Date): TipoAsistencia | null => {
-        const day = date.getDay(); // 0 is Sunday, 6 is Saturday
-        const hours = date.getHours();
-        const minutes = date.getMinutes();
-        const totalMinutes = hours * 60 + minutes;
 
-        // Horarios en minutos
-        const t09_00 = 9 * 60;
-        const t09_30 = 9 * 60 + 30;
-        const t13_00 = 13 * 60;
-        const t13_30 = 13 * 60 + 30;
-        const t14_00 = 14 * 60;
-        const t14_30 = 14 * 60 + 30;
-        const t18_00 = 18 * 60;
-
-        // Domingo no hay reglas definidas, devolvemos null o lo que se prefiera
-        if (day === 0) return null;
-
-        // Sábado (6)
-        if (day === 6) {
-            // Entrada: 09:00 - 09:30
-            if (totalMinutes >= t09_00 && totalMinutes <= t09_30) {
-                return 'entrada';
-            }
-            // Salida: A partir de las 13:00 (digamos hasta 23:59)
-            if (totalMinutes >= t13_00) {
-                return 'salida';
-            }
-            return null;
-        }
-
-        // Lunes a Viernes (1-5)
-        // Entrada: 09:00 - 09:30
-        if (totalMinutes >= t09_00 && totalMinutes <= t09_30) {
-            return 'entrada';
-        }
-        // Inicio Almuerzo: 13:00 - 13:30
-        if (totalMinutes >= t13_00 && totalMinutes <= t13_30) {
-            return 'inicioAlmuerzo';
-        }
-        // Fin Almuerzo: 14:00 - 14:30
-        if (totalMinutes >= t14_00 && totalMinutes <= t14_30) {
-            return 'finAlmuerzo';
-        }
-        // Salida: A partir de las 18:00
-        if (totalMinutes >= t18_00) {
-            return 'salida';
-        }
-
-        return null;
-    };
 
     // Actualizar hora, fecha y ESTADO DE BOTONES en tiempo real
     useEffect(() => {
@@ -98,10 +50,6 @@ function AsistenciaPage() {
 
             setHora(ahora.toLocaleTimeString('es-ES', opcionesHora));
             setFecha(ahora.toLocaleDateString('es-ES', opcionesFecha));
-
-            // Actualizar selección automática
-            const estadoAutomatico = determineButtonState(ahora);
-            setTipoAsistencia(estadoAutomatico);
         };
 
         actualizarTiempo();
@@ -171,14 +119,14 @@ function AsistenciaPage() {
     const handleDNIChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const valor = e.target.value.replace(/\D/g, ''); // Solo números
         setDni(valor);
-        if (erroresValidacion.dni) {
-            if (!valor.trim()) {
-                setErroresValidacion({ dni: 'El DNI es requerido' });
-            } else if (!validarDNI(valor)) {
-                setErroresValidacion({ dni: 'El DNI debe tener entre 8 y 12 dígitos' });
-            } else {
-                setErroresValidacion({});
-            }
+
+        // Reset state on change
+        setTipoAsistencia(null);
+        setMensajeBoton('');
+        setErroresValidacion({});
+
+        if (valor.length >= 8) {
+            checkButtonState(valor);
         }
     };
 
@@ -188,7 +136,34 @@ function AsistenciaPage() {
         } else if (!validarDNI(dni)) {
             setErroresValidacion({ dni: 'El DNI debe tener entre 8 y 12 dígitos' });
         } else {
-            setErroresValidacion({});
+            checkButtonState(dni);
+        }
+    };
+
+    const checkButtonState = async (dniValue: string) => {
+        if (!validarDNI(dniValue)) return;
+
+        try {
+            const response = await obtenerEstadoBotones(dniValue);
+            console.log("Svc Response:", response); // DEBUG
+
+            if ((response.codigo === 'SIN_ERROR' || response.codigo === 'SIN ERROR') && response.estado !== 'error') {
+                console.log("Setting state to:", response.estado); // DEBUG
+                setTipoAsistencia(response.estado as TipoAsistencia);
+                setMensajeBoton(response.mensaje);
+                setErroresValidacion({});
+            } else if (response.estado === 'error') {
+                setTipoAsistencia(null);
+                setMensajeBoton('');
+                setErroresValidacion({ dni: response.mensaje });
+            } else if (response.estado === 'completo') {
+                setTipoAsistencia(null);
+                setMensajeBoton('Asistencia Completada');
+                setErroresValidacion({});
+            }
+        } catch (error) {
+            console.error('Error checking button state', error);
+            setTipoAsistencia(null);
         }
     };
 
@@ -203,11 +178,6 @@ function AsistenciaPage() {
 
         if (!validarDNI(dni)) {
             setErroresValidacion({ dni: 'El DNI debe tener entre 8 y 12 dígitos' });
-            return;
-        }
-
-        if (!tipoAsistencia) {
-            setErroresValidacion({ dni: 'No hay ninguna acción disponible en este horario.' }); // Hack para mostrar error
             return;
         }
 
@@ -256,6 +226,10 @@ function AsistenciaPage() {
                     setMostrarError(false);
                 }, 5000);
             }
+
+            // Refresh button state after action
+            checkButtonState(dni);
+
         } catch (error: any) {
             console.error('Error al marcar asistencia:', error);
             // Extract error message from API response
@@ -323,12 +297,13 @@ function AsistenciaPage() {
                                         key={tipo.id}
                                         type="button"
                                         className={`${estilos.tipoButton} ${tipoAsistencia === tipo.id ? estilos.tipoButtonActive : ''}`}
-                                        // onClick={() => setTipoAsistencia(tipo.id)} // Deshabilitado manual
-                                        disabled={true} // Bloqueado para el usuario
+                                        // onClick={() => setTipoAsistencia(tipo.id)} // Disabled manual selection again
+                                        onClick={() => { }} // No-op, driven by state
+                                        disabled={tipoAsistencia !== tipo.id}
                                         style={{
                                             animationDelay: `${0.25 + index * 0.05}s`,
-                                            opacity: tipoAsistencia === tipo.id ? 1 : 0.5, // Visual feedback
-                                            cursor: 'default'
+                                            opacity: tipoAsistencia === tipo.id ? 1 : 0.5,
+                                            cursor: tipoAsistencia === tipo.id ? 'pointer' : 'not-allowed'
                                         }}
                                     >
                                         <Icon size={18} />

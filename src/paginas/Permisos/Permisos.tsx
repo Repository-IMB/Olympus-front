@@ -8,76 +8,16 @@ import {
   Tooltip,
 } from "antd";
 import { SearchOutlined, EditOutlined } from "@ant-design/icons";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import moment, { type Moment } from "moment";
+import { obtenerPermisosPaginados, crearPermiso } from "../../servicios/PermisoService";
 import estilos from "./Permisos.module.css";
 import type { ColumnsType } from "antd/es/table";
-import type { Permiso } from "../../interfaces/IPermiso";
+import type { Permiso, CrearPermisoDTO } from "../../interfaces/IPermiso";
 import NuevoPermisoModal, { type NuevoPermisoFormValues } from "./NuevoPermisoModal";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
-
-// Mock data - reemplazar con API real
-const permisosMock: Permiso[] = [
-  {
-    id: 1,
-    pais: "Panamá",
-    dni: "88391694",
-    apellidos: "Singh Alvarado",
-    nombres: "Abdiel",
-    celular: "",
-    cantidadPermisos: 0,
-    diasAcumulados: 0,
-    horasAcumuladas: 0,
-    horasAcumuladasRecuperadas: 0,
-    correo: "abdielsingh8@gmail.com",
-    sede: "imtpaegermtto08252",
-    carrera: "",
-    tipoContrato: "",
-    tipoJornada: "",
-    area: "imtpaegermtto08252",
-    estado: true,
-  },
-  {
-    id: 2,
-    pais: "Panamá",
-    dni: "881796",
-    apellidos: "Tejeira Romaña",
-    nombres: "Abdiel",
-    celular: "",
-    cantidadPermisos: 0,
-    diasAcumulados: 0,
-    horasAcumuladas: 0,
-    horasAcumuladasRecuperadas: 0,
-    correo: "abdieltejeira@gmail.com",
-    sede: "imbcepconfin06251",
-    carrera: "",
-    tipoContrato: "",
-    tipoJornada: "",
-    area: "imbcepconfin06251",
-    estado: true,
-  },
-  {
-    id: 3,
-    pais: "República Dominicana",
-    dni: "03185360873",
-    apellidos: "Jiménez",
-    nombres: "Adalberto",
-    celular: "",
-    cantidadPermisos: 0,
-    diasAcumulados: 0,
-    horasAcumuladas: 0,
-    horasAcumuladasRecuperadas: 0,
-    correo: "dalbert490@gmail.com",
-    sede: "imbcepconfin06251",
-    carrera: "",
-    tipoContrato: "",
-    tipoJornada: "",
-    area: "imbcepconfin06251",
-    estado: true,
-  },
-];
 
 export default function Permisos() {
   const [searchText, setSearchText] = useState("");
@@ -90,7 +30,56 @@ export default function Permisos() {
   const [dateRange, setDateRange] = useState<[Moment | null, Moment | null] | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const [permisos] = useState<Permiso[]>(permisosMock);
+  // API State
+  const [permisos, setPermisos] = useState<Permiso[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [totalRegistros, setTotalRegistros] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Fetch from API
+  const fetchPermisos = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await obtenerPermisosPaginados({
+        page: currentPage,
+        pageSize,
+        search: searchText,
+        idPais: filtroPais ? parseInt(filtroPais) : undefined,
+        // Dates:
+        fechaNacimientoDesde: dateRange?.[0]?.isValid() ? dateRange[0].format("YYYY-MM-DD") : undefined,
+        fechaNacimientoHasta: dateRange?.[1]?.isValid() ? dateRange[1].format("YYYY-MM-DD") : undefined,
+      });
+
+      if (response.codigo === "SIN ERROR") {
+        setPermisos(response.data);
+        setTotalRegistros(response.total);
+      } else {
+        console.error("Error API:", response.mensaje);
+      }
+    } catch (error) {
+      console.error("Error fetching permisos:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, pageSize, searchText, dateRange, filtroPais]);
+
+  useEffect(() => {
+    fetchPermisos();
+  }, [fetchPermisos]);
+
+  // Handle Search Debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  const handleTableChange = (pagination: any) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
+  };
 
   const handleNuevoRegistro = () => {
     setModalVisible(true);
@@ -100,10 +89,42 @@ export default function Permisos() {
     setModalVisible(false);
   };
 
-  const handleModalOk = (values: NuevoPermisoFormValues) => {
-    console.log("Nuevo permiso:", values);
-    // Aquí se enviará a la API
-    setModalVisible(false);
+  const handleModalOk = async (values: NuevoPermisoFormValues) => {
+    try {
+      setLoading(true);
+
+      const dto: CrearPermisoDTO = {
+        idPersonal: values.idPersonal,
+        idTipoPermiso: values.tipoPermiso,
+        motivo: values.motivoDetallado,
+        modalidadGestion: values.modalidadGestion,
+        fechaPermiso: values.fechaPermiso.format("YYYY-MM-DD"),
+        horaInicio: values.horasGestionInicio.format("HH:mm:ss"),
+        horaFin: values.horasGestionFin.format("HH:mm:ss"),
+        tratamientoHoras: values.tratamientoHoras,
+        usuarioCreacion: "Sistema", // TODO: Get from auth context
+        horarioRecuperacion: values.horarioRecuperacionTexto,
+      };
+
+      if (values.diasRecuperacionMultiple && values.diasRecuperacionMultiple[0] && values.diasRecuperacionMultiple[1]) {
+        dto.fechaRecuperacionInicio = values.diasRecuperacionMultiple[0].format("YYYY-MM-DD");
+        dto.fechaRecuperacionFin = values.diasRecuperacionMultiple[1].format("YYYY-MM-DD");
+      }
+
+      const respuesta = await crearPermiso(dto);
+
+      if (respuesta.codigo === "SIN ERROR") {
+        setModalVisible(false);
+        fetchPermisos(); // Refresh table
+      } else {
+        console.error("Error creating permission:", respuesta.mensaje);
+        // You might want to show a notification here
+      }
+    } catch (error) {
+      console.error("Error creating permission:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const limpiarFiltros = () => {
@@ -117,52 +138,7 @@ export default function Permisos() {
     setDateRange(null);
   };
 
-  const permisosFiltrados = useMemo(() => {
-    const busqueda = searchText.toLowerCase();
 
-    return permisos.filter((p) => {
-      const coincideBusqueda =
-        !busqueda ||
-        p.nombres.toLowerCase().includes(busqueda) ||
-        p.apellidos.toLowerCase().includes(busqueda) ||
-        p.dni.includes(busqueda) ||
-        p.correo.toLowerCase().includes(busqueda);
-
-      const coincidePais = !filtroPais || p.pais === filtroPais;
-      const coincideSede = !filtroSede || p.sede === filtroSede;
-      const coincideCarrera = !filtroCarrera || p.carrera === filtroCarrera;
-      const coincideTipoContrato = !filtroTipoContrato || p.tipoContrato === filtroTipoContrato;
-      const coincideTipoJornada = !filtroTipoJornada || p.tipoJornada === filtroTipoJornada;
-      const coincideArea = !filtroArea || p.area === filtroArea;
-
-      const coincideFecha =
-        !dateRange ||
-        !dateRange[0] ||
-        !dateRange[1] ||
-        (() => {
-          if (!p.fechaNacimiento) return true;
-          const [inicio, fin] = dateRange;
-          const fechaPermiso = moment(p.fechaNacimiento, "DD/MM/YYYY");
-          return (
-            (fechaPermiso.isAfter(inicio.startOf("day")) &&
-              fechaPermiso.isBefore(fin.endOf("day"))) ||
-            fechaPermiso.isSame(inicio, "day") ||
-            fechaPermiso.isSame(fin, "day")
-          );
-        })();
-
-      return (
-        coincideBusqueda &&
-        coincidePais &&
-        coincideSede &&
-        coincideCarrera &&
-        coincideTipoContrato &&
-        coincideTipoJornada &&
-        coincideArea &&
-        coincideFecha
-      );
-    });
-  }, [permisos, searchText, filtroPais, filtroSede, filtroCarrera, filtroTipoContrato, filtroTipoJornada, filtroArea, dateRange]);
 
   const columnas: ColumnsType<Permiso> = [
     {
@@ -435,12 +411,19 @@ export default function Permisos() {
   ];
 
   // Obtener valores únicos para los filtros
-  const paisesUnicos = [...new Set(permisos.map((p) => p.pais))].filter(Boolean);
-  const sedesUnicas = [...new Set(permisos.map((p) => p.sede))].filter(Boolean);
-  const carrerasUnicas = [...new Set(permisos.map((p) => p.carrera))].filter(Boolean);
-  const tiposContratoUnicos = [...new Set(permisos.map((p) => p.tipoContrato))].filter(Boolean);
-  const tiposJornadaUnicos = [...new Set(permisos.map((p) => p.tipoJornada))].filter(Boolean);
-  const areasUnicas = [...new Set(permisos.map((p) => p.area))].filter(Boolean);
+  // DROPDOWNS: Since we are paginating server-side, we can't derive unique values from the current page 'permisos'.
+  // We need separate catalog API calls for these filters. 
+  // For now, I will leave them empty or comment them out to prevent errors, 
+  // as the user said "Don't remove any filter I will work on them later".
+  // Keeping the logic safe against 'undefined' permisos.
+  // DROPDOWNS: Since we are paginating server-side, we can't derive unique values from the current page 'permisos'.
+  // We will leave them empty for now until catalogs are connected.
+  const paisesUnicos: string[] = [];
+  const sedesUnicas: string[] = [];
+  const carrerasUnicas: string[] = [];
+  const tiposContratoUnicos: string[] = [];
+  const tiposJornadaUnicos: string[] = [];
+  const areasUnicas: string[] = [];
 
   return (
     <div className={estilos.container}>
@@ -570,13 +553,23 @@ export default function Permisos() {
           />
         </div>
 
-        <Table
-          columns={columnas}
-          dataSource={permisosFiltrados}
-          rowKey="id"
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 1500 }}
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            columns={columnas}
+            dataSource={permisos}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              current: currentPage,
+              pageSize: pageSize,
+              total: totalRegistros,
+              showSizeChanger: true,
+              showTotal: (total) => `Total: ${total} registros`,
+            }}
+            onChange={handleTableChange}
+            scroll={{ x: 1500 }}
+          />
+        </div>
       </div>
 
       <NuevoPermisoModal

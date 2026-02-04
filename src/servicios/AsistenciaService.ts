@@ -3,6 +3,7 @@ import type {
     AsistenciaPersonal,
     IAsistenciaFiltros,
     IAsistenciaPaginadaResponse,
+    IEstadoBotonesResponse,
 } from "../interfaces/IAsistencia";
 
 export type { AsistenciaPersonal, IAsistenciaFiltros, IAsistenciaPaginadaResponse };
@@ -94,7 +95,23 @@ export const marcarFinAlmuerzo = async (dni: string): Promise<IMarcarAsistenciaR
 /**
  * Clock Out - Marcar Salida
  */
+/**
+ * Clock Out - Marcar Salida
+ */
 export const marcarSalida = async (dni: string): Promise<IMarcarAsistenciaResponse> => {
     const response = await api.post("/api/ASTModAsistencia/MarcarSalida", { dni });
+    return response.data;
+};
+
+/**
+ * Response for button state check
+ */
+
+
+/**
+ * Get Button State - Obtener Estado de Botones
+ */
+export const obtenerEstadoBotones = async (dni: string): Promise<IEstadoBotonesResponse> => {
+    const response = await api.get(`/api/ASTModAsistencia/ObtenerEstadoBotones/${dni}`);
     return response.data;
 };

@@ -12,10 +12,33 @@ export interface Personal {
   carrera: string;
   nombreSede: string;
 }
+export interface PersonalDetalle {
+  idPersonal: number;
+  pais: string;
+  dni: string;
+  apellidos: string;
+  nombres: string;
+  tipoJornada: string;
+  areaTrabajo: string;
+  jefeDirecto: string;
+}
+
+
+export interface PersonalOpcion {
+  idPersonal: number;
+  nombrePersonal: string;
+  DNI: string;
+}
 
 export interface PersonalPaginadoResponse {
   personal: Personal[];
   totalRegistros: number;
+  codigo: string;
+  mensaje: string;
+}
+
+export interface PersonalOpcionesResponse {
+  personal: PersonalOpcion[];
   codigo: string;
   mensaje: string;
 }
