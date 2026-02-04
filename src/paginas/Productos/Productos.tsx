@@ -19,7 +19,8 @@ import {
   obtenerProductoPorId,
   obtenerTiposEstadoProducto,
   obtenerPersonalDesarrollo,
-  descargarPDFProducto
+  descargarPDFProducto,
+  eliminarProducto
 } from "../../servicios/ProductoService";
 import type { PersonalCombo } from "../../servicios/ProductoService";
 import type { Producto, TipoEstadoProducto } from "../../interfaces/IProducto";
@@ -54,6 +55,7 @@ export default function Productos() {
   const [productoAEliminar, setProductoAEliminar] = useState<number | null>(null);
   const [departamentos, setDepartamentos] = useState<{ id: number; nombre: string }[]>([]);
   const [tiposEstadoProducto, setTiposEstadoProducto] = useState<TipoEstadoProducto[]>([]);
+  const [filterEstadoActivo, setFilterEstadoActivo] = useState<boolean | null>(true);
   
   const navigate = useNavigate();
 
@@ -93,6 +95,7 @@ export default function Productos() {
         filterEstadoProducto,
         filterDepartamento,
         filterResponsable,
+        filterEstadoActivo,
         sortField,
         ordenBackend
       );
@@ -126,14 +129,14 @@ export default function Productos() {
       }
     }
   }, [searchText, filterEstadoProducto, filterDepartamento,
-      filterResponsable, sortField, sortOrder]);
+      filterResponsable, filterEstadoActivo, sortField, sortOrder]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       cargarProductos(1, pagination.pageSize);
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchText, filterEstadoProducto, filterDepartamento, filterResponsable]);
+  }, [searchText, filterEstadoProducto, filterDepartamento, filterResponsable, filterEstadoActivo,]);
 
   useEffect(() => {
     cargarProductos(pagination.current, pagination.pageSize);
@@ -235,9 +238,31 @@ export default function Productos() {
   };
 
   const confirmarEliminacion = async () => {
-    setModalEliminarVisible(false);
-    message.info("Eliminación pendiente de habilitar en servicio");
-    setProductoAEliminar(null);
+    if (!productoAEliminar) return;
+    
+    try {
+      message.loading({ content: 'Eliminando producto...', key: 'eliminar', duration: 0 });
+      
+      await eliminarProducto(productoAEliminar);
+      
+      message.success({ content: 'Producto eliminado exitosamente', key: 'eliminar', duration: 3 });
+      
+      setModalEliminarVisible(false);
+      setProductoAEliminar(null);
+      
+      // Recargar la tabla para que desaparezca el producto
+      cargarProductos(pagination.current, pagination.pageSize);
+      
+    } catch (error: any) {
+      console.error("Error al eliminar:", error);
+      message.error({ 
+        content: error?.response?.data?.mensaje || error?.response?.data?.Mensaje || "Error al eliminar el producto", 
+        key: 'eliminar', 
+        duration: 3 
+      });
+      setModalEliminarVisible(false);
+      setProductoAEliminar(null);
+    }
   };
 
   const cancelarEliminacion = () => {
@@ -453,6 +478,16 @@ export default function Productos() {
                );
             })}
           </Select>
+         {/* <Select
+            value={filterEstadoActivo}
+            onChange={setFilterEstadoActivo}
+            style={{ width: 180 }}
+            placeholder="Estado"
+          >
+            <Option value={true}>Activos</Option>
+            <Option value={false}>Inactivos</Option>
+            <Option value={null}>Todos</Option>
+          </Select> */}
         </div>
 
         <div className={estilos.tableWrapper}>

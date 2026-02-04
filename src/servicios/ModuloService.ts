@@ -117,12 +117,16 @@ export const obtenerCodigosFiltroModulo = async (): Promise<string[]> => {
   }
 };
 
-/** 🔹 Eliminar módulo */
-/* Todavía no se usa
+/** 🔹 Eliminar módulo (Baja lógica) */
 export const eliminarModulo = async (id: number): Promise<void> => {
-  await api.delete(`/api/VTAModVentaModulo/Eliminar/${id}`);
+  try {
+    const response = await api.delete(`/api/VTAModVentaModulo/Eliminar/${id}`);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error al eliminar módulo:", error);
+    throw error;
+  }
 };
-*/
 
 /** 🔹 Asignar docente a módulo */
 export const asignarDocenteAModulo = async (

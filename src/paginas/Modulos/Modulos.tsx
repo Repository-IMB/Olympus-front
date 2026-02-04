@@ -9,8 +9,8 @@ import {
   Tooltip,
   message,
   Spin,
+  Modal
 } from "antd";
-import { SearchOutlined } from "@ant-design/icons";
 import { useState, useEffect, useCallback} from "react";
 import moment, { type Moment } from "moment";
 import estilos from "./Modulos.module.css";
@@ -19,7 +19,9 @@ import {
   EditOutlined,
   EyeOutlined,
   DeleteOutlined,
-  FilePdfOutlined, // ✅ Cambiado de CalendarOutlined a FilePdfOutlined
+  FilePdfOutlined,
+  SearchOutlined, 
+  ExclamationCircleOutlined
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import ModalModulo from "./ModalModulo";
@@ -29,12 +31,14 @@ import {
   actualizarModulo,
   obtenerModuloPorId,
   obtenerCodigosFiltroModulo,
-  descargarPDFModulo, // ✅ Nueva función importada
+  descargarPDFModulo,
+  eliminarModulo,
   type IModulo,
 } from "../../servicios/ModuloService";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
+const { confirm } = Modal;
 
 const obtenerNombreCompletoDia = (numero: string): string => {
   const mapeo: Record<string, string> = {
@@ -244,6 +248,30 @@ export default function Modulos() {
     setModoEdicion(false);
   };
 
+  // ✅ NUEVA FUNCIÓN: Eliminar (Baja Lógica)
+  const handleEliminar = (modulo: IModulo) => {
+    confirm({
+      title: '¿Está seguro de eliminar este módulo?',
+      icon: <ExclamationCircleOutlined />,
+      content: `Se desactivará el módulo "${modulo.nombre}" (Código: ${modulo.codigo || 'N/A'})`,
+      okText: 'Sí, eliminar',
+      okType: 'danger',
+      cancelText: 'Cancelar',
+      onOk: async () => {
+        try {
+          setLoading(true);
+          await eliminarModulo(modulo.id!);
+          message.success('Módulo eliminado correctamente');
+          cargarModulos(pagination.current, pagination.pageSize);
+        } catch (error: any) {
+          message.error(error?.response?.data?.message || 'Error al eliminar el módulo');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
+
   // ✅ NUEVA FUNCIÓN: Descargar PDF
   const handleDescargarPDF = async (modulo: IModulo) => {
     try {
@@ -334,7 +362,10 @@ export default function Modulos() {
             </span>
           </Tooltip>
           <Tooltip title="Eliminar">
-            <span className={estilos.actionIcon}>
+            <span 
+              className={estilos.actionIcon} 
+              onClick={() => handleEliminar(record)}
+            >
               <DeleteOutlined />
             </span>
           </Tooltip>

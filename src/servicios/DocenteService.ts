@@ -60,9 +60,7 @@ export const actualizarDocente = async (
   return response.data;
 };
 
-/** 🔹 Eliminar docente */
-/* Todavia no se usa
+/** 🔹 Eliminar docente (Baja Lógica) */
 export const eliminarDocente = async (id: number): Promise<void> => {
   await api.delete(`/api/VTAModVentaDocente/Eliminar/${id}`);
 };
-*/

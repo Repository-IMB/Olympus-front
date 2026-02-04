@@ -20,24 +20,31 @@ export const obtenerProductos = async (
   estadoProductoId: number | null = null,
   idDepartamento: number | null = null,
   idResponsable: number | null = null,
+  estadoActivo: boolean | null = true,
   sortField: string = "Nombre",
   sortOrder: string = "ASC"
 ) => {
   
   const endpoint = "/api/VTAModVentaProducto/ObtenerTodas";
 
-  const response = await api.get(endpoint, {
-    params: {
-      search,
-      page,
-      pageSize,
-      estadoProductoId: estadoProductoId,
-      idDepartamento,
-      idResponsable, 
-      sortField,
-      sortOrder
-    },
-  });
+  // 🟢 CONSTRUIR PARAMS MANUALMENTE PARA CONTROLAR NULL
+  const params: any = {
+    search,
+    page,
+    pageSize,
+    sortField,
+    sortOrder
+  };
+
+  // Solo agregar si no es null
+  if (estadoProductoId !== null) params.estadoProductoId = estadoProductoId;
+  if (idDepartamento !== null) params.idDepartamento = idDepartamento;
+  if (idResponsable !== null) params.idResponsable = idResponsable;
+  
+  // 🟢 SIEMPRE ENVIAR estadoActivo (incluso si es null)
+  params.estadoActivo = estadoActivo;
+
+  const response = await api.get(endpoint, { params });
   return response.data; 
 };
 
@@ -192,23 +199,16 @@ export const descargarPDFProducto = async (id: number): Promise<void> => {
   }
 };
 
-export const sincronizarCalendarioProducto = async (idProducto: number, emailResponsable: string, timeZone: string) => {
-  const params = new URLSearchParams({
-    idProducto: idProducto.toString(),
-    emailResponsable: emailResponsable,
-    timeZone: timeZone
-  })
-  const url = `/api/VTAModVentaProducto/SincronizarCalendario`; 
+export const sincronizarCalendarioProducto = async (idProducto: number, emailResponsable: string) => {
+  
   const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const token = localStorage.getItem("token");
   
-  // Si usas fetch nativo:
-  const token = localStorage.getItem("token"); // O donde guardes tu token
-  
-  const response = await fetch(url, {
+  const response = await fetch('/api/VTAModVentaProducto/SincronizarCalendario', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}` // Si tu back pide auth
+      'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify({ 
         idProducto, 
@@ -230,12 +230,7 @@ export const sincronizarCalendarioProducto = async (idProducto: number, emailRes
   return await response.json();
 };
 
-/* =========================
-   ELIMINAR
-========================= */
-/* export const eliminarProducto = async (id: number): Promise<void> => {
-  await api.delete(
-    `/api/VTAModVentaProducto/Eliminar/${id}`
-  );
-}; */
+export const eliminarProducto = async (id: number): Promise<void> => {
+  await api.delete(`/api/VTAModVentaProducto/Eliminar/${id}`);
+};
 

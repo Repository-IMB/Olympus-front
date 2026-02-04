@@ -12,23 +12,28 @@ import {
   obtenerDepartamentos, 
   crearDepartamento, 
   actualizarDepartamento,
-  //eliminarDepartamento,
-  obtenerDepartamentoPorId,
+  eliminarDepartamento, // 🟢 Asegúrate de descomentar esto en tu Service
   type Departamento 
 } from "../../servicios/DepartamentosService";
 
 export default function Departamentos() {
   const [searchText, setSearchText] = useState("");
+  
+  // Modal Crear/Editar
   const [modalVisible, setModalVisible] = useState(false);
   const [errorModal, setErrorModal] = useState<string | null>(null);
   const [modoModal, setModoModal] = useState<'crear' | 'editar'>('crear');
   const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<Departamento | null>(null);
+  
+  // Datos
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [loading, setLoading] = useState(false);
-  //const [modalEliminarVisible, setModalEliminarVisible] = useState(false);
-  //const [departamentoAEliminar, setDepartamentoAEliminar] = useState<number | null>(null);
+  
+  // 🟢 Modal Eliminar (Descomentado y Activo)
+  const [modalEliminarVisible, setModalEliminarVisible] = useState(false);
+  const [departamentoAEliminar, setDepartamentoAEliminar] = useState<number | null>(null);
 
-  // Cargar departamentos al montar el componente
+  // Cargar departamentos al montar
   useEffect(() => {
     cargarDepartamentos();
   }, []);
@@ -53,7 +58,6 @@ export default function Departamentos() {
         message.success('Departamento creado exitosamente');
       } else {
         if (departamentoSeleccionado?.id) {
-          // Pasamos el departamento original completo
           await actualizarDepartamento(
             departamentoSeleccionado.id, 
             departamento, 
@@ -86,29 +90,18 @@ export default function Departamentos() {
 
   const abrirModalEditar = async (departamento: Departamento) => {
     try {
-      // SOLUCIÓN TEMPORAL: usar directamente el departamento clickeado
-      // ya que tiene todos los datos necesarios
       setModoModal("editar");
       setDepartamentoSeleccionado(departamento);
       setErrorModal(null);
       setModalVisible(true);
-      
-      /* CÓDIGO ORIGINAL (comentado porque el endpoint no funciona):
-      const departamentoCompleto = await obtenerDepartamentoPorId(departamento.id);
-      setModoModal("editar");
-      setDepartamentoSeleccionado(departamentoCompleto);
-      setErrorModal(null);
-      setModalVisible(true);
-      */
     } catch (error) {
       console.error("Error al cargar departamento:", error);
       message.error("No se pudo cargar el departamento para editar");
     }
   };
 
-
-
- /* const handleEliminar = (id: number) => {
+  // 🟢 Lógica de Eliminación Activada
+  const handleEliminar = (id: number) => {
     setDepartamentoAEliminar(id);
     setModalEliminarVisible(true);
   };
@@ -119,27 +112,34 @@ export default function Departamentos() {
     try {
       await eliminarDepartamento(departamentoAEliminar);
       message.success("Departamento eliminado correctamente");
-      setDepartamentos(prev => prev.filter(d => d.id !== departamentoAEliminar));
-      setModalEliminarVisible(false);
-      setDepartamentoAEliminar(null);
+      
+      // Recargar la lista desde el backend para estar seguros
+      await cargarDepartamentos();
+      
     } catch (error: any) {
       const mensajeError = error?.response?.data?.message || "Error al eliminar el departamento";
       message.error(mensajeError);
       console.error(error);
+    } finally {
+        setModalEliminarVisible(false);
+        setDepartamentoAEliminar(null);
     }
   };
 
   const cancelarEliminacion = () => {
     setModalEliminarVisible(false);
     setDepartamentoAEliminar(null);
-  }; */
+  };
 
   const departamentosFiltrados = useMemo(() => {
     if (!Array.isArray(departamentos)) return [];
+    
+    // 🟢 Doble seguridad: Filtrar visualmente los inactivos si la API fallara en filtrar
+    const activos = departamentos.filter(d => d.estado !== false); 
 
-    if (!searchText.trim()) return departamentos;
+    if (!searchText.trim()) return activos;
 
-    return departamentos.filter(d =>
+    return activos.filter(d =>
       d.nombre.toLowerCase().includes(searchText.toLowerCase())
     );
   }, [departamentos, searchText]);
@@ -189,7 +189,7 @@ export default function Departamentos() {
           <Tooltip title="Eliminar">
             <span 
               className={estilos.actionIcon}
-              //onClick={() => handleEliminar(record.id)}
+              onClick={() => handleEliminar(record.id)} // 🟢 Evento conectado
               style={{ cursor: "pointer" }}
             >
               <DeleteOutlined />
@@ -203,12 +203,10 @@ export default function Departamentos() {
   return (
     <div className={estilos.container}>
       <div className={estilos.contentWrapper}>
-        {/* HEADER */}
         <div className={estilos.header}>
           <h1 className={estilos.title}>Departamentos</h1>
         </div>
 
-        {/* TOOLBAR */}
         <div className={estilos.toolbar}>
           <div className={estilos.searchBar}>
             <Input
@@ -231,11 +229,10 @@ export default function Departamentos() {
           </div>
         </div>
 
-        {/* TABLA */}
         <div className={estilos.tableWrapper}>
           <Table
             columns={columnas}
-            dataSource={departamentosFiltrados ?? []}
+            dataSource={departamentosFiltrados}
             rowKey="id"
             pagination={{ pageSize: 10 }}
             loading={loading}
@@ -243,7 +240,6 @@ export default function Departamentos() {
         </div>
       </div>
 
-      {/* MODAL PARA CREAR/EDITAR */}
       <ModalDepartamento
         open={modalVisible}
         onCancel={() => {
@@ -257,7 +253,7 @@ export default function Departamentos() {
         errorModal={errorModal}
       />
 
-      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {/* 🟢 MODAL ELIMINAR CONECTADO */}
       <Modal
         title={
           <span>
@@ -265,16 +261,16 @@ export default function Departamentos() {
             Confirmar eliminación
           </span>
         }
-        //open={modalEliminarVisible}
-        //onOk={confirmarEliminacion}
-        //onCancel={cancelarEliminacion}
+        open={modalEliminarVisible}
+        onOk={confirmarEliminacion}
+        onCancel={cancelarEliminacion}
         okText="Sí, eliminar"
         cancelText="Cancelar"
         okButtonProps={{ danger: true }}
       >
         <p>¿Estás seguro de que deseas eliminar este departamento?</p>
         <p style={{ color: '#ff4d4f', marginTop: '8px' }}>
-          <strong>Esta acción no se puede deshacer.</strong>
+          <strong>Se dará de baja y se desvinculará de los productos asociados.</strong>
         </p>
       </Modal>
     </div>
