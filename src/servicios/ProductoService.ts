@@ -18,6 +18,8 @@ export const obtenerProductos = async (
   page: number = 1,
   pageSize: number = 10,
   estadoProductoId: number | null = null,
+  idDepartamento: number | null = null,
+  idResponsable: number | null = null,
   sortField: string = "Nombre",
   sortOrder: string = "ASC"
 ) => {
@@ -29,7 +31,9 @@ export const obtenerProductos = async (
       search,
       page,
       pageSize,
-      estadoProductoId: estadoProductoId, 
+      estadoProductoId: estadoProductoId,
+      idDepartamento,
+      idResponsable, 
       sortField,
       sortOrder
     },

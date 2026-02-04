@@ -1027,13 +1027,24 @@ export default function DetalleProducto() {
                     placeholder="Buscar módulo por nombre" 
                     onChange={setModuloBuscado}
                     value={moduloBuscado}
-                    filterOption={(input, option) => (option?.children as unknown as string).toLowerCase().includes(input.toLowerCase())}
+                    optionFilterProp="label"
+                    filterOption={(input, option) => 
+                        ((option?.label as string) ?? "").toLowerCase().includes(input.toLowerCase())
+                    }
                  >
-                    {modulosDisponibles.map(m => (
-                        <Select.Option key={m.id} value={m.id}>
-                            {m.nombre} {m.fechaInicio ? `(${moment(m.fechaInicio).utc().format("DD/MM/YYYY")})` : ''}
-                        </Select.Option>
-                    ))}
+                    {modulosDisponibles.map(m => {
+                        const textoMostrar = `${m.nombre} ${m.fechaInicio ? `(${moment(m.fechaInicio).utc().format("DD/MM/YYYY")})` : ''}`;
+                        
+                        return (
+                            <Select.Option 
+                                key={m.id} 
+                                value={m.id}
+                                label={textoMostrar} 
+                            >
+                                {textoMostrar}
+                            </Select.Option>
+                        );
+                    })}
                  </Select>
              </div>
 

@@ -9,7 +9,7 @@ import {
   EditOutlined, 
   DeleteOutlined, 
   EyeOutlined, 
-  FilePdfOutlined // 🟢 CAMBIO: Usamos el ícono correcto de PDF
+  FilePdfOutlined
 } from "@ant-design/icons";
 import ModalProducto from "./ModalProducto";
 import {
@@ -18,8 +18,10 @@ import {
   actualizarProducto,
   obtenerProductoPorId,
   obtenerTiposEstadoProducto,
-  descargarPDFProducto // 🟢 CAMBIO: Importamos la función de descarga
+  obtenerPersonalDesarrollo,
+  descargarPDFProducto
 } from "../../servicios/ProductoService";
+import type { PersonalCombo } from "../../servicios/ProductoService";
 import type { Producto, TipoEstadoProducto } from "../../interfaces/IProducto";
 import { obtenerDepartamentos } from "../../servicios/DepartamentosService";
 
@@ -32,6 +34,9 @@ export default function Productos() {
   const [sortField, setSortField] = useState<string>("Nombre");
   const [sortOrder, setSortOrder] = useState<string>("ascend");
   const lastRequestRef = useRef<number>(0);
+  const [filterDepartamento, setFilterDepartamento] = useState<number | null>(null);
+  const [filterResponsable, setFilterResponsable] = useState<number | null>(null);
+  const [personalList, setPersonalList] = useState<PersonalCombo[]>([]);
   
   const [pagination, setPagination] = useState({
     current: 1,
@@ -86,13 +91,12 @@ export default function Productos() {
         page, 
         pageSize, 
         filterEstadoProducto,
+        filterDepartamento,
+        filterResponsable,
         sortField,
         ordenBackend
       );
       
-      // 2. VERIFICACIÓN CRÍTICA: 
-      // Si el ID de esta petición NO es el último que lanzamos, significa que el usuario
-      // siguió escribiendo y esta respuesta es vieja. La ignoramos.
       if (lastRequestRef.current !== currentRequestId) {
           return; 
       }
@@ -121,14 +125,15 @@ export default function Productos() {
         setLoading(false);
       }
     }
-  }, [searchText, filterEstadoProducto, sortField, sortOrder]);
+  }, [searchText, filterEstadoProducto, filterDepartamento,
+      filterResponsable, sortField, sortOrder]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       cargarProductos(1, pagination.pageSize);
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchText, filterEstadoProducto]);
+  }, [searchText, filterEstadoProducto, filterDepartamento, filterResponsable]);
 
   useEffect(() => {
     cargarProductos(pagination.current, pagination.pageSize);
@@ -171,6 +176,8 @@ export default function Productos() {
     const cargarInicial = async () => {
       await cargarDepartamentos();
       await cargarTiposEstadoProducto();
+      const personalData = await obtenerPersonalDesarrollo();
+      setPersonalList(personalData)
       await cargarProductos(1, pagination.pageSize);
     };
     cargarInicial();
@@ -388,7 +395,7 @@ export default function Productos() {
           </div>
         </div>
 
-        <div className={estilos.toolbar} style={{ marginTop: '16px' }}>
+        <div className={estilos.toolbar} style={{ marginTop: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
           <Select
             value={filterEstadoProducto}
             onChange={(value) => setFilterEstadoProducto(value)}
@@ -404,6 +411,47 @@ export default function Productos() {
                   {estado.nombre}
                 </Option>
               ))}
+          </Select>
+          {/* 2. Filtro Departamento (Nuevo) */}
+          <Select
+            value={filterDepartamento}
+            onChange={setFilterDepartamento}
+            style={{ width: 220 }}
+            placeholder="Departamento"
+            allowClear
+            showSearch
+            optionFilterProp="label" // Importante para que busque por el texto visible
+            filterOption={(input, option) =>
+                ((option?.label as string) ?? "").toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            <Option value={null} label="Todos los departamentos">Todos los departamentos</Option>
+            {departamentos.map((d) => (
+               <Option key={d.id} value={d.id} label={d.nombre}>{d.nombre}</Option>
+            ))}
+          </Select>
+          {/* 3. Filtro Responsable (Nuevo) */}
+          <Select
+            value={filterResponsable}
+            onChange={setFilterResponsable}
+            style={{ width: 220 }}
+            placeholder="Responsable"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            filterOption={(input, option) =>
+                ((option?.label as string) ?? "").toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            <Option value={null} label="Todos los responsables">Todos los responsables</Option>
+            {personalList.map((p) => {
+               const nombreCompleto = `${p.nombres} ${p.apellidos}`;
+               return (
+                   <Option key={p.id} value={p.id} label={nombreCompleto}>
+                       {nombreCompleto}
+                   </Option>
+               );
+            })}
           </Select>
         </div>
 
