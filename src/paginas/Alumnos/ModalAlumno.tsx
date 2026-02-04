@@ -5,7 +5,6 @@ import {
   Button,
   Row,
   Col,
-  Checkbox,
   Select,
   Popconfirm,
   Spin
@@ -67,8 +66,6 @@ export default function ModalAlumno({
           industria: alumno.industria,
           cargo: alumno.cargo,
           codigoCurso: alumno.codigoCurso,
-          pagoRegistrado: alumno.pago,
-          formularioRegistrado: alumno.formulario,
         });
       } else {
         const peru = activos.find(p => p.nombre === "Perú");
@@ -257,14 +254,14 @@ export default function ModalAlumno({
         </Row>
 
         {/* 6to renglón: Checkbox pago registrado */}
-        <Form.Item name="pagoRegistrado" valuePropName="checked">
+        {/* <Form.Item name="pagoRegistrado" valuePropName="checked">
           <Checkbox>Se registró su pago</Checkbox>
-        </Form.Item>
+        </Form.Item> */}
 
         {/* 7mo renglón: Checkbox formulario registrado */}
-        <Form.Item name="formularioRegistrado" valuePropName="checked">
+        {/* <Form.Item name="formularioRegistrado" valuePropName="checked">
           <Checkbox>Se registró su formulario</Checkbox>
-        </Form.Item>
+        </Form.Item> */}
       </Form>
     </Modal>
   );

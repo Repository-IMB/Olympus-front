@@ -45,7 +45,9 @@ interface AlumnoLocal {
   telefono: string;
   curso: string;
   modulo: string;
-  departamento: string;
+  // departamento: string;
+  areaTrabajo: string;
+  industria: string;
   fechaCreacion: string;
   pago: boolean;
   formulario: boolean;
@@ -65,7 +67,9 @@ const mapAlumnoToLocal = (alumno: IAlumno): AlumnoLocal => {
     telefono: alumno.telefono,
     curso: alumno.productos.join(", ") || "-",
     modulo: alumno.modulos.join(", ") || "-",
-    departamento: "-",
+    // departamento: "-",
+    areaTrabajo: alumno.areaTrabajo,
+    industria: alumno.industria,
     fechaCreacion: moment().format("DD/MM/YYYY"),
     pago: alumno.pagoEstado,
     formulario: alumno.formularioEstado,

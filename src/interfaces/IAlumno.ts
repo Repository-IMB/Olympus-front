@@ -10,6 +10,8 @@ export interface IAlumno {
     correo: string;
     telefono: string;
     formularioEstado: boolean;
+    areaTrabajo: string;
+    industria: string;
     pagoEstado: boolean;
     productos: string[];
     idProducto: number[];
