@@ -71,8 +71,13 @@ export interface IMarcarAsistenciaResponse {
 /**
  * Clock In - Marcar Entrada
  */
+const getTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/**
+ * Clock In - Marcar Entrada
+ */
 export const marcarEntrada = async (dni: string): Promise<IMarcarAsistenciaResponse> => {
-    const response = await api.post("/api/ASTModAsistencia/MarcarIngreso", { dni });
+    const response = await api.post("/api/ASTModAsistencia/MarcarIngreso", { dni, timeZone: getTimeZone() });
     return response.data;
 };
 
@@ -80,7 +85,7 @@ export const marcarEntrada = async (dni: string): Promise<IMarcarAsistenciaRespo
  * Start Lunch - Iniciar Almuerzo
  */
 export const marcarInicioAlmuerzo = async (dni: string): Promise<IMarcarAsistenciaResponse> => {
-    const response = await api.post("/api/ASTModAsistencia/MarcarInicioAlmuerzo", { dni });
+    const response = await api.post("/api/ASTModAsistencia/MarcarInicioAlmuerzo", { dni, timeZone: getTimeZone() });
     return response.data;
 };
 
@@ -88,7 +93,7 @@ export const marcarInicioAlmuerzo = async (dni: string): Promise<IMarcarAsistenc
  * End Lunch - Fin Almuerzo
  */
 export const marcarFinAlmuerzo = async (dni: string): Promise<IMarcarAsistenciaResponse> => {
-    const response = await api.post("/api/ASTModAsistencia/MarcarFinAlmuerzo", { dni });
+    const response = await api.post("/api/ASTModAsistencia/MarcarFinAlmuerzo", { dni, timeZone: getTimeZone() });
     return response.data;
 };
 
@@ -99,7 +104,7 @@ export const marcarFinAlmuerzo = async (dni: string): Promise<IMarcarAsistenciaR
  * Clock Out - Marcar Salida
  */
 export const marcarSalida = async (dni: string): Promise<IMarcarAsistenciaResponse> => {
-    const response = await api.post("/api/ASTModAsistencia/MarcarSalida", { dni });
+    const response = await api.post("/api/ASTModAsistencia/MarcarSalida", { dni, timeZone: getTimeZone() });
     return response.data;
 };
 
@@ -112,6 +117,7 @@ export const marcarSalida = async (dni: string): Promise<IMarcarAsistenciaRespon
  * Get Button State - Obtener Estado de Botones
  */
 export const obtenerEstadoBotones = async (dni: string): Promise<IEstadoBotonesResponse> => {
-    const response = await api.get(`/api/ASTModAsistencia/ObtenerEstadoBotones/${dni}`);
+    // Pass timezone as query param since it's a GET request
+    const response = await api.get(`/api/ASTModAsistencia/ObtenerEstadoBotones/${dni}?timeZone=${encodeURIComponent(getTimeZone())}`);
     return response.data;
 };

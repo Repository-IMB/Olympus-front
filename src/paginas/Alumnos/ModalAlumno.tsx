@@ -270,7 +270,7 @@ export default function ModalAlumno({
             <Form.Item name="areaTrabajo"
               label="Área de trabajo"
               rules={[
-                { required: true, message: 'Por favor ingrese un área de trabajo' }
+                { required: false, message: 'Por favor ingrese un área de trabajo' }
               ]}>
               <Input />
             </Form.Item>
@@ -279,7 +279,7 @@ export default function ModalAlumno({
             <Form.Item name="industria"
               label="Industria"
               rules={[
-                { required: true, message: 'Por favor ingrese una industria' }
+                { required: false, message: 'Por favor ingrese una industria' }
               ]}>
               <Input />
             </Form.Item>
@@ -288,7 +288,7 @@ export default function ModalAlumno({
             <Form.Item name="cargo"
               label="Cargo"
               rules={[
-                { required: true, message: 'Por favor ingrese el cargo' }
+                { required: false, message: 'Por favor ingrese el cargo' }
               ]}>
               <Input />
             </Form.Item>

@@ -6,7 +6,6 @@ import {
     marcarInicioAlmuerzo,
     marcarFinAlmuerzo,
     marcarSalida,
-    obtenerEstadoBotones,
 } from '../../servicios/AsistenciaService';
 
 type TipoAsistencia = 'entrada' | 'inicioAlmuerzo' | 'finAlmuerzo' | 'salida';
@@ -27,7 +26,6 @@ function AsistenciaPage() {
     const [mostrarError, setMostrarError] = useState(false);
     const [mensajeError, setMensajeError] = useState('');
 
-    const [mensajeBoton, setMensajeBoton] = useState(''); // New state for backend message
     const [slideIndex, setSlideIndex] = useState(0);
 
 
@@ -119,15 +117,7 @@ function AsistenciaPage() {
     const handleDNIChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const valor = e.target.value.replace(/\D/g, ''); // Solo números
         setDni(valor);
-
-        // Reset state on change
-        setTipoAsistencia(null);
-        setMensajeBoton('');
         setErroresValidacion({});
-
-        if (valor.length >= 8) {
-            checkButtonState(valor);
-        }
     };
 
     const handleDNIBlur = () => {
@@ -135,35 +125,6 @@ function AsistenciaPage() {
             setErroresValidacion({ dni: 'El DNI es requerido' });
         } else if (!validarDNI(dni)) {
             setErroresValidacion({ dni: 'El DNI debe tener entre 8 y 12 dígitos' });
-        } else {
-            checkButtonState(dni);
-        }
-    };
-
-    const checkButtonState = async (dniValue: string) => {
-        if (!validarDNI(dniValue)) return;
-
-        try {
-            const response = await obtenerEstadoBotones(dniValue);
-            console.log("Svc Response:", response); // DEBUG
-
-            if ((response.codigo === 'SIN_ERROR' || response.codigo === 'SIN ERROR') && response.estado !== 'error') {
-                console.log("Setting state to:", response.estado); // DEBUG
-                setTipoAsistencia(response.estado as TipoAsistencia);
-                setMensajeBoton(response.mensaje);
-                setErroresValidacion({});
-            } else if (response.estado === 'error') {
-                setTipoAsistencia(null);
-                setMensajeBoton('');
-                setErroresValidacion({ dni: response.mensaje });
-            } else if (response.estado === 'completo') {
-                setTipoAsistencia(null);
-                setMensajeBoton('Asistencia Completada');
-                setErroresValidacion({});
-            }
-        } catch (error) {
-            console.error('Error checking button state', error);
-            setTipoAsistencia(null);
         }
     };
 
@@ -178,6 +139,11 @@ function AsistenciaPage() {
 
         if (!validarDNI(dni)) {
             setErroresValidacion({ dni: 'El DNI debe tener entre 8 y 12 dígitos' });
+            return;
+        }
+
+        if (!tipoAsistencia) {
+            setErroresValidacion({ dni: 'Seleccione un tipo de asistencia' });
             return;
         }
 
@@ -227,8 +193,7 @@ function AsistenciaPage() {
                 }, 5000);
             }
 
-            // Refresh button state after action
-            checkButtonState(dni);
+
 
         } catch (error: any) {
             console.error('Error al marcar asistencia:', error);
@@ -297,13 +262,11 @@ function AsistenciaPage() {
                                         key={tipo.id}
                                         type="button"
                                         className={`${estilos.tipoButton} ${tipoAsistencia === tipo.id ? estilos.tipoButtonActive : ''}`}
-                                        // onClick={() => setTipoAsistencia(tipo.id)} // Disabled manual selection again
-                                        onClick={() => { }} // No-op, driven by state
-                                        disabled={tipoAsistencia !== tipo.id}
+                                        onClick={() => setTipoAsistencia(tipo.id)}
                                         style={{
                                             animationDelay: `${0.25 + index * 0.05}s`,
-                                            opacity: tipoAsistencia === tipo.id ? 1 : 0.5,
-                                            cursor: tipoAsistencia === tipo.id ? 'pointer' : 'not-allowed'
+                                            opacity: 1,
+                                            cursor: 'pointer'
                                         }}
                                     >
                                         <Icon size={18} />
