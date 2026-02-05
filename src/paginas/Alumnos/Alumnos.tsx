@@ -27,7 +27,7 @@ import { useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import ModalAlumno from "./ModalAlumno";
-import { obtenerAlumnosPaginados, eliminarAlumno, insertarAlumno, type IAlumno, type IAlumnoInsertar } from "../../servicios/AlumnoService";
+import { obtenerAlumnosPaginados, eliminarAlumno, insertarAlumno, actualizarAlumno, type IAlumno, type IAlumnoInsertar } from "../../servicios/AlumnoService";
 import { fetchProductOptions } from "../../servicios/ProductoService";
 import { obtenerModulos } from "../../servicios/ModuloService";
 
@@ -45,12 +45,14 @@ interface AlumnoLocal {
   telefono: string;
   curso: string;
   modulo: string;
-  // departamento: string;
   areaTrabajo: string;
   industria: string;
+  prefijo: string;
   fechaCreacion: string;
   pago: boolean;
   formulario: boolean;
+  productos: string[];
+  idProducto: number[];
 }
 
 // Mapea IAlumno (API) a AlumnoLocal (UI)
@@ -67,12 +69,14 @@ const mapAlumnoToLocal = (alumno: IAlumno): AlumnoLocal => {
     telefono: alumno.telefono,
     curso: alumno.productos.join(", ") || "-",
     modulo: alumno.modulos.join(", ") || "-",
-    // departamento: "-",
     areaTrabajo: alumno.areaTrabajo,
     industria: alumno.industria,
+    prefijo: alumno.prefijo,
     fechaCreacion: moment().format("DD/MM/YYYY"),
     pago: alumno.pagoEstado,
     formulario: alumno.formularioEstado,
+    productos: alumno.productos || [],
+    idProducto: alumno.idProducto || [],
   };
 };
 
@@ -245,12 +249,12 @@ export default function Alumnos() {
         <Checkbox checked={a.pago} disabled />
       ),
     },
-    {
-      title: "Formulario",
-      render: (_, a) => (
-        <Checkbox checked={a.formulario} disabled />
-      ),
-    },
+    // {
+    //   title: "Formulario",
+    //   render: (_, a) => (
+    //     <Checkbox checked={a.formulario} disabled />
+    //   ),
+    // },
     {
       title: "Acciones",
       key: "acciones",
@@ -422,7 +426,7 @@ export default function Alumnos() {
 
             // 3. Prepare Payload - use null for fields not in form
             const nuevoAlumno: IAlumnoInsertar = {
-              idProducto: values.codigoCurso || 0,
+              idProducto: values.productosIds && values.productosIds.length > 0 ? values.productosIds : [],
               idModulo: null,
               nombres: values.nombre,
               apellidos: values.apellido,
@@ -436,7 +440,8 @@ export default function Alumnos() {
               idTipoIngles: null,
               idTipoTec: null,
               idTipoFacturacion: null,
-              areaFormacion: values.areaTrabajo,
+              areaTrabajo: values.areaTrabajo,
+              areaFormacion: null,
               cargo: values.cargo,
               empresa: null,
               industria: values.industria,
@@ -446,7 +451,8 @@ export default function Alumnos() {
               estadoPago: values.pagoRegistrado || false,
               usuarioAlumno: null,
               passwordAlumno: null,
-              usuarioCreacion: usuarioLogueado
+              usuarioCreacion: usuarioLogueado,
+              usuarioModificacion: null,
             };
 
             // 3. Call API
@@ -476,10 +482,77 @@ export default function Alumnos() {
           setModalEditarVisible(false);
           setAlumnoEditando(null);
         }}
-        onSave={(alumnoEditado) => {
-          fetchAlumnos();
-          setModalEditarVisible(false);
-          setAlumnoEditando(null);
+        onSave={async (values) => {
+          try {
+            setLoading(true);
+
+            // 1. Find Country ID
+            const paisObj = paises.find(p => p.nombre === values.pais);
+            const idPais = paisObj ? paisObj.id : 0;
+
+            // 2. Get User from Token (Reuse logic or keep it simple if already available outside)
+            let usuarioLogueado = "SISTEMA";
+            const token = Cookies.get("token");
+            if (token) {
+              try {
+                const decoded: any = jwtDecode(token);
+                usuarioLogueado = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"]
+                  || decoded.name
+                  || "SISTEMA";
+              } catch (e) {
+                console.error("Error decoding token:", e);
+              }
+            }
+
+            // 3. Prepare Payload
+            const alumnoActualizar: IAlumnoInsertar = {
+              idAlumno: alumnoEditando?.id, // [IMPORTANT] Include ID
+              idProducto: values.productosIds && values.productosIds.length > 0 ? values.productosIds : [],
+              idModulo: null,
+              nombres: values.nombre,
+              apellidos: values.apellido,
+              dni: values.documento,
+              fechaNacimiento: null,
+              idPais: idPais,
+              correo: values.correo,
+              celular: values.telefono,
+              prefijoCelular: values.ind || "",
+              prefijo: values.prefijo || null,
+              idTipoIngles: null,
+              idTipoTec: null,
+              idTipoFacturacion: null,
+              areaTrabajo: values.areaTrabajo,
+              areaFormacion: null,
+              cargo: values.cargo,
+              empresa: null,
+              industria: values.industria,
+              razonSocial: null,
+              numeroFactura: null,
+              estadoFormulario: values.formularioRegistrado || false,
+              estadoPago: values.pagoRegistrado || false,
+              usuarioAlumno: null, // Usually not updated here or requires specific fields
+              passwordAlumno: null,
+              usuarioCreacion: null,
+              usuarioModificacion: usuarioLogueado
+            };
+
+            // 4. Call Update API
+            const respuesta = await import("../../servicios/AlumnoService").then(m => m.actualizarAlumno(alumnoActualizar));
+
+            if (respuesta.codigo === "SIN ERROR") {
+              message.success("Alumno actualizado correctamente");
+              fetchAlumnos();
+              setModalEditarVisible(false);
+              setAlumnoEditando(null);
+            } else {
+              message.error(respuesta.mensaje || "Error al actualizar alumno");
+            }
+          } catch (error) {
+            console.error(error);
+            message.error("Error al actualizar alumno");
+          } finally {
+            setLoading(false);
+          }
         }}
       />
     </div>

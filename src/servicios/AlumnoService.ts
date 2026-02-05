@@ -48,3 +48,11 @@ export const insertarAlumno = async (alumno: IAlumnoInsertar): Promise<any> => {
     const response = await api.post("/api/ALMModAlumno/Insertar", alumno);
     return response.data;
 };
+
+/**
+ * Updates an existing student
+ */
+export const actualizarAlumno = async (alumno: IAlumnoInsertar): Promise<any> => {
+    const response = await api.post("/api/ALMModAlumno/Actualizar", alumno);
+    return response.data;
+};

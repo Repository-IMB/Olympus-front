@@ -12,6 +12,7 @@ export interface IAlumno {
     formularioEstado: boolean;
     areaTrabajo: string;
     industria: string;
+    prefijo: string;
     pagoEstado: boolean;
     productos: string[];
     idProducto: number[];
@@ -46,7 +47,8 @@ export interface IAlumnosFiltros {
  * Payload for creating a new student
  */
 export interface IAlumnoInsertar {
-    idProducto: number;
+    idAlumno?: number;
+    idProducto: number | number[];
     idModulo: number | null;
     nombres: string;
     apellidos: string;
@@ -60,7 +62,8 @@ export interface IAlumnoInsertar {
     idTipoIngles: number | null;
     idTipoTec: number | null;
     idTipoFacturacion: number | null;
-    areaFormacion: string;
+    areaFormacion: string | null;
+    areaTrabajo: string;
     cargo: string;
     empresa: string | null;
     industria: string;
@@ -70,5 +73,6 @@ export interface IAlumnoInsertar {
     estadoPago: boolean;
     usuarioAlumno: string | null;
     passwordAlumno: string | null;
-    usuarioCreacion: string;
+    usuarioCreacion: string | null;
+    usuarioModificacion: string | null;
 }

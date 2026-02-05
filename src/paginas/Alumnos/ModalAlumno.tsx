@@ -7,12 +7,14 @@ import {
   Col,
   Select,
   Popconfirm,
-  Spin
+  Spin,
+  Space,
+  List
 } from "antd";
 import { useEffect, useState } from "react";
 import { obtenerPaises, type Pais } from "../../config/rutasApi";
 import estilos from "./Alumnos.module.css";
-import { PlusOutlined, EditOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 
 interface ModalAlumnoProps {
   open: boolean;
@@ -36,6 +38,10 @@ export default function ModalAlumno({
   const [loadingPaises, setLoadingPaises] = useState(true);
   const [paisSeleccionado, setPaisSeleccionado] = useState<Pais | null>(null);
   const [indicativo, setIndicativo] = useState("");
+
+  // State for multiple products
+  const [productosSeleccionados, setProductosSeleccionados] = useState<{ id: number; nombre: string }[]>([]);
+  const [productoSeleccionadoId, setProductoSeleccionadoId] = useState<number | null>(null);
 
   const esEdicion = modo === 'editar';
 
@@ -65,8 +71,28 @@ export default function ModalAlumno({
           areaTrabajo: alumno.areaTrabajo,
           industria: alumno.industria,
           cargo: alumno.cargo,
-          codigoCurso: alumno.codigoCurso,
         });
+
+        // Initialize selected products
+        if (alumno.productos && alumno.idProducto) {
+          const prods = alumno.idProducto.map((id: number, index: number) => ({
+            id: id,
+            nombre: alumno.productos[index] || "Desconocido"
+          }));
+          // Also try to match with available products to get correct names if possible
+          const enrichedProds = prods.map((p: any) => {
+            const found = productos.find(prod => prod.id === p.id);
+            return found ? found : p;
+          });
+          setProductosSeleccionados(enrichedProds);
+        } else if (alumno.codigoCurso) {
+          // Fallback for legitimate legacy single product or if mapping was different
+          const found = productos.find(p => p.id === alumno.codigoCurso);
+          if (found) {
+            setProductosSeleccionados([found]);
+          }
+        }
+
       } else {
         const peru = activos.find(p => p.nombre === "Perú");
         if (peru) {
@@ -77,6 +103,7 @@ export default function ModalAlumno({
             ind: `+${peru.prefijoCelularPais}`,
           });
         }
+        setProductosSeleccionados([]);
       }
 
       setLoadingPaises(false);
@@ -87,13 +114,47 @@ export default function ModalAlumno({
 
   const handleGuardar = async () => {
     const values = await form.validateFields();
-    onSave(values);
+
+    // Add selected products IDs to values
+    const payload = {
+      ...values,
+      productosIds: productosSeleccionados.map(p => p.id)
+    };
+
+    if (productosSeleccionados.length === 0) {
+      // You might want to show an error if at least one product is required
+      // But for now let's proceed, or you can use form validation for a hidden field
+      return;
+    }
+
+    onSave(payload);
     form.resetFields();
+    setProductosSeleccionados([]);
+    setProductoSeleccionadoId(null);
   };
 
   const handleCancelar = () => {
     form.resetFields();
+    setProductosSeleccionados([]);
+    setProductoSeleccionadoId(null);
     onCancel();
+  };
+
+  const handleAgregarProducto = () => {
+    if (productoSeleccionadoId) {
+      const existe = productosSeleccionados.some(p => p.id === productoSeleccionadoId);
+      if (!existe) {
+        const prod = productos.find(p => p.id === productoSeleccionadoId);
+        if (prod) {
+          setProductosSeleccionados([...productosSeleccionados, prod]);
+        }
+      }
+      setProductoSeleccionadoId(null);
+    }
+  };
+
+  const handleEliminarProducto = (id: number) => {
+    setProductosSeleccionados(productosSeleccionados.filter(p => p.id !== id));
   };
 
   return (
@@ -237,18 +298,61 @@ export default function ModalAlumno({
         {/* 5to renglón: Código del curso */}
         <Row gutter={16}>
           <Col span={24}>
-            <Form.Item
-              name="codigoCurso"
-              label="Curso / Producto"
-              rules={[{ required: true, message: 'Por favor seleccione el curso' }]}
-            >
-              <Select placeholder="Seleccione un curso">
-                {productos.map((prod) => (
-                  <Select.Option key={prod.id} value={prod.id}>
-                    {prod.nombre}
-                  </Select.Option>
-                ))}
-              </Select>
+            <Form.Item label="Curso / Producto" required>
+              <div style={{ marginBottom: 16 }}>
+                <Row gutter={8}>
+                  <Col span={20}>
+                    <Select
+                      placeholder="Seleccione un curso"
+                      value={productoSeleccionadoId}
+                      onChange={(val) => setProductoSeleccionadoId(val)}
+                    >
+                      {productos.map((prod) => (
+                        <Select.Option key={prod.id} value={prod.id}>
+                          {prod.nombre}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Col>
+                  <Col span={4}>
+                    <Button
+                      type="default"
+                      icon={<PlusOutlined />}
+                      onClick={handleAgregarProducto}
+                      disabled={!productoSeleccionadoId}
+                      style={{ width: "100%" }}
+                    />
+                  </Col>
+                </Row>
+
+                {productosSeleccionados.length > 0 && (
+                  <div style={{ marginTop: 10, border: '1px solid #f0f0f0', borderRadius: 4, padding: 8 }}>
+                    <List
+                      size="small"
+                      dataSource={productosSeleccionados}
+                      renderItem={item => (
+                        <List.Item
+                          actions={[
+                            <Button
+                              type="text"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() => handleEliminarProducto(item.id)}
+                            />
+                          ]}
+                        >
+                          {item.nombre}
+                        </List.Item>
+                      )}
+                    />
+                  </div>
+                )}
+                {productosSeleccionados.length === 0 && (
+                  <div style={{ color: '#ff4d4f', fontSize: '12px', marginTop: 5 }}>
+                    Debe seleccionar al menos un producto
+                  </div>
+                )}
+              </div>
             </Form.Item>
           </Col>
         </Row>
