@@ -91,10 +91,23 @@ export default function MainLayout() {
     navigate("/login");
   };
 
-  const handleNavigate = (path: string) => {
-    navigate(path);
-    if (isMobile) setIsDrawerOpen(false);
-  };
+const handleNavigate = (path: string) => {
+  navigate(path);
+
+  // 📱 Mobile → cerrar Drawer
+  if (isMobile) {
+    setIsDrawerOpen(false);
+  }
+
+  // 🖥 Desktop / Tablet → colapsar sidebar
+  if (!isMobile) {
+    setIsCollapsed(true);
+  }
+
+  // cerrar submenús
+  setOpenMenu(null);
+};
+
 
 if (loadingContext) {
   return (

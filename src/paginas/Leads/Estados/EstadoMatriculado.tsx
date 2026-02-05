@@ -96,9 +96,10 @@ const EstadoMatriculado: React.FC<{
   // ÉXITO
   const [exitoMensaje, setExitoMensaje] = useState<string>("");
 
-  const token = getCookie("token");
 
   const getUserIdFromToken = () => {
+
+    const token = getCookie("token");
     if (!token) return 0;
 
     try {
@@ -918,7 +919,7 @@ const EstadoMatriculado: React.FC<{
       <Row justify="space-between" align="middle">
         <Text style={{ fontSize: 12 }}>Ocurrencia:</Text>
 
-        <Space>
+        <Space className="spaceCenter">
           {/* COBRANZA */}
           <TabButton
             selected={tabActivo === "cobranza"}
@@ -982,7 +983,7 @@ const EstadoMatriculado: React.FC<{
       {tabActivo === "cobranza" ? (
         <div style={{ background: "#FFF", borderRadius: 12, padding: 16 }}>
           <Text strong>Cobranza</Text>
-          <Space direction="vertical" style={{ marginTop: 10, width: "100%" }}>
+          <Space className="spaceCenter" direction="vertical" style={{ marginTop: 10, width: "100%" }}>
             <Select
               value={numCuotas}
               options={[

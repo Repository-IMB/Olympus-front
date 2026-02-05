@@ -1,19 +1,31 @@
-import { Card, Space, Typography, Tag, Spin, Alert, Select, DatePicker, TimePicker, Checkbox, Button, Form, message } from "antd";
-import { useParams } from "react-router-dom";
+import {
+  Card,
+  Space,
+  Typography,
+  Tag,
+  Spin,
+  Alert,
+  Select,
+  DatePicker,
+  TimePicker,
+  Checkbox,
+  Button,
+  Form,
+  message,
+} from "antd";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import {
-  WhatsAppOutlined,
   LinkedinOutlined,
-  FacebookOutlined,
   PhoneOutlined,
   CalendarOutlined,
+  LeftOutlined,
+  RightOutlined,
 } from "@ant-design/icons";
 import api from "../../servicios/api";
 import HistorialInteracciones from "./HistorialInterraciones";
 import { addHistorialChangedListener } from "../../utils/events";
 import moment, { type Moment } from "moment";
-// @ts-ignore
-import "moment/locale/es";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
@@ -60,8 +72,9 @@ interface Asesor {
 
 export default function HistorialInteraccion() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [oportunidad, setOportunidad] = useState<OportunidadDetalle | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +89,14 @@ export default function HistorialInteraccion() {
   const [loadingReasignacion, setLoadingReasignacion] = useState(false);
   const [userRole, setUserRole] = useState<number>(0);
 
+  const [vecinos, setVecinos] = useState<{
+    anteriorId: number | null;
+    siguienteId: number | null;
+  }>({
+    anteriorId: null,
+    siguienteId: null,
+  });
+
   const fetchDetalle = useCallback(async () => {
     if (!id) {
       setLoading(false);
@@ -85,7 +106,7 @@ export default function HistorialInteraccion() {
     setError(null);
     try {
       const res = await api.get(
-        `/api/VTAModVentaOportunidad/ObtenerDetallePorId/${id}`
+        `/api/VTAModVentaOportunidad/ObtenerDetallePorId/${id}`,
       );
       setOportunidad(res.data ?? null);
     } catch (err: any) {
@@ -105,7 +126,7 @@ export default function HistorialInteraccion() {
       const decoded: any = jwtDecode(token);
       const userId =
         decoded[
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
         ];
       return userId ? Number(userId) : 0;
     } catch (e) {
@@ -119,7 +140,9 @@ export default function HistorialInteraccion() {
     try {
       const decoded: any = jwtDecode(token);
       const rolNombre =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || "";
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
 
       const rolesMap: Record<string, number> = {
         Asesor: 1,
@@ -136,15 +159,55 @@ export default function HistorialInteraccion() {
     }
   };
 
+  const fetchVecinos = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      const userId = getUserIdFromToken();
+      const userRoleNum = getUserRoleFromToken();
+
+      if (!userId || !userRoleNum) {
+        setVecinos({ anteriorId: null, siguienteId: null });
+        return;
+      }
+
+      const res = await api.get(
+        "/api/VTAModVentaOportunidad/ObtenerOportunidadVecinos",
+        {
+          params: {
+            idOportunidadActual: Number(id),
+            idUsuario: userId,
+            idRol: userRoleNum,
+            search: null,
+            estadoFiltro: null,
+            asesorFiltro: null,
+            codigoLinkedinFiltro: null,
+            fechaInicio: null,
+            fechaFin: null,
+          },
+        },
+      );
+
+      setVecinos({
+        anteriorId: res.data?.anteriorId ?? null,
+        siguienteId: res.data?.siguienteId ?? null,
+      });
+    } catch (error) {
+      console.error("Error obteniendo vecinos:", error);
+      setVecinos({ anteriorId: null, siguienteId: null });
+    }
+  }, [id]);
+
   const obtenerAsesores = async () => {
     try {
       setLoadingAsesores(true);
       if (!token) throw new Error("No se encontró el token de autenticación");
 
       const response = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:7020"
         }/api/CFGModUsuarios/ObtenerUsuariosPorRol/1`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       const data = response.data;
@@ -221,18 +284,20 @@ export default function HistorialInteraccion() {
 
       try {
         await axios.post(
-          `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+          `${
+            import.meta.env.VITE_API_URL || "http://localhost:7020"
           }/api/VTAModVentaHistorialInteraccion/Insertar`,
           payloadInteraccion,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         console.log("✅ Interacción creada exitosamente");
       } catch (interaccionError: any) {
         console.error("❌ Error al crear interacción:", interaccionError);
         throw new Error(
-          `Error al crear interacción: ${interaccionError?.response?.data?.mensaje ||
-          interaccionError?.message
-          }`
+          `Error al crear interacción: ${
+            interaccionError?.response?.data?.mensaje ||
+            interaccionError?.message
+          }`,
         );
       }
 
@@ -249,10 +314,11 @@ export default function HistorialInteraccion() {
 
       try {
         const response = await axios.post(
-          `${import.meta.env.VITE_API_URL || "http://localhost:7020"
+          `${
+            import.meta.env.VITE_API_URL || "http://localhost:7020"
           }/api/VTAModVentaOportunidad/AsignarPersonal`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
         console.log("📥 Respuesta de asignación:", response.data);
@@ -278,9 +344,9 @@ export default function HistorialInteraccion() {
       } catch (asignacionError: any) {
         console.error("❌ Error al asignar asesor:", asignacionError);
         throw new Error(
-          `Error al asignar asesor: ${asignacionError?.response?.data?.mensaje ||
-          asignacionError?.message
-          }`
+          `Error al asignar asesor: ${
+            asignacionError?.response?.data?.mensaje || asignacionError?.message
+          }`,
         );
       }
     } catch (err: any) {
@@ -293,8 +359,10 @@ export default function HistorialInteraccion() {
 
   useEffect(() => {
     fetchDetalle();
+    fetchVecinos();
     obtenerAsesores();
     setUserRole(getUserRoleFromToken());
+
     const removeListener = addHistorialChangedListener(() => {
       fetchDetalle();
     });
@@ -302,7 +370,7 @@ export default function HistorialInteraccion() {
     return () => {
       removeListener();
     };
-  }, [fetchDetalle]);
+  }, [fetchDetalle, fetchVecinos]);
 
   if (loading) {
     return (
@@ -352,7 +420,7 @@ export default function HistorialInteraccion() {
   const fechaCreacion = oportunidadData.fechaCreacion || "-";
   const estado = historialActualData?.estadoReferencia?.nombre || "Desconocido";
   const marcaciones = Number(
-    historialActualData?.cantidadLlamadasNoContestadas ?? 0
+    historialActualData?.cantidadLlamadasNoContestadas ?? 0,
   );
 
   const personalAsignadaNombre = (
@@ -380,6 +448,21 @@ export default function HistorialInteraccion() {
       year: "numeric",
     });
   };
+
+  const handleAnterior = () => {
+    if (vecinos.anteriorId) {
+      navigate(`/leads/oportunidades/${vecinos.anteriorId}`);
+    }
+  };
+
+  const handleSiguiente = () => {
+    if (vecinos.siguienteId) {
+      navigate(`/leads/oportunidades/${vecinos.siguienteId}`);
+    }
+  };
+
+  const tieneAnterior = !!vecinos.anteriorId;
+  const tieneSiguiente = !!vecinos.siguienteId;
 
   return (
     <div
@@ -436,8 +519,12 @@ export default function HistorialInteraccion() {
             </Space>
 
             <Space size={4}>
-              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>Código Linkedin:</Text>
-              <Text style={{ color: "#0D0C11", fontSize: 14 }}>{codigoLinkedin}</Text>
+              <Text style={{ color: "#676767", fontSize: 13, fontWeight: 300 }}>
+                Código Linkedin:
+              </Text>
+              <Text style={{ color: "#0D0C11", fontSize: 14 }}>
+                {codigoLinkedin}
+              </Text>
             </Space>
 
             <Space size={4}>
@@ -685,12 +772,58 @@ export default function HistorialInteraccion() {
             </Space> */}
           </div>
         </Card>
+
+        {/* Botones de navegación - Fuera de la Card */}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginTop: 8,
+            justifyContent: "center",
+          }}
+        >
+          <Button
+            onClick={handleAnterior}
+            disabled={!tieneAnterior}
+            icon={<LeftOutlined />}
+            style={{
+              backgroundColor: "#000000",
+              color: "#FFFFFF",
+              borderColor: "#000000",
+              borderRadius: 8,
+              opacity: tieneAnterior ? 1 : 0.5,
+              cursor: tieneAnterior ? "pointer" : "not-allowed",
+              fontWeight: 500,
+            }}
+          >
+            Anterior oportunidad
+          </Button>
+          <Button
+            onClick={handleSiguiente}
+            disabled={!tieneSiguiente}
+            icon={<RightOutlined />}
+            style={{
+              backgroundColor: "#000000",
+              color: "#FFFFFF",
+              borderColor: "#000000",
+              borderRadius: 8,
+              opacity: tieneSiguiente ? 1 : 0.5,
+              cursor: tieneSiguiente ? "pointer" : "not-allowed",
+              fontWeight: 500,
+            }}
+          >
+            Siguiente oportunidad
+          </Button>
+        </div>
       </div>
 
       {/* === Sección de Reasignación === Solo visible para roles superiores (no asesores) */}
       {userRole !== 1 && (
         <>
-          <Title level={5} style={{ margin: "16px 0 12px 0", color: "#252C35" }}>
+          <Title
+            level={5}
+            style={{ margin: "16px 0 12px 0", color: "#252C35" }}
+          >
             Reasignación de Oportunidad
           </Title>
 

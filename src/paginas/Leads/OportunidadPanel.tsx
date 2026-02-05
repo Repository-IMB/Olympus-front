@@ -38,6 +38,7 @@ const ValidacionFase: React.FC<ValidacionFaseProps> = ({ oportunidadId }) => {
       try {
         const id = await obtenerIdPersonal();
         setIdPersonal(id);
+
       } catch (error: any) {
         console.error("Error al obtener IdPersonal:", error);
         const mensajeError = error?.response?.data?.mensaje || error?.message || "Error al obtener el asesor";

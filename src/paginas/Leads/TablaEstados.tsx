@@ -49,9 +49,7 @@ export default function TablaEstadosReducida({
     idEstado: 1,
     observaciones: "",
   });
-
-  const token = Cookies.get("token");
-
+const token = Cookies.get("token");
   // 🔹 Obtener historial desde API
   const fetchHistorial = async () => {
     try {
@@ -91,6 +89,7 @@ export default function TablaEstadosReducida({
 
   // 🔹 Obtener ID de usuario desde el token
   const getUserIdFromToken = () => {
+    const token = Cookies.get("token");
     if (!token) return 0;
 
     try {
