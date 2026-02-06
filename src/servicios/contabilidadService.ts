@@ -176,6 +176,27 @@ export const obtenerEstadisticasCursoEspecifico = async (nombreCurso: string, es
     }
 };
 
+export const listarEstudiantesFormulario = async (buscarTexto?: string, top: number = 20) => {
+  try {
+    const params = { buscarTexto, top };
+    const response = await api.get(`${basePath}/EstudiantesFormulario`, { params });
+    return response.data ?? response;
+  } catch (error) {
+    console.error("ContabilidadService.listarEstudiantesFormulario error:", error);
+    throw error;
+  }
+};
+
+export const obtenerDatosFormularioEstudiante = async (idPersona: number) => {
+  try {
+    const response = await api.post(`${basePath}/DatosFormularioEstudiante/${idPersona}`, {});
+    return response.data ?? response;
+  } catch (error) {
+    console.error("ContabilidadService.obtenerDatosFormularioEstudiante error:", error);
+    throw error;
+  }
+};
+
 export default {
 	obtenerResumenFinanciero,
 	listarFacturas,
@@ -190,4 +211,6 @@ export default {
     crearIngreso,
 	obtenerEstadisticasCursos,
     obtenerEstadisticasCursoEspecifico,
+	listarEstudiantesFormulario,
+  	obtenerDatosFormularioEstudiante,
 };

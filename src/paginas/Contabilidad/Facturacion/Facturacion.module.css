@@ -87,3 +87,16 @@
     width: 100%;
   }
 }
+
+/* Campos auto-filled */
+.readOnlyGreen {
+  background: #f6ffed !important;
+  color: #389e0d !important;
+  cursor: not-allowed;
+}
+
+/* Tag estado auto-fill */
+.autoFillStatus {
+  margin-top: 4px;
+  font-size: 12px;
+}

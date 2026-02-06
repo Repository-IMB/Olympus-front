@@ -23,6 +23,7 @@ const Resumen: React.FC = () => {
   const [areasTrabajoList, setAreasTrabajoList] = useState<any[]>([]);
   const [responsablesList, setResponsablesList] = useState<any[]>([]);
   const [cursosData, setCursosData] = useState<any[]>([]);
+  const [tiposCursoSeleccionados, setTiposCursoSeleccionados] = useState<number[]>([20]);
   const [tipoCursoSeleccionado, setTipoCursoSeleccionado] = useState<number>(20);
   const [metricaSeleccionada, setMetricaSeleccionada] = useState<'ingresos' | 'ventas'>('ingresos');
   const [loadingCursos, setLoadingCursos] = useState(false);
@@ -64,7 +65,7 @@ const Resumen: React.FC = () => {
     if (!modoCursoEspecifico) {
       fetchCursos();
     }
-  }, [tipoCursoSeleccionado, metricaSeleccionada, modoCursoEspecifico]);
+  }, [tiposCursoSeleccionados, metricaSeleccionada, modoCursoEspecifico]);
 
   const fetchResumen = async () => {
     setLoading(true);
@@ -114,7 +115,7 @@ const Resumen: React.FC = () => {
   const fetchCursos = async () => {
     setLoadingCursos(true);
     try {
-        const response = await contabilidadService.obtenerEstadisticasCursos(tipoCursoSeleccionado);
+        const response = await contabilidadService.obtenerEstadisticasCursos();
         const data = response?.data ?? response;
         setCursosData(data?.cursos || data?.Cursos || []);
     } catch (error) {
@@ -203,50 +204,111 @@ const Resumen: React.FC = () => {
     ]
   };
 
+  const opcionesDonaIngresos = {
+    tooltip: { 
+      trigger: 'item', 
+      formatter: '{a} <br/>{b}: S/. {c} ({d}%)',
+      textStyle: { fontSize: 12 }
+    },
+    legend: { 
+      orient: 'vertical', 
+      right: '5%', 
+      top: 'middle', 
+      itemGap: 1,        // ← Espacio mínimo
+      textStyle: { 
+        fontSize: 9,     // ← Letras pequeñas
+        fontWeight: 500 
+      },
+      width: '30%'
+    },
+    series: [{
+      name: 'Ingresos por Área',
+      type: 'pie',
+      radius: ['60%', '35%'],        // ← Donut más delgado
+      center: ['25%', '50%'],        // ← Pegado a la izquierda
+      avoidLabelOverlap: false,
+      itemStyle: { 
+        borderRadius: 8, 
+        borderColor: '#fff', 
+        borderWidth: 2 
+      },
+      label: { show: false },
+      emphasis: { 
+        label: { 
+          show: true, 
+          fontSize: '14', 
+          fontWeight: 'bold' 
+        } 
+      },
+      labelLine: { show: false },
+      data: [
+        { value: 12500, name: 'Desarrollo', itemStyle: { color: '#1890ff' } },
+        { value: 8500,  name: 'Logística', itemStyle: { color: '#52c41a' } },
+        { value: 7200,  name: 'Sistemas',  itemStyle: { color: '#faad14' } },
+        { value: 6500,  name: 'Marketing', itemStyle: { color: '#ff4d4f' } },
+        { value: 5800,  name: 'Comercial', itemStyle: { color: '#722ed1' } },
+        { value: 4200,  name: 'Finanzas',  itemStyle: { color: '#eb2f96' } },
+        { value: 2800,  name: 'RRHH',      itemStyle: { color: '#13c2c2' } }
+      ]
+    }]
+  };
+
   const cursosBarOption = (() => {
     if (!cursosData || cursosData.length === 0) {
       return {
         title: { text: 'Ingresos generales por tipo', left: 'center' },
         xAxis: { type: 'value'},
         yAxis: { type: 'category', data: [] },
-        series: [{ type: 'bar', data: [], label: { show: true, position: 'right' } }]
+        series: []
       };
     }
 
+    const cursosFiltrados = cursosData
+      .filter((c: any) => tiposCursoSeleccionados.includes(c.estadoProductoTipoId))
+      .map((c: any) => ({
+        ...c,
+        labelCompleto: `${c.nombre || c.Nombre} (${c.tipoCurso || getTipoLabel(c.estadoProductoTipoId)})`
+      }));
+
     // Top 10 cursos con más ingresos
-    const top10 = cursosData
+    const top = cursosFiltrados
       .sort((a: any, b: any) => {
-        const valorA = metricaSeleccionada === 'ingresos' 
-          ? (a.ingresos || a.Ingresos || 0)
-          : (a.ventas || a.Ventas || 0);
-        const valorB = metricaSeleccionada === 'ingresos' 
-          ? (b.ingresos || b.Ingresos || 0)
-          : (b.ventas || b.Ventas || 0);
+        const valorA = metricaSeleccionada === 'ingresos' ? (a.ingresos || 0) : (a.ventas || 0);
+        const valorB = metricaSeleccionada === 'ingresos' ? (b.ingresos || 0) : (b.ventas || 0);
         return valorB - valorA;
       })
-      .slice(0, 10);
-    const nombres = top10.map((c: any) => c.nombre || c.Nombre || 'Sin nombre');
-    const valores = top10.map((c: any) => 
+      .slice(0, 20);
+
+    const nombres = top.map((c: any) => c.labelCompleto);
+    const valores = top.map((c: any) => 
       metricaSeleccionada === 'ingresos' 
         ? (c.ingresos || c.Ingresos || 0)
         : (c.ventas || c.Ventas || 0)
     );
-    const unidad = metricaSeleccionada === 'ingresos' ? '$/.' : '';
+    const colorPorTipo: Record<number, string> = {
+      20: '#1890ff',  // En venta: Azul
+      19: '#52c41a',  // Preventa: Verde
+      17: '#faad14'   // Piloto: Amarillo
+    };
 
     return {
       tooltip: { 
-        trigger: 'item', 
+        trigger: 'axis', 
+        axisPointer: { type: 'shadow' },
         formatter: (params: any) => {
-          const valor = metricaSeleccionada === 'ingresos' ? `$/. ${params.value?.toLocaleString('es-PE')}` : params.value;
-          return `${params.name}<br/>${metricaSeleccionada === 'ingresos' ? 'Ingresos' : 'Ventas'}: ${valor}`;
+          const idx = params[0]?.dataIndex;
+          const curso = top[idx];
+          const valor = metricaSeleccionada === 'ingresos' 
+            ? `S/. ${curso.ingresos?.toLocaleString('es-PE')}`
+            : curso.ventas;
+          return `${curso.nombre}<br/>${curso.tipoCurso}: ${valor}`;
         }
       },
       grid: { left: '2%', top: '15%', right: '15%', bottom: '15%', containLabel: true },
       xAxis: { 
         type: 'value', 
         axisLabel: { 
-          show: false,
-          formatter: (value: number) => value.toLocaleString('es-PE')
+          formatter: (v: number) => metricaSeleccionada === 'ingresos' ? `S/. ${v}` : v 
         }
       },
       yAxis: { 
@@ -254,19 +316,22 @@ const Resumen: React.FC = () => {
         data: nombres,
         inverse: true,
         axisLabel: {
-        fontSize: 11,
-        rotate: 0,
-        width: 300,
-        overflow: 'truncate',
-        interval: 0
-      }
+          fontSize: 11,
+          rotate: 0,
+          width: 300,
+          overflow: 'truncate',
+          interval: 0
+        }
       },
       series: [{
         name: metricaSeleccionada.toUpperCase(),
         type: 'bar',
         data: valores,
         itemStyle: { 
-          color: '#1890ff'
+          color: (params: any) => {
+            const curso = top[params.dataIndex];
+            return colorPorTipo[curso.estadoProductoTipoId] || '#d9d9d9';
+          }
         },
         label: { 
           show: true, 
@@ -277,12 +342,16 @@ const Resumen: React.FC = () => {
               : params.value;
             return valor;
           },
-          fontSize: 10,
-          color: '#1f2937'
+          fontSize: 10
         }
       }]
     };
   })();
+
+  const getTipoLabel = (tipoId: number) => {
+    const tipos = { 20: 'En venta', 19: 'Preventa', 17: 'Piloto' };
+    return tipos[tipoId as keyof typeof tipos] || 'Desconocido';
+  };
 
   const cursoAreaOption = useMemo(() => {
     if (!cursoEspecificoData?.ventasDiarias?.length) {
@@ -418,6 +487,10 @@ const Resumen: React.FC = () => {
     return { ...opcionesDonaGastos, series: [{ ...(opcionesDonaGastos.series[0]), data }] };
   })();
 
+  const ingresosPorAreaOption = useMemo(() => {
+    return opcionesDonaIngresos;
+  }, []);
+
   return (<>
     <div className={estilos.container}>
       <div className={estilos.contentWrapper}>
@@ -447,9 +520,9 @@ const Resumen: React.FC = () => {
           </Col>
         </Row>
 
-        {/* Ingresos vs gastos por tipo / área */}
+        {/* Ingresos generales por tipo */}
         <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
-          <Col xs={16}>
+          <Col xs={24} lg={16}>
             <Card 
               className={estilos.chartCard} 
               title={
@@ -481,28 +554,21 @@ const Resumen: React.FC = () => {
                     style={{ width: '100%' }}
                   />
 
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    <Button 
-                      size="small" 
-                      type={tipoCursoSeleccionado === 20 ? 'primary' : 'default'}
-                      onClick={() => setTipoCursoSeleccionado(20)}
-                    >
-                      En venta
-                    </Button>
-                    <Button 
-                      size="small" 
-                      type={tipoCursoSeleccionado === 19 ? 'primary' : 'default'}
-                      onClick={() => setTipoCursoSeleccionado(19)}
-                    >
-                      Preventa
-                    </Button>
-                    <Button 
-                      size="small" 
-                      type={tipoCursoSeleccionado === 17 ? 'primary' : 'default'}
-                      onClick={() => setTipoCursoSeleccionado(17)}
-                    >
-                      Piloto
-                    </Button>
+                  <div style={{ marginTop: 8 }}>
+                    <label style={{ fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }}>Tipos de cursos:</label>
+                    <Select
+                      mode="multiple"
+                      style={{ width: '100%' }}
+                      placeholder="Selecciona uno o varios tipos"
+                      value={tiposCursoSeleccionados}
+                      onChange={setTiposCursoSeleccionados}
+                      size="small"
+                      options={[
+                        { value: 20, label: 'En venta' },
+                        { value: 19, label: 'Preventa' },
+                        { value: 17, label: 'Piloto' }
+                      ]}
+                    />
                   </div>
 
                   <div style={{ display: 'flex', gap: 4 }}>
@@ -525,7 +591,7 @@ const Resumen: React.FC = () => {
               }
               loading={loadingCursos || loadingCursoEspecifico}
             >
-              <div style={{ height: '400px' }}>
+              <div style={{ height: '350px' }}>
                 {modoCursoEspecifico ? (
                   <ECharts
                     key={`curso-${cursoEspecificoData?.resumen?.[0]?.nombre || 'default'}`}
@@ -543,14 +609,21 @@ const Resumen: React.FC = () => {
             </Card>
           </Col>
 
-          <Col xs={24} md={8}>
-            <Card className={estilos.chartCard} title="Gastos por área" extra={<Tag color="blue">Académico · Marketing · Administración</Tag>}>
+          <Col xs={24} lg={8}>
+            <Card className={estilos.chartCard} title="Gastos por área" style={{ height: '300px' }}>
               <div className={estilos.chartPlaceholder}>
                 <ECharts option={donaOption} />
               </div>
             </Card>
+
+            <Card className={estilos.chartCard} title="Ingresos por área" style={{ height: '300px' }}>
+              <div className={estilos.chartPlaceholder}>
+                <ECharts option={ingresosPorAreaOption} />
+              </div>
+            </Card>
           </Col>
         </Row>
+
 
         {/* Gastos recientes + acciones rápidas */}
         <Row gutter={[16, 16]} className={estilos.section}>

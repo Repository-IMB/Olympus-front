@@ -237,6 +237,7 @@ const Reportes: React.FC = () => {
             title="Gastos generales" 
             className={styles.card}
             headStyle={{ fontSize: '15px' }}
+            bodyStyle={{ height: '350px' }}  
           >
             <div className={styles.chartPlaceholder}>
               <ECharts option={opcionesBarrasGastos} />

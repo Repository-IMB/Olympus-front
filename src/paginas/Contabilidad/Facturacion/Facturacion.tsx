@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { debounce } from 'lodash';
 import {
   Row,
   Col,
@@ -15,6 +16,9 @@ import {
   Dropdown,
   Menu,
   message,
+  Divider,
+  Spin,
+  Checkbox,
 } from "antd";
 import { UploadOutlined, MoreOutlined } from "@ant-design/icons";
 import type { UploadFile } from 'antd/es/upload/interface';
@@ -48,6 +52,13 @@ const Facturacion: React.FC = () => {
 
   // Estados para manejo de archivos
   const [fileList, setFileList] = useState<UploadFile[]>([]);
+
+  const [estudiantes, setEstudiantes] = useState<any[]>([]);
+  const [datosEstudiante, setDatosEstudiante] = useState<any>(null);
+  const [cargandoEstudiante, setCargandoEstudiante] = useState(false);
+  const [autoFillCompleto, setAutoFillCompleto] = useState(false);
+  const [camposLlenos, setCamposLlenos] = useState<Record<string, boolean>>({});
+  
 
   const columnasFacturas = [
     { title: "Factura", dataIndex: "factura" },
@@ -171,7 +182,7 @@ const Facturacion: React.FC = () => {
         factura: f.numeroFactura || f.factura || `#F-${f.id}`,
         contacto: f.contacto || f.nombreContacto || f.cliente || "-",
         curso: f.curso || f.codigoCurso || "-",
-        montoNeto: f.montoNeto ? `S/. ${f.montoNeto}` : (f.monto ? `S/. ${f.monto}` : "S/. 0"),
+        montoNeto: f.montoNeto ? `S/. ${f.montoNeto}` : (f.monto ? `$/. ${f.monto}` : "$/. 0"),
         montoNetoOriginal: f.montoNeto || f.monto || 0,
         estado: f.estado || f.estadoFactura || "Pendiente",
         estadoOriginal: f.estadoFactura || f.estado || "Pendiente",
@@ -255,27 +266,25 @@ const Facturacion: React.FC = () => {
       if (fileList.length > 0 && fileList[0].originFileObj) {
         const archivo = fileList[0].originFileObj;
         nombreArchivo = archivo.name;
-
         archivoBase64 = await convertirArchivoABase64(archivo);
-
         rutaComprobante = `/comprobantes/${new Date().getFullYear()}/${new Date().getMonth() + 1}/${nombreArchivo}`;
       }
 
       const payload = {
-        IdAsesor: isNaN(Number(values.asesor)) ? null : Number(values.asesor),
+        IdAsesor: values.asesor && !isNaN(Number(values.asesor)) ? Number(values.asesor) : null,
         Sede: values.sede || null,
         CodigoCurso: values.codigoCurso || null,
-        IdContacto: isNaN(Number(values.contacto)) ? null : Number(values.contacto),
+        IdPersona: datosEstudiante?.idPersona  || null,
         Pais: values.pais || null,
         CorreoCliente: values.correo || null,
         WhatsAppCliente: values.whatsapp || null,
-        FichaInscripcionCompleta: values.fichaInscripcion === 'Si' || values.fichaInscripcion === true,
+        FichaInscripcionCompleta: !!values.fichaInscripcion,
         SesionesExtra: values.sesionesExtra || null,
         CondicionPago: values.condicionPago || null,
         MontoTotal: Number(values.montoPagado) || Number(values.montoTotal) || 0,
         MontoNeto: Number(values.montoNeto) || 0,
         NumeroCuota: Number(values.numeroCuota) || 1,
-        IdMetodoPago: isNaN(Number(values.modoPago)) ? null : Number(values.modoPago),
+        IdMetodoPago: Number(values.idMetodoPago) || null, 
         RutaComprobante: rutaComprobante, // Ruta del archivo
         NombreComprobante: nombreArchivo, // Nombre del archivo
         ComprobanteBase64: archivoBase64, // Archivo en base64
@@ -291,13 +300,112 @@ const Facturacion: React.FC = () => {
 
       form.resetFields();
       setFileList([]);
-      
       cargarFacturas(filtroMetodoPago);
       
     } catch (err: any) {
       console.error('Error crear factura', err);
       message.error('No se pudo crear la factura');
     }
+  };
+
+  const fetchEstudiantesDebounce = useCallback(
+    debounce(async (search: string) => {
+      if (search.length < 2) {
+        setEstudiantes([]);
+        return;
+      }
+      try {
+        const result = await contabilidadService.listarEstudiantesFormulario(search, 20);
+        setEstudiantes(result.estudiantes || []);
+      } catch (error) {
+        message.error('Error buscando estudiantes');
+        setEstudiantes([]);
+      }
+    }, 500),
+    []
+  );
+
+  const cargarDatosEstudiante = useCallback(async (idPersona: number) => {
+    if (!idPersona) return;
+    setCargandoEstudiante(true);
+    try {
+      const result = await contabilidadService.obtenerDatosFormularioEstudiante(idPersona);
+      if (result.exito) {
+        setDatosEstudiante(result);
+
+        const valores = {
+          codigoCurso: result.codigoCurso || '',
+          nombreCurso: result.nombreCurso || '',
+          correo: result.correoEstudiante || '',
+          whatsapp: result.prefijoWhatsApp && result.numeroWhatsApp? `+${result.prefijoWhatsApp} ${result.numeroWhatsApp}`: '',
+          pais: result.pais || 'Perú',
+          fichaInscripcion: result.fichaInscripcionCompletada === true,
+          condicionPago: result.descuentoPorcentaje > 0 ? `${result.descuentoPorcentaje}% dscto`: 'Completo',
+          montoPagado: result.montoPagado || 0,
+          montoNeto: result.montoNeto || 0,
+          numeroCuota: result.numeroCuotas || 1,
+          idMetodoPago: result.idMetodoPago || undefined,
+        };
+
+        form.setFieldsValue(valores);
+
+        const nuevosLlenos: Record<string, boolean> = {};
+        nuevosLlenos.codigoCurso = isDatoReal(result.codigoCurso, 'codigoCurso');
+        nuevosLlenos.nombreCurso = isDatoReal(result.nombreCurso, 'nombreCurso');
+        nuevosLlenos.correo = isDatoReal(result.correoEstudiante, 'correo');
+        nuevosLlenos.whatsapp = !!result.prefijoWhatsApp && !!result.numeroWhatsApp;
+        nuevosLlenos.pais = isDatoReal(result.pais, 'pais');
+        nuevosLlenos.montoNeto = isDatoReal(result.montoNeto, 'montoNeto');
+        nuevosLlenos.montoPagado = isDatoReal(result.montoPagado, 'montoPagado');
+        nuevosLlenos.idMetodoPago = !!result.idMetodoPago && result.idMetodoPago > 0;
+        
+        setCamposLlenos(nuevosLlenos);
+      } else {
+        message.warning(result.mensaje || 'Estudiante no encontrado. Llena manualmente.');
+        setAutoFillCompleto(false);
+        setDatosEstudiante(null);
+      }
+    } catch (error) {
+      message.error('Error cargando datos del estudiante');
+      setAutoFillCompleto(false);
+    } finally {
+      setCargandoEstudiante(false);
+    }
+  }, [form]);
+
+  const onSelectEstudiante = (value: number, option: any) => {
+    cargarDatosEstudiante(value);
+  };
+
+  const limpiarAutoFill = () => {
+    setDatosEstudiante(null);
+    setAutoFillCompleto(false);
+    setEstudiantes([]);
+    form.resetFields(['codigoCurso', 'correo', 'whatsapp', 'pais', 'fichaInscripcion', 'condicionPago', 'montoPagado', 'montoNeto', 'numeroCuota', 'idMetodoPago']);
+  };
+
+  const isDatoReal = (campo: any, nombreCampo: string): boolean => {
+    if (!campo || campo === '' || campo === 0 || campo === '0') return false;
+    
+    // Defaults conocidos
+    const defaults = {
+      pais: 'Perú',
+      numeroCuota: 1,
+      condicionPago: 'Completo',
+      fichaInscripcion: false
+    };
+    
+    return campo !== defaults[nombreCampo as keyof typeof defaults];
+  };
+
+  useEffect(() => {
+    return () => {
+      fetchEstudiantesDebounce.cancel();
+    };
+  }, [fetchEstudiantesDebounce]);
+
+  const handleSearchEstudiantes = (search: string) => {
+    fetchEstudiantesDebounce(search);
   };
 
   return (
@@ -430,47 +538,78 @@ const Facturacion: React.FC = () => {
             </Col>
 
             <Col xs={24} md={12}>
-              <Form.Item
-                label="Código del taller/curso"
-                name="codigoCurso"
-                className={estilos.formItem}
-                rules={[{ required: true, message: 'El código del curso es requerido' }]}
-              >
-                <Input placeholder="Ingresa código del curso" />
+              <Form.Item label="Nombres y apellidos del estudiante">
+                <div>
+                  <Select
+                    showSearch
+                    placeholder="Escribe para buscar estudiantes"
+                    filterOption={false}
+                    onSearch={handleSearchEstudiantes}
+                    onChange={onSelectEstudiante}
+                    loading={cargandoEstudiante}
+                    notFoundContent={cargandoEstudiante ? <Spin size="small" /> : 'Escribe para buscar...'}
+                    style={{ width: '100%' }}
+                    dropdownRender={(menu) => (
+                      <>
+                        {menu}
+                        <Divider style={{ margin: '-4px 0 4px' }} />
+                        <div style={{ padding: '0 8px 4px' }}>
+                          <Button type="link" onClick={limpiarAutoFill} size="small">
+                            Limpiar auto-fill
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  >
+                    {estudiantes.map((est) => (
+                      <Option key={est.idPersona} value={est.idPersona}>
+                        {est.nombreCompleto} ({est.correo})
+                      </Option>
+                    ))}
+                  </Select>
+                </div>
               </Form.Item>
             </Col>
 
             <Col xs={24} md={12}>
               <Form.Item
-                label="Nombres y apellidos del contacto"
-                name="contacto"
-                className={estilos.formItem}
+                label="Nombre/código del curso"
+                required
               >
-                <Select placeholder="Selecciona contacto" showSearch optionFilterProp="children" allowClear>
-                  {contactosList.map(c=> (<Option key={c.id} value={c.id}>{c.nombre || `Id ${c.id}`}</Option>))}
-                </Select>
-              </Form.Item>
+                {datosEstudiante?.nombreCurso && (
+                <Input value={`${datosEstudiante.nombreCurso} / ${datosEstudiante.codigoCurso}`} disabled style={{ background: '#f6ffed', color: '#389e0d', cursor: 'not-allowed', marginBottom: 8 }} />
+                )}
+                <Form.Item
+                  name="codigoCurso"
+                  rules={[{ required: true, message: 'El código del curso es requerido' }]}
+                  noStyle
+                >
+                  <Input 
+                    placeholder="Nombre/código del curso" 
+                    disabled={camposLlenos.codigoCurso}
+                    style={!datosEstudiante?.nombreCurso ? {} : { display: 'none' }}
+                  />
+                </Form.Item>
+                </Form.Item>
             </Col>
 
             <Col xs={24} md={12}>
               <Form.Item
-                label="Correo del cliente"
+                label="Correo estudiante"
                 name="correo"
-                className={estilos.formItem}
-                rules={[{ required: true, message: 'El correo es requerido' }, { type: 'email', message: 'Ingrese un correo válido' }]}
+                rules={[{ required: true, type: 'email' }]}
               >
-                <Input placeholder="correo@cliente.com" />
+                <Input placeholder="correo@cliente.com" disabled={camposLlenos.correo} style={camposLlenos.correo ? { background: '#f6ffed', color: '#389e0d', cursor: 'not-allowed' } : {}}/>
               </Form.Item>
             </Col>
 
             <Col xs={24} md={12}>
               <Form.Item
-                label="WhatsApp del cliente"
+                label="WhatsApp estudiante"
                 name="whatsapp"
-                className={estilos.formItem}
-                rules={[{ required: true, message: 'El WhatsApp es requerido' }]}
+                rules={[{ required: true }]}
               >
-                <Input placeholder="+51 9xxxxxxxx" />
+                <Input placeholder="+51 900000000" disabled={camposLlenos.whatsapp} style={camposLlenos.whatsapp ? { background: '#f6ffed', color: '#389e0d', cursor: 'not-allowed' } : {}} />
               </Form.Item>
             </Col>
 
@@ -478,10 +617,15 @@ const Facturacion: React.FC = () => {
               <Form.Item
                 label="País"
                 name="pais"
-                initialValue="Perú"
                 className={estilos.formItem}
               >
-                <Select showSearch optionFilterProp="children">
+                <Select 
+                  showSearch 
+                  optionFilterProp="children" 
+                  placeholder="Seleccione un país" 
+                  disabled={camposLlenos.pais} 
+                  style={camposLlenos.pais ? { background: '#f6ffed', color: '#389e0d', cursor: 'not-allowed' } : {}} 
+                >
                   <Option value="Angola">Angola</Option>
                   <Option value="Argentina">Argentina</Option>
                   <Option value="Aruba">Aruba</Option>
@@ -520,15 +664,16 @@ const Facturacion: React.FC = () => {
 
             <Col xs={24} md={12}>
               <Form.Item
-                label="Ficha de inscripción completada"
+                label="Ficha de inscripción"
                 name="fichaInscripcion"
-                initialValue="Si"
-                className={estilos.formItem}
+                valuePropName="checked"
               >
-                <Select>
-                  <Option value="Si">Sí</Option>
-                  <Option value="No">No</Option>
-                </Select>
+                <Checkbox 
+                  disabled={!!datosEstudiante}
+                  style={datosEstudiante? { color: '#389e0d' } : {}}
+                >
+                  Ficha completada
+                </Checkbox>
               </Form.Item>
             </Col>
 
@@ -541,9 +686,7 @@ const Facturacion: React.FC = () => {
               >
                 <Select>
                   <Option value="Ninguno">Ninguno</Option>
-                  <Option value="Nivelación Power BI">
-                    Nivelación Power BI
-                  </Option>
+                  <Option value="Nivelación Power BI">Nivelación Power BI</Option>
                   <Option value="Inglés">Inglés</Option>
                   <Option value="Express">Express</Option>
                   <Option value="Python">Python</Option>
@@ -555,13 +698,14 @@ const Facturacion: React.FC = () => {
               <Form.Item
                 label="Sobre el pago"
                 name="condicionPago"
-                initialValue="Completo"
                 className={estilos.formItem}
               >
-                <Select>
-                  <Option value="Completo">
-                    Completo (precio regular)
-                  </Option>
+                <Select
+                  placeholder="Selecciona condición de pago"
+                  disabled={autoFillCompleto && !!datosEstudiante?.descuentoPorcentaje}
+                  style={autoFillCompleto ? { background: '#f6ffed', color: '#389e0d' } : {}}
+                >
+                  <Option value="Completo">Completo (precio regular)</Option>
                   <Option value="5">5% dscto</Option>
                   <Option value="10">10% dscto</Option>
                   <Option value="15">15% dscto</Option>
@@ -594,7 +738,6 @@ const Facturacion: React.FC = () => {
               <Form.Item
                 label="Monto pagado (moneda original)"
                 name="montoPagado"
-                initialValue={650}
                 className={estilos.formItem}
               >
                 <InputNumber<number>
@@ -608,6 +751,8 @@ const Facturacion: React.FC = () => {
                     const cleaned = displayValue.replace(/[^\d]/g, '');
                     return cleaned ? parseInt(cleaned, 10) || 0 : 0;
                   }}
+                  style={autoFillCompleto && datosEstudiante?.montoPagado ? { background: '#f6ffed', color: '#389e0d' } : {}}
+                  disabled={autoFillCompleto && !!datosEstudiante?.montoPagado}
                 />
               </Form.Item>
             </Col>
@@ -616,14 +761,17 @@ const Facturacion: React.FC = () => {
               <Form.Item
                 label="Monto neto (sin comisiones)"
                 name="montoNeto"
-                initialValue={630}
-                className={estilos.formItem}
               >
                 <InputNumber<number>
                   className={estilos.amountInput}
                   min={0}
                   step={1}
                   precision={0}
+                  disabled={camposLlenos.montoNeto}
+                  style={camposLlenos.montoNeto ? { 
+                    background: '#f6ffed', 
+                    color: '#389e0d'
+                  } : {}}
                   formatter={(value) => value ? `$/. ${value.toLocaleString()}` : '$/. 0'}
                   parser={(displayValue) => {
                     if (!displayValue) return 0;
@@ -636,22 +784,30 @@ const Facturacion: React.FC = () => {
 
             <Col xs={24} md={12}>
               <Form.Item
-                label="# de cuota"
+                label="# de cuotas"
                 name="numeroCuota"
-                initialValue={1}
                 className={estilos.formItem}
               >
-                <InputNumber min={1} className={estilos.amountInput} />
+                <InputNumber 
+                  min={1} 
+                  className={estilos.amountInput} 
+                  style={autoFillCompleto && datosEstudiante?.numeroCuotas ? { background: '#f6ffed', color: '#389e0d' } : {}}
+                  disabled={autoFillCompleto && !!datosEstudiante?.numeroCuotas}
+                />
               </Form.Item>
             </Col>
 
             <Col xs={24} md={12}>
               <Form.Item
-                label="Modo de pago"
-                name="modoPago"
-                className={estilos.formItem}
+                label="Método de pago"
+                name="idMetodoPago"
+                required
               >
-                <Select placeholder="Selecciona método de pago" allowClear>
+                <Select 
+                  placeholder="Selecciona método de pago"
+                  disabled={autoFillCompleto && !!datosEstudiante?.idMetodoPago}
+                  style={camposLlenos.modoPago ? { background: '#f6ffed', color: '#389e0d' } : {}}
+                >
                   {metodosPagoList.map((m: any) => (
                     <Option key={m.id} value={m.id}>{m.nombre}</Option>
                   ))}
