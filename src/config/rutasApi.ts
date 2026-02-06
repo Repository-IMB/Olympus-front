@@ -52,6 +52,16 @@ export async function obtenerPaises(): Promise<Pais[]> {
   }
 }
 
+export async function obtenerPaisesConPersonal(): Promise<Pais[]> {
+  try {
+    const res = await api.get('/api/VTAModVentaPais/ObtenerPaisesConPersonal');
+    return res.data?.pais ?? [];
+  } catch (err: any) {
+    console.error("obtenerPaisesConPersonal axios error", err?.response?.status, err?.response?.data);
+    throw err;
+  }
+}
+
 export async function insertarClientePotencial(data: {
   nombres: string;
   apellidos: string;

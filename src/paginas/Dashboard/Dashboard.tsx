@@ -18,10 +18,8 @@ import { getCookie } from "../../utils/cookies";
 import api from "../../servicios/api";
 import { jwtDecode } from "jwt-decode";
 import type { ColumnsType } from "antd/es/table";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { UpOutlined, DownOutlined } from "@ant-design/icons";
-import { obtenerPaises, type Pais } from "../../config/rutasApi";
+import { obtenerPaisesConPersonal, type Pais } from "../../config/rutasApi";
 
 // ✅ OJO: AntD v5 usa dayjs por defecto. Si tu proyecto aún usa moment, igual funciona,
 // pero los typings de Moment suelen causar lío. Por eso usamos any aquí para el RangePicker.
@@ -199,107 +197,7 @@ export default function Dashboard() {
   const [alertasPage, setAlertasPage] = useState(0);
   const isHistorialDisabled = Boolean(fechaFormulario);
   const isFormularioDisabled = Boolean(fechaHistorial);
-  const exportarPDF = () => {
-    if (!data || data.length === 0) {
-      message.warning("No hay datos para exportar");
-      return;
-    }
 
-    const doc = new jsPDF({ orientation: "landscape" });
-
-    doc.setFontSize(16);
-    doc.text("Dashboard de Rendimiento Comercial", 14, 15);
-
-    doc.setFontSize(10);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 22);
-
-    /* =====================
-     RESUMEN
-  ===================== */
-    if (resumen) {
-      autoTable(doc, {
-        startY: 30,
-        theme: "grid",
-        styles: { fontSize: 9 },
-        head: [
-          ["Total", "Prom. llamadas/día", "Top", "Buenos", "Bajo", "Críticos"],
-        ],
-        body: [
-          [
-            resumen.total,
-            resumen.promedioLlamadas,
-            resumen.top,
-            resumen.bueno,
-            resumen.bajo,
-            resumen.critico,
-          ],
-        ],
-      });
-    }
-
-    /* =====================
-     TABLA PRINCIPAL
-  ===================== */
-    autoTable(doc, {
-      startY: (doc as any).lastAutoTable?.finalY + 10 || 40,
-      theme: "striped",
-      styles: { fontSize: 8 },
-      head: [
-        [
-          "Asesor",
-          "Leads Asignados",
-          "Leads Procesados",
-          "% Sin procesar",
-          "Convertidos",
-          "Cobranza",
-          "% Conv.",
-          "Días activos",
-          "Total llamadas",
-          "Llamadas/día",
-          "Nivel",
-        ],
-      ],
-      body: data.map((d) => {
-        const sinProcesar =
-          d.leadsAsignados === 0
-            ? 0
-            : ((d.leadsAsignados - d.leadsProcesados) / d.leadsAsignados) * 100;
-
-        const categoria = getCategoria(d);
-
-        return [
-          d.personal_Nombre,
-          d.leadsAsignados,
-          d.leadsProcesados,
-          `${sinProcesar.toFixed(2)}%`,
-          d.convertidos,
-          d.enCobranza,
-          `${d.porcentajeConversion.toFixed(2)}%`,
-          d.diasActivos,
-          d.totalLlamadas,
-          d.llamadasPorDia.toFixed(2),
-          categoria.label,
-        ];
-      }),
-    });
-
-    /* =====================
-     ALERTAS CRÍTICAS
-  ===================== */
-    if (alertasCriticas.length > 0) {
-      autoTable(doc, {
-        startY: (doc as any).lastAutoTable.finalY + 10,
-        theme: "grid",
-        styles: { fontSize: 9 },
-        head: [["Alertas críticas"]],
-        body: alertasCriticas.map((a) => [
-          `${a.personal_Nombre} – ${a.llamadasPorDia.toFixed(2)} llamadas/día`,
-        ]),
-      });
-    }
-
-    doc.save("dashboard-rendimiento.pdf");
-  };
 
   const rankingGlobal = useMemo(() => {
     return [...data].sort(
@@ -399,7 +297,7 @@ export default function Dashboard() {
   const cargarPaises = async () => {
     try {
       setLoadingPaises(true);
-      const data = await obtenerPaises();
+      const data = await obtenerPaisesConPersonal();
       setPaises(data);
     } catch (err) {
       console.error("Error cargando países", err);

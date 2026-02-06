@@ -8,8 +8,6 @@ import {
   Alert,
   Row,
   Col,
-  Form,
-  Select,
   message,
   Modal,
 } from "antd";
@@ -17,7 +15,6 @@ import {
   ArrowLeftOutlined,
   EditOutlined,
   PrinterOutlined,
-  PlusOutlined,
 } from "@ant-design/icons";
 import api from "../../servicios/api";
 import styles from "./DetalleActivo.module.css";
@@ -28,6 +25,8 @@ import { getCookie } from "../../utils/cookies";
 import moment from "moment";
 import { jwtDecode } from "jwt-decode";
 import type { Evento } from "./TipoActivos";
+import { Input, Select, DatePicker, Form } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 
 const { Content } = Layout;
 
@@ -92,8 +91,28 @@ export default function DetalleActivo() {
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
   const [modalEditarVisible, setModalEditarVisible] = useState(false);
 
+  // ==== NUEVO EVENTO ====
+  const [tiposEvento, setTiposEvento] = useState<
+    { id: number; nombre: string }[]
+  >([]);
+  const [loadingTiposEvento, setLoadingTiposEvento] = useState(false);
+
+  const [idTipoEvento, setIdTipoEvento] = useState<number | null>(null);
+  const [detalleEvento, setDetalleEvento] = useState("");
+  const [fechaEvento, setFechaEvento] = useState<moment.Moment | null>(
+    moment(),
+  );
+
   const token = getCookie("token");
   const isAuthenticated = !!token;
+
+  const SELECT_PROPS = {
+  showSearch: true,
+  virtual: false,
+  listHeight: 240,
+  optionFilterProp: "children",
+  getPopupContainer: () => document.body,
+};
 
   /* =========================
      LOAD DATA
@@ -142,6 +161,50 @@ export default function DetalleActivo() {
       setError("Error al cargar el detalle del activo");
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const cargarTiposEvento = async () => {
+      try {
+        setLoadingTiposEvento(true);
+        const res = await api.get("/api/VTAModActivos/tipoCambio");
+        // 👉 ajusta el endpoint si el nombre real es otro
+        setTiposEvento(res.data.lista ?? []);
+      } finally {
+        setLoadingTiposEvento(false);
+      }
+    };
+
+    cargarTiposEvento();
+  }, []);
+
+  const handleAgregarEvento = async () => {
+    try {
+      if (!idTipoEvento || !fechaEvento || !activo) {
+        message.warning("Complete los campos obligatorios");
+        return;
+      }
+
+      await api.post("/api/VTAModActivos/InsertarHistorial", {
+        IdActivo: activo.idActivo,
+        IdTipoCambio: idTipoEvento,
+        Observacion: detalleEvento,
+        FechaCambio: fechaEvento.format("YYYY-MM-DDTHH:mm:ss"),
+        UsuarioCambio: getUserIdFromToken(),
+      });
+
+      message.success("Evento agregado correctamente");
+
+      // limpiar formulario
+      setIdTipoEvento(null);
+      setDetalleEvento("");
+      setFechaEvento(moment());
+
+      // refrescar historial
+      cargarDatos();
+    } catch {
+      message.error("No se pudo agregar el evento");
     }
   };
 
@@ -351,10 +414,63 @@ export default function DetalleActivo() {
         </Row>
       </Card>
 
-      <Row style={{ marginTop: 32 }}>
+      <Row gutter={24} style={{ marginTop: 32 }}>
+        {/* HISTORIAL */}
         <Col md={16}>
           <Card className={styles.timelineCard} title="🕒 Historial del activo">
             <Timeline eventos={eventos} />
+          </Card>
+        </Col>
+
+        {/* FORMULARIO NUEVO EVENTO */}
+        <Col md={8}>
+          <Card title="➕ Agregar evento al activo">
+            <Form layout="vertical">
+              <Form.Item label="Tipo de evento">
+                <Select
+                  {...SELECT_PROPS}
+                  placeholder="Seleccione un tipo"
+                  allowClear
+                  loading={loadingTiposEvento}
+                  value={idTipoEvento}
+                  onChange={(v) => setIdTipoEvento(v ?? null)}
+                >
+                  {tiposEvento.map((t) => (
+                    <Select.Option key={t.id} value={t.id}>
+                      {t.nombre}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item label="Detalle del evento">
+                <Input.TextArea
+                  rows={3}
+                  placeholder="Detalle del evento"
+                  value={detalleEvento}
+                  onChange={(e) => setDetalleEvento(e.target.value)}
+                />
+              </Form.Item>
+
+              <Form.Item label="Fecha y hora del evento">
+                <DatePicker
+                  showTime
+                  style={{ width: "100%" }}
+                  value={fechaEvento}
+                  onChange={(d) => setFechaEvento(d)}
+                  format="DD/MM/YYYY HH:mm"
+                />
+              </Form.Item>
+
+              <Button
+                type="primary"
+                block
+                icon={<PlusOutlined />}
+                onClick={handleAgregarEvento}
+              >
+                Agregar evento al activo
+              </Button>
+            </Form>
           </Card>
         </Col>
       </Row>

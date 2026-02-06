@@ -10,7 +10,6 @@ import {
   TimePicker,
   Checkbox,
   Button,
-  Form,
   message,
 } from "antd";
 import { useParams, useNavigate } from "react-router-dom";
@@ -29,6 +28,7 @@ import moment, { type Moment } from "moment";
 import { getCookie } from "../../utils/cookies";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
+import { useSearchParams } from "react-router-dom";
 
 moment.locale("es");
 
@@ -71,6 +71,7 @@ interface Asesor {
 }
 
 export default function HistorialInteraccion() {
+  const [searchParams] = useSearchParams();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [oportunidad, setOportunidad] = useState<OportunidadDetalle | null>(
@@ -88,6 +89,16 @@ export default function HistorialInteraccion() {
   const [forzarReasignacion, setForzarReasignacion] = useState(true);
   const [loadingReasignacion, setLoadingReasignacion] = useState(false);
   const [userRole, setUserRole] = useState<number>(0);
+
+  const filtros = {
+    search: searchParams.get("search"),
+    estadoFiltro: searchParams.get("estado"),
+    asesorFiltro: searchParams.get("asesor"),
+    paisFiltro: searchParams.get("pais"),
+    codigoLinkedinFiltro: searchParams.get("codigoLinkedin"),
+    fechaInicio: searchParams.get("fechaInicio"),
+    fechaFin: searchParams.get("fechaFin"),
+  };
 
   const [vecinos, setVecinos] = useState<{
     anteriorId: number | null;
@@ -178,16 +189,17 @@ export default function HistorialInteraccion() {
             idOportunidadActual: Number(id),
             idUsuario: userId,
             idRol: userRoleNum,
-            search: null,
-            estadoFiltro: null,
-            asesorFiltro: null,
-            codigoLinkedinFiltro: null,
-            fechaInicio: null,
-            fechaFin: null,
+
+            search: filtros.search,
+            estadoFiltro: filtros.estadoFiltro,
+            asesorFiltro: filtros.asesorFiltro,
+            paisFiltro: filtros.paisFiltro,
+            codigoLinkedinFiltro: filtros.codigoLinkedinFiltro,
+            fechaInicio: filtros.fechaInicio,
+            fechaFin: filtros.fechaFin,
           },
         },
       );
-
       setVecinos({
         anteriorId: res.data?.anteriorId ?? null,
         siguienteId: res.data?.siguienteId ?? null,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo} from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Layout,
@@ -11,7 +11,6 @@ import {
   Select,
   Input,
   DatePicker,
-
 } from "antd";
 import {
   CalendarOutlined,
@@ -90,44 +89,37 @@ const getReminderColor = (fechaRecordatorio: string): string => {
 };
 
 export default function OpportunitiesInterface() {
-  const [isSelectClientModalVisible, setIsSelectClientModalVisible] = useState(false);
+  const [isSelectClientModalVisible, setIsSelectClientModalVisible] =
+    useState(false);
   const navigate = useNavigate();
   const token = getCookie("token");
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [listaPaisesCompleta, setListaPaisesCompleta] = useState<string[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const didInit = useRef(false);
+
+  // DATA
+  const [allData, setAllData] = useState<Opportunity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const filterPaisSelect = (input: string, option?: any) => {
+    if (!option?.children) return false;
+    return option.children
+      .toString()
+      .toLowerCase()
+      .includes(input.toLowerCase());
+  };
+
   const [currentPage, setCurrentPage] = useState(
-    Number(searchParams.get("page")) || 1
+    Number(searchParams.get("page")) || 1,
   );
 
   const [pageSize, setPageSize] = useState(
-    Number(searchParams.get("pageSize")) || 10
+    Number(searchParams.get("pageSize")) || 10,
   );
-
-  const [totalRecords, setTotalRecords] = useState<number>(0);
-  const [totalPages, setTotalPages] = useState<number>(0);
-  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [filterPais, setFilterPais] = useState<string>(searchParams.get("pais") || "Todos");
-  const [listaPaisesCompleta, setListaPaisesCompleta] = useState<string[]>([]);
-const [data, setData] = useState<Opportunity[]>([]);
-const [total, setTotal] = useState<number>(0);
-
-  // DATA
-  const [allData, setAllData] = useState<Opportunity[]>([]); 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filterAsesor, setFilterAsesor] = useState<string>("Todos");
-  const filterPaisSelect = (input: string, option?: any) => {
-  if (!option?.children) return false;
-  return option.children
-    .toString()
-    .toLowerCase()
-    .includes(input.toLowerCase());
-};
-
-  const [dateRange, setDateRange] = useState<
-    [Moment | null, Moment | null] | null
-  >(null);
 
   const [searchText, setSearchText] = useState(
     searchParams.get("search") || "",
@@ -137,23 +129,88 @@ const [total, setTotal] = useState<number>(0);
     searchParams.get("estado") || "Todos",
   );
 
-  const [filterCodigoLinkedin, setFilterCodigoLinkedin] =
-    useState<string>("Todos");
+  const [filterAsesor, setFilterAsesor] = useState(
+    searchParams.get("asesor") || "Todos",
+  );
+
+  const [filterPais, setFilterPais] = useState<string>("Todos");
+
+  const [filterCodigoLinkedin, setFilterCodigoLinkedin] = useState(
+    searchParams.get("codigoLinkedin") || "Todos",
+  );
+
+  const [dateRange, setDateRange] = useState<
+    [Moment | null, Moment | null] | null
+  >(
+    searchParams.get("fechaInicio") && searchParams.get("fechaFin")
+      ? [
+          moment(searchParams.get("fechaInicio")),
+          moment(searchParams.get("fechaFin")),
+        ]
+      : null,
+  );
 
   const [codigosLinkedin, setCodigosLinkedin] = useState<string[]>([]);
   const [loadingCodigosLinkedin, setLoadingCodigosLinkedin] = useState(false);
+  const isSyncingFromUrl = useRef(false);
+
+  useEffect(() => {
+    isSyncingFromUrl.current = true;
+
+    setCurrentPage(Number(searchParams.get("page")) || 1);
+    setPageSize(Number(searchParams.get("pageSize")) || 10);
+    setSearchText(searchParams.get("search") || "");
+    setFilterEstado(searchParams.get("estado") || "Todos");
+    setFilterAsesor(searchParams.get("asesor") || "Todos");
+
+    const paisFromUrl = searchParams.get("pais");
+    setFilterPais(paisFromUrl && paisFromUrl !== "" ? paisFromUrl : "Todos");
+
+    setFilterCodigoLinkedin(searchParams.get("codigoLinkedin") || "Todos");
+
+    if (searchParams.get("fechaInicio") && searchParams.get("fechaFin")) {
+      setDateRange([
+        moment(searchParams.get("fechaInicio")),
+        moment(searchParams.get("fechaFin")),
+      ]);
+    } else {
+      setDateRange(null);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const lastId = sessionStorage.getItem("lastViewedLeadId");
     if (lastId) setHighlightedId(lastId);
+    if (!didInit.current) {
+      didInit.current = true;
+      return;
+    }
+    if (isSyncingFromUrl.current) {
+      isSyncingFromUrl.current = false;
+      return;
+    }
     setSearchParams({
       page: currentPage.toString(),
       pageSize: pageSize.toString(),
       search: searchText || "",
       estado: filterEstado !== "Todos" ? filterEstado : "",
+      asesor: filterAsesor !== "Todos" ? filterAsesor : "",
+      pais: filterPais !== "Todos" ? filterPais : "",
+      codigoLinkedin:
+        filterCodigoLinkedin !== "Todos" ? filterCodigoLinkedin : "",
+      fechaInicio: dateRange?.[0]?.format("YYYY-MM-DD") ?? "",
+      fechaFin: dateRange?.[1]?.format("YYYY-MM-DD") ?? "",
     });
-  }, [currentPage, pageSize, searchText, filterEstado]);
-    
+  }, [
+    currentPage,
+    pageSize,
+    searchText,
+    filterEstado,
+    filterAsesor,
+    filterPais,
+    filterCodigoLinkedin,
+    dateRange,
+  ]);
 
   // Efecto Scroll
   useEffect(() => {
@@ -166,7 +223,7 @@ const [total, setTotal] = useState<number>(0);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [loading, highlightedId]); 
+  }, [loading, highlightedId]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -200,19 +257,22 @@ const [total, setTotal] = useState<number>(0);
     }
   };
 
-
   useEffect(() => {
     obtenerAsesores();
   }, []);
 
   const asesoresUnicos = useMemo(() => {
     const set = new Set<string>();
-    asesores.forEach((a) => { if (a.nombre) set.add(a.nombre); });
+    asesores.forEach((a) => {
+      if (a.nombre) set.add(a.nombre);
+    });
     return Array.from(set).sort();
   }, [asesores]);
 
   const { idUsuario, idRol } = useMemo(() => {
-    let idU = 0; let rNombre = ""; let idR = 0;
+    let idU = 0;
+    let rNombre = "";
+    let idR = 0;
     if (!token) return { idUsuario: 0, rolNombre: "", idRol: 0 };
     try {
       const decoded = jwtDecode<TokenData>(token);
@@ -234,7 +294,9 @@ const [total, setTotal] = useState<number>(0);
         Desarrollador: 5,
       };
       idR = rolesMap[rNombre] ?? 0;
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
     return { idUsuario: idU, rolNombre: rNombre, idRol: idR };
   }, [token]);
 
@@ -263,29 +325,40 @@ const [total, setTotal] = useState<number>(0);
   useEffect(() => {
     if (!idUsuario || !idRol) return;
     const cargarPaises = async () => {
-        try {
-            const res = await api.get("/api/VTAModVentaOportunidad/ObtenerSalesProcess", { 
-                params: { idUsuario, idRol } 
-            });
-            const paisesSet = new Set<string>();
-            const extraer = (lista: any[]) => {
-                if(!lista) return;
-                lista.forEach(item => {
-                    if (item.nombrePais && item.nombrePais !== "Sin País" && item.nombrePais !== "-") {
-                        paisesSet.add(item.nombrePais);
-                    }
-                });
-            };
-            if (res.data?.salesData) {
-                Object.values(res.data.salesData).forEach((lista: any) => extraer(lista));
+      try {
+        const res = await api.get(
+          "/api/VTAModVentaOportunidad/ObtenerSalesProcess",
+          {
+            params: { idUsuario, idRol },
+          },
+        );
+        const paisesSet = new Set<string>();
+        const extraer = (lista: any[]) => {
+          if (!lista) return;
+          lista.forEach((item) => {
+            if (
+              item.nombrePais &&
+              item.nombrePais !== "Sin País" &&
+              item.nombrePais !== "-"
+            ) {
+              paisesSet.add(item.nombrePais);
             }
-            if (res.data?.otrosEstados) {
-                Object.values(res.data.otrosEstados).forEach((lista: any) => extraer(lista));
-            }
-            setListaPaisesCompleta(Array.from(paisesSet).sort());
-        } catch (e) {
-            console.error("Error cargando lista de países", e);
+          });
+        };
+        if (res.data?.salesData) {
+          Object.values(res.data.salesData).forEach((lista: any) =>
+            extraer(lista),
+          );
         }
+        if (res.data?.otrosEstados) {
+          Object.values(res.data.otrosEstados).forEach((lista: any) =>
+            extraer(lista),
+          );
+        }
+        setListaPaisesCompleta(Array.from(paisesSet).sort());
+      } catch (e) {
+        console.error("Error cargando lista de países", e);
+      }
     };
     cargarPaises();
   }, [idUsuario, idRol]);
@@ -311,6 +384,7 @@ const [total, setTotal] = useState<number>(0);
               asesorFiltro: filterAsesor !== "Todos" ? filterAsesor : null,
               codigoLinkedinFiltro:
                 filterCodigoLinkedin !== "Todos" ? filterCodigoLinkedin : null,
+              Pais: filterPais,
               fechaInicio: dateRange?.[0]?.format("YYYY-MM-DD") ?? null,
               fechaFin: dateRange?.[1]?.format("YYYY-MM-DD") ?? null,
             },
@@ -339,9 +413,8 @@ const [total, setTotal] = useState<number>(0);
           }),
         );
 
-        setAllData(mapped); 
+        setAllData(mapped);
         setTotal(res.data.total ?? 0);
-
       } catch (e: any) {
         setError(
           e?.response?.data?.mensaje ??
@@ -363,12 +436,22 @@ const [total, setTotal] = useState<number>(0);
     filterEstado,
     filterAsesor,
     filterCodigoLinkedin,
+    filterPais,
     dateRange,
   ]);
 
   const handleClick = (id: number) => {
+    const returnUrl = `/leads/Opportunities?${searchParams.toString()}`;
+
     sessionStorage.setItem("lastViewedLeadId", id.toString());
-    navigate(`/leads/oportunidades/${id}`);
+    sessionStorage.setItem("leadsReturnTo", returnUrl);
+
+    navigate({
+      pathname: `/leads/oportunidades/${id}`,
+      state: {
+        returnTo: returnUrl,
+      },
+    });
   };
 
   const handleLimpiarFiltros = () => {
@@ -380,14 +463,25 @@ const [total, setTotal] = useState<number>(0);
     setCurrentPage(1); // Volver a la página 1 al limpiar
   };
 
-  const estadosUnicos = ["Registrado", "Calificado", "Potencial", "Promesa", "Perdido", "Convertido", "Cobranza", "No Calificado"];
+  const estadosUnicos = [
+    "Registrado",
+    "Calificado",
+    "Potencial",
+    "Promesa",
+    "Perdido",
+    "Convertido",
+    "Cobranza",
+    "No Calificado",
+  ];
 
   const columns: ColumnsType<Opportunity> = [
     {
       title: "Fecha y Hora",
       dataIndex: "fechaCreacion",
       key: "fechaCreacion",
-      sorter: (a, b) => new Date(a.fechaCreacion).getTime() - new Date(b.fechaCreacion).getTime(),
+      sorter: (a, b) =>
+        new Date(a.fechaCreacion).getTime() -
+        new Date(b.fechaCreacion).getTime(),
       render: (fechaCreacion: string) => (
         <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
           <CalendarOutlined style={{ color: "#8c8c8c", marginTop: "2px" }} />
@@ -395,9 +489,20 @@ const [total, setTotal] = useState<number>(0);
             <div style={{ color: "#000000", fontSize: "14px" }}>
               {new Date(fechaCreacion).toLocaleDateString()}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "4px", color: "#8c8c8c", fontSize: "13px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                color: "#8c8c8c",
+                fontSize: "13px",
+              }}
+            >
               <ClockCircleOutlined style={{ fontSize: "12px" }} />
-              {new Date(fechaCreacion).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {new Date(fechaCreacion).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </div>
           </div>
         </div>
@@ -437,9 +542,22 @@ const [total, setTotal] = useState<number>(0);
       sorter: (a, b) => a.nombreEstado.localeCompare(b.nombreEstado),
       render: (nombreEstado: string) => {
         let color = "green";
-        if (["Calificado", "Registrado", "Potencial", "Promesa"].includes(nombreEstado)) color = "blue";
-        else if (["No calificado", "Perdido"].includes(nombreEstado)) color = "red";
-        return <Tag color={color} style={{ borderRadius: "12px", padding: "2px 12px" }}>{nombreEstado}</Tag>;
+        if (
+          ["Calificado", "Registrado", "Potencial", "Promesa"].includes(
+            nombreEstado,
+          )
+        )
+          color = "blue";
+        else if (["No calificado", "Perdido"].includes(nombreEstado))
+          color = "red";
+        return (
+          <Tag
+            color={color}
+            style={{ borderRadius: "12px", padding: "2px 12px" }}
+          >
+            {nombreEstado}
+          </Tag>
+        );
       },
     },
     {
@@ -473,34 +591,34 @@ const [total, setTotal] = useState<number>(0);
       key: "recordatorios",
       width: 240,
       render: (_, record) =>
-        record.recordatorios.length === 0 ? "-" : (
+        record.recordatorios.length === 0 ? (
+          "-"
+        ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {record.recordatorios
-              .slice(0, 3)
-              .map((r, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    backgroundColor: getReminderColor(r),
-                    color: "#ffffff",
-                    padding: "4px 8px",
-                    borderRadius: "4px",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                  }}
-                >
-                  <FileTextOutlined style={{ fontSize: "12px" }} />
-                  {new Date(r).toLocaleDateString("es-ES")}{" "}
-                  {new Date(r).toLocaleTimeString("es-ES", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  })}
-                </div>
-              ))}
+            {record.recordatorios.slice(0, 3).map((r, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  backgroundColor: getReminderColor(r),
+                  color: "#ffffff",
+                  padding: "4px 8px",
+                  borderRadius: "4px",
+                  fontSize: "12px",
+                  fontWeight: 500,
+                }}
+              >
+                <FileTextOutlined style={{ fontSize: "12px" }} />
+                {new Date(r).toLocaleDateString("es-ES")}{" "}
+                {new Date(r).toLocaleTimeString("es-ES", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })}
+              </div>
+            ))}
           </div>
         ),
     },
@@ -508,7 +626,8 @@ const [total, setTotal] = useState<number>(0);
       title: "Asesor",
       dataIndex: "personalNombre",
       key: "personalNombre",
-      sorter: (a, b) => (a.personalNombre || "").localeCompare(b.personalNombre || ""),
+      sorter: (a, b) =>
+        (a.personalNombre || "").localeCompare(b.personalNombre || ""),
       render: (val) => val || "-",
     },
     {
@@ -517,7 +636,13 @@ const [total, setTotal] = useState<number>(0);
       align: "center",
       render: (_, record) => (
         <Tooltip title="Ver Detalle">
-          <Button type="primary" icon={<EyeOutlined />} size="small" style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }} onClick={() => handleClick(record.id)} />
+          <Button
+            type="primary"
+            icon={<EyeOutlined />}
+            size="small"
+            style={{ backgroundColor: "#1f1f1f", borderColor: "#1f1f1f" }}
+            onClick={() => handleClick(record.id)}
+          />
         </Tooltip>
       ),
     },
@@ -536,44 +661,102 @@ const [total, setTotal] = useState<number>(0);
         }}
       >
         {idRol !== 1 && (
-          <Button style={{ borderRadius: "6px" }} onClick={() => setIsSelectClientModalVisible(true)}>
+          <Button
+            style={{ borderRadius: "6px" }}
+            onClick={() => setIsSelectClientModalVisible(true)}
+          >
             Agregar Oportunidad
           </Button>
         )}
-        <Button style={{ borderRadius: "6px" }} onClick={() => navigate("/leads/SalesProcess")}>
+        <Button
+          style={{ borderRadius: "6px" }}
+          onClick={() => navigate("/leads/SalesProcess")}
+        >
           Vista de Proceso
         </Button>
-        <Button type="primary" style={{ background: "#1f1f1f", borderColor: "#1f1f1f", borderRadius: "6px" }}>
+        <Button
+          type="primary"
+          style={{
+            background: "#1f1f1f",
+            borderColor: "#1f1f1f",
+            borderRadius: "6px",
+          }}
+        >
           Vista de Tabla
         </Button>
       </div>
 
-      <SelectClient visible={isSelectClientModalVisible} onClose={() => setIsSelectClientModalVisible(false)} />
+      <SelectClient
+        visible={isSelectClientModalVisible}
+        onClose={() => setIsSelectClientModalVisible(false)}
+      />
 
       <div className={styles.card}>
         <h1 className={styles.title}>Oportunidades</h1>
 
-        <div style={{ marginBottom: "20px", display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
-          <Input placeholder="Buscar por nombre, correo, programa, ID o cód. lanzamiento" prefix={<SearchOutlined />} value={searchText} onChange={(e) => setSearchText(e.target.value)} className={styles.searchInput} allowClear />
-          
-          <Select value={filterEstado} onChange={setFilterEstado} placeholder="Seleccionar estado" style={{ width: "200px", borderRadius: "6px" }} showSearch virtual={false} listHeight={220} optionFilterProp="children">
+        <div
+          style={{
+            marginBottom: "20px",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "12px",
+            alignItems: "center",
+          }}
+        >
+          <Input
+            placeholder="Buscar por nombre, correo, programa, ID o cód. lanzamiento"
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className={styles.searchInput}
+            allowClear
+          />
+
+          <Select
+            value={filterEstado}
+            onChange={setFilterEstado}
+            placeholder="Seleccionar estado"
+            style={{ width: "200px", borderRadius: "6px" }}
+            showSearch
+            virtual={false}
+            listHeight={220}
+            optionFilterProp="children"
+          >
             <Option value="Todos">Todos los estados</Option>
-            {estadosUnicos.map((estado) => <Option key={estado} value={estado}>{estado}</Option>)}
-          </Select>
-          
-          <Select showSearch value={filterAsesor} onChange={setFilterAsesor} placeholder="Seleccionar asesor" style={{ width: "200px", borderRadius: "6px" }} disabled={asesoresUnicos.length === 0} virtual={false} listHeight={220} optionFilterProp="children">
-            <Option value="Todos">Todos los asesores</Option>
-            <Option value="SIN ASESOR">SIN ASESOR</Option>
-            {asesoresUnicos.map((a) => <Option key={a} value={a}>{a}</Option>)}
+            {estadosUnicos.map((estado) => (
+              <Option key={estado} value={estado}>
+                {estado}
+              </Option>
+            ))}
           </Select>
 
-          <Select 
-            showSearch 
-            value={filterPais} 
-            onChange={setFilterPais} 
-            placeholder="Seleccionar país" 
-            style={{ width: "200px", borderRadius: "6px" }} 
-            virtual={false} 
+          <Select
+            showSearch
+            value={filterAsesor}
+            onChange={setFilterAsesor}
+            placeholder="Seleccionar asesor"
+            style={{ width: "200px", borderRadius: "6px" }}
+            disabled={asesoresUnicos.length === 0}
+            virtual={false}
+            listHeight={220}
+            optionFilterProp="children"
+          >
+            <Option value="Todos">Todos los asesores</Option>
+            <Option value="SIN ASESOR">SIN ASESOR</Option>
+            {asesoresUnicos.map((a) => (
+              <Option key={a} value={a}>
+                {a}
+              </Option>
+            ))}
+          </Select>
+
+          <Select
+            showSearch
+            value={filterPais}
+            onChange={setFilterPais}
+            placeholder="Seleccionar país"
+            style={{ width: "200px", borderRadius: "6px" }}
+            virtual={false}
             autoClearSearchValue={false}
             dropdownMatchSelectWidth={false}
             dropdownStyle={{ maxHeight: 260, overflow: "auto" }}
@@ -581,7 +764,11 @@ const [total, setTotal] = useState<number>(0);
             optionFilterProp="children"
           >
             <Option value="Todos">Todos los países</Option>
-            {listaPaisesCompleta.map((p) => <Option key={p} value={p}>{p}</Option>)}
+            {listaPaisesCompleta.map((p) => (
+              <Option key={p} value={p}>
+                {p}
+              </Option>
+            ))}
           </Select>
           <Select
             value={filterCodigoLinkedin}
@@ -618,22 +805,34 @@ const [total, setTotal] = useState<number>(0);
         </div>
 
         {loading ? (
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "50vh" }}><Spin size="large" /></div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "50vh",
+            }}
+          >
+            <Spin size="large" />
+          </div>
         ) : error ? (
           <Alert message="Error" description={error} type="error" showIcon />
         ) : (
           <Table
             columns={columns}
-            dataSource={allData} 
+            dataSource={allData}
             rowKey="id"
             loading={loading}
             onRow={(record) => ({
-                id: `row-${record.id}`,
-                style: record.id.toString() === highlightedId ? {
-                    backgroundColor: "#e6f7ff", 
-                    transition: "background-color 0.5s ease"
-                } : undefined,
-                onClick: () => handleClick(record.id)
+              id: `row-${record.id}`,
+              style:
+                record.id.toString() === highlightedId
+                  ? {
+                      backgroundColor: "#e6f7ff",
+                      transition: "background-color 0.5s ease",
+                    }
+                  : undefined,
+              onClick: () => handleClick(record.id),
             })}
             pagination={{
               current: currentPage,
@@ -641,8 +840,12 @@ const [total, setTotal] = useState<number>(0);
               total,
               showSizeChanger: true,
               pageSizeOptions: ["10", "20", "50", "100"],
-              onChange: (page, size) => { setCurrentPage(page); if (size) setPageSize(size); },
-              showTotal: (total, range) => `${range[0]}-${range[1]} de ${total}`,
+              onChange: (page, size) => {
+                setCurrentPage(page);
+                if (size) setPageSize(size);
+              },
+              showTotal: (total, range) =>
+                `${range[0]}-${range[1]} de ${total}`,
             }}
           />
         )}

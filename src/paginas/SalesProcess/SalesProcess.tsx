@@ -25,7 +25,7 @@ interface Opportunity {
   productoNombre: string;
   fechaCreacion: string;
   // ✅ El dato ahora viene directo del Backend (DTO modificado)
-  nombrePais?: string; 
+  nombrePais?: string;
   recordatorios: Recordatorio[];
 }
 
@@ -50,105 +50,125 @@ const getReminderColor = (fechaRecordatorio: string): string => {
   return "#1677ff"; // azul
 };
 
-const SalesCard = memo(({ sale, highlightedId }: { sale: Opportunity; highlightedId: string | null }) => {
-  const navigate = useNavigate();
-  
-  const isHighlighted = highlightedId === sale.id.toString();
+const SalesCard = memo(
+  ({
+    sale,
+    highlightedId,
+  }: {
+    sale: Opportunity;
+    highlightedId: string | null;
+  }) => {
+    const navigate = useNavigate();
 
-  const handleClick = () => {
-    sessionStorage.setItem("lastViewedLeadId", sale.id.toString());
-    navigate(`/leads/oportunidades/${sale.id}`);
-  };
+    const isHighlighted = highlightedId === sale.id.toString();
 
-  // ✅ MOSTRAR SIEMPRE hasta 3 (sin filtrar por activos) - optimizado
-  const recordatoriosVisibles = useMemo(() => {
-    if (!sale.recordatorios?.length) return [];
-    return sale.recordatorios
-      .filter((r) => r?.fecha)
-      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
-      .slice(0, 3);
-  }, [sale.recordatorios]);
+    const handleClick = () => {
+      sessionStorage.setItem("lastViewedLeadId", sale.id.toString());
+      navigate(`/leads/oportunidades/${sale.id}`, {
+        state: {
+          from: "salesProcess",
+          returnTo: "/leads/SalesProcess",
+        },
+      });
+    };
 
-  return (
-    <Card
-      id={`card-${sale.id}`}
-      size="small"
-      className="client-card"
-      onClick={handleClick}
-      style={{ 
-        cursor: "pointer",
-        border: isHighlighted ? "2px solid #1677ff" : "1px solid #f0f0f0",
-        backgroundColor: isHighlighted ? "#e6f7ff" : "#ffffff",
-        transition: "all 0.3s ease",
-        transform: isHighlighted ? "scale(1.02)" : "scale(1)",
-        boxShadow: isHighlighted ? "0 4px 12px rgba(22, 119, 255, 0.3)" : undefined
-      }}
-    >
-      <div className="client-name" style={{ fontWeight: isHighlighted ? "bold" : "normal" }}>
-        {sale.personaNombre}
-      </div>
+    // ✅ MOSTRAR SIEMPRE hasta 3 (sin filtrar por activos) - optimizado
+    const recordatoriosVisibles = useMemo(() => {
+      if (!sale.recordatorios?.length) return [];
+      return sale.recordatorios
+        .filter((r) => r?.fecha)
+        .sort(
+          (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
+        )
+        .slice(0, 3);
+    }, [sale.recordatorios]);
 
-      <div className="client-price">{sale.productoNombre}</div>
-
-      {/* ✅ RENDERING DIRECTO SIN PETICIONES EXTRA */}
-      <div 
-        className="client-country" 
-        style={{ 
-            display: "flex", 
-            alignItems: "center", 
-            gap: "6px", 
-            color: "#64748b", 
-            fontSize: "12px",
-            marginTop: "4px",
-            marginBottom: "4px"
+    return (
+      <Card
+        id={`card-${sale.id}`}
+        size="small"
+        className="client-card"
+        onClick={handleClick}
+        style={{
+          cursor: "pointer",
+          border: isHighlighted ? "2px solid #1677ff" : "1px solid #f0f0f0",
+          backgroundColor: isHighlighted ? "#e6f7ff" : "#ffffff",
+          transition: "all 0.3s ease",
+          transform: isHighlighted ? "scale(1.02)" : "scale(1)",
+          boxShadow: isHighlighted
+            ? "0 4px 12px rgba(22, 119, 255, 0.3)"
+            : undefined,
         }}
       >
-        <MapPin size={12} />
-        <span>{sale.nombrePais || "Sin país"}</span>
-      </div>
-
-      <div className="client-date">
-        <Calendar size={14} />{" "}
-        <span>{new Date(sale.fechaCreacion).toLocaleDateString()}</span>
-      </div>
-
-      {recordatoriosVisibles.map((r) => (
         <div
-          key={r.idRecordatorio}
+          className="client-name"
+          style={{ fontWeight: isHighlighted ? "bold" : "normal" }}
+        >
+          {sale.personaNombre}
+        </div>
+
+        <div className="client-price">{sale.productoNombre}</div>
+
+        {/* ✅ RENDERING DIRECTO SIN PETICIONES EXTRA */}
+        <div
+          className="client-country"
           style={{
-            marginTop: "8px",
-            display: "inline-flex",
+            display: "flex",
             alignItems: "center",
             gap: "6px",
-            backgroundColor: getReminderColor(r.fecha),
-            color: "#ffffff",
-            padding: "4px 8px",
-            borderRadius: "4px",
+            color: "#64748b",
             fontSize: "12px",
-            fontWeight: 500,
+            marginTop: "4px",
+            marginBottom: "4px",
           }}
         >
-          <ClipboardList size={12} />
-          <span>
-            Recordatorio:{" "}
-            {new Date(r.fecha).toLocaleDateString("es-ES", {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-            })}{" "}
-            {new Date(r.fecha).toLocaleTimeString("es-ES", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            })}
-          </span>
+          <MapPin size={12} />
+          <span>{sale.nombrePais || "Sin país"}</span>
         </div>
-      ))}
-    </Card>
-  );
-});
 
-SalesCard.displayName = 'SalesCard';
+        <div className="client-date">
+          <Calendar size={14} />{" "}
+          <span>{new Date(sale.fechaCreacion).toLocaleDateString()}</span>
+        </div>
+
+        {recordatoriosVisibles.map((r) => (
+          <div
+            key={r.idRecordatorio}
+            style={{
+              marginTop: "8px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              backgroundColor: getReminderColor(r.fecha),
+              color: "#ffffff",
+              padding: "4px 8px",
+              borderRadius: "4px",
+              fontSize: "12px",
+              fontWeight: 500,
+            }}
+          >
+            <ClipboardList size={12} />
+            <span>
+              Recordatorio:{" "}
+              {new Date(r.fecha).toLocaleDateString("es-ES", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              })}{" "}
+              {new Date(r.fecha).toLocaleTimeString("es-ES", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })}
+            </span>
+          </div>
+        ))}
+      </Card>
+    );
+  },
+);
+
+SalesCard.displayName = "SalesCard";
 
 const { Content } = Layout;
 
@@ -171,14 +191,15 @@ export default function SalesProcess() {
   };
 
   // Estados para el redimensionamiento vertical
-  const [salesSectionHeight, setSalesSectionHeight] = useState(getInitialHeight());
+  const [salesSectionHeight, setSalesSectionHeight] =
+    useState(getInitialHeight());
   const [isResizing, setIsResizing] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef({
     startY: 0,
     startHeight: 0,
     rafId: null as number | null,
-    currentHeight: 0
+    currentHeight: 0,
   });
 
   const navigate = useNavigate();
@@ -201,7 +222,7 @@ export default function SalesProcess() {
     cobranza: [],
     convertido: [],
   }); */
-  
+
   // Estado para las oportunidades
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -223,10 +244,10 @@ export default function SalesProcess() {
         if (element) {
           element.scrollIntoView({ behavior: "smooth", block: "center" });
         }
-      }, 500); 
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [loading, highlightedId, activeFilter]); 
+  }, [loading, highlightedId, activeFilter]);
 
   const { idUsuario, idRol } = useMemo(() => {
     let idU = 0;
@@ -236,17 +257,32 @@ export default function SalesProcess() {
 
     try {
       const decoded = jwtDecode<TokenData>(token);
-      idU = parseInt(decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || "0");
-      rolN = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || "";
+      idU = parseInt(
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ] || "0",
+      );
+      rolN =
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
 
       const rolesMap: Record<string, number> = {
-        Asesor: 1, Supervisor: 2, Gerente: 3, Administrador: 4, Desarrollador: 5,
+        Asesor: 1,
+        Supervisor: 2,
+        Gerente: 3,
+        Administrador: 4,
+        Desarrollador: 5,
       };
       idR = rolesMap[rolN] ?? 0;
     } catch (e) {
       console.error("Error al decodificar token", e);
     }
-    console.log("🔍 USUARIO:", { idUsuario: idU, idRol: idR, tokenExists: !!token });
+    console.log("🔍 USUARIO:", {
+      idUsuario: idU,
+      idRol: idR,
+      tokenExists: !!token,
+    });
     return { idUsuario: idU, idRol: idR, rolNombre: rolN };
   }, [token]);
 
@@ -255,7 +291,10 @@ export default function SalesProcess() {
     if (!t) return;
     try {
       const decoded = jwtDecode<TokenData>(t);
-      const role = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || "";
+      const role =
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
       setUserRole(String(role));
     } catch (err) {
       console.error("Error decodificando token (rol):", err);
@@ -265,38 +304,41 @@ export default function SalesProcess() {
   // =========================
   // FETCH + AGRUPAR RECORDATORIOS (OPTIMIZADO)
   // =========================
-useEffect(() => {
-  if (!idUsuario || !idRol) {
-    setLoading(false);
-    return;
-  }
+  useEffect(() => {
+    if (!idUsuario || !idRol) {
+      setLoading(false);
+      return;
+    }
 
-  const fetchSalesProcess = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    const fetchSalesProcess = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      console.log("🔍 SalesProcess - Parámetros:", { idUsuario, idRol });
+        console.log("🔍 SalesProcess - Parámetros:", { idUsuario, idRol });
 
-      const res = await api.get(
-        "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
-        {
-          params: {
-            idUsuario,
-            idRol,
-            page: 1,
-            pageSize: 1000, // Traer muchos registros para vista de proceso
-            search: null,
-            estadoFiltro: null,
-            asesorFiltro: null,
-            fechaInicio: null,
-            fechaFin: null
-          }
-        }
-      );
+        const res = await api.get(
+          "/api/VTAModVentaOportunidad/ObtenerOportunidadesPaginadas",
+          {
+            params: {
+              idUsuario,
+              idRol,
+              page: 1,
+              pageSize: 1000, // Traer muchos registros para vista de proceso
+              search: null,
+              estadoFiltro: null,
+              asesorFiltro: null,
+              fechaInicio: null,
+              fechaFin: null,
+            },
+          },
+        );
 
-      console.log("✅ SalesProcess - Respuesta completa:", res.data);
-      console.log("📊 SalesProcess - Oportunidades recibidas:", res.data?.oportunidad);
+        console.log("✅ SalesProcess - Respuesta completa:", res.data);
+        console.log(
+          "📊 SalesProcess - Oportunidades recibidas:",
+          res.data?.oportunidad,
+        );
 
         const raw = res.data?.oportunidad || [];
 
@@ -317,10 +359,15 @@ useEffect(() => {
 
               // Ordenar por fecha
               recordatorios.sort(
-                (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+                (a, b) =>
+                  new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
               );
             } catch (e) {
-              console.error("Error parseando recordatorios para oportunidad", op.id, e);
+              console.error(
+                "Error parseando recordatorios para oportunidad",
+                op.id,
+                e,
+              );
               recordatorios = [];
             }
           }
@@ -354,19 +401,15 @@ useEffect(() => {
         console.error("❌ Error al obtener oportunidades:", e);
         console.error("❌ Error response:", e?.response);
         console.error("❌ Error data:", e?.response?.data);
-        setError(
-          e?.response?.data?.message ??
-          "Error al obtener SalesProcess"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+        setError(e?.response?.data?.message ?? "Error al obtener SalesProcess");
+      } finally {
+        setLoading(false);
+      }
+    };
 
     fetchSalesProcess();
     fetchSalesProcess();
   }, [idUsuario, idRol]);
-
 
   // =========================
   // RESPONSIVE: Ajustar altura al redimensionar ventana
@@ -390,7 +433,9 @@ useEffect(() => {
       }
 
       // Ajustar altura actual si excede los nuevos límites
-      setSalesSectionHeight(prev => Math.max(minHeight, Math.min(maxHeight, prev)));
+      setSalesSectionHeight((prev) =>
+        Math.max(minHeight, Math.min(maxHeight, prev)),
+      );
     };
 
     window.addEventListener("resize", handleResize);
@@ -406,12 +451,12 @@ useEffect(() => {
 
     setIsResizing(true);
 
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
 
     resizeRef.current = {
       ...resizeRef.current,
       startY: clientY,
-      startHeight: salesSectionHeight
+      startHeight: salesSectionHeight,
     };
     document.body.style.cursor = "row-resize";
     document.body.style.userSelect = "none";
@@ -432,7 +477,7 @@ useEffect(() => {
       resizeRef.current.rafId = requestAnimationFrame(() => {
         if (!sectionRef.current) return;
 
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
 
         // Límites dinámicos según el ancho de pantalla
         const width = window.innerWidth;
@@ -451,7 +496,10 @@ useEffect(() => {
         }
 
         const delta = clientY - resizeRef.current.startY;
-        const newHeight = Math.max(minHeight, Math.min(maxHeight, resizeRef.current.startHeight + delta));
+        const newHeight = Math.max(
+          minHeight,
+          Math.min(maxHeight, resizeRef.current.startHeight + delta),
+        );
 
         // Actualizar DOM directamente sin re-render
         sectionRef.current.style.height = `${newHeight}px`;
@@ -521,9 +569,17 @@ useEffect(() => {
 
     // ✅ Categorizar y contar en un solo paso
     const counts: { [key: string]: number } = {
-      registrado: 0, calificado: 0, potencial: 0, promesa: 0,
-      coorporativo: 0, ventaCruzada: 0, seguimiento: 0, perdido: 0,
-      noCalificado: 0, cobranza: 0, convertido: 0,
+      registrado: 0,
+      calificado: 0,
+      potencial: 0,
+      promesa: 0,
+      coorporativo: 0,
+      ventaCruzada: 0,
+      seguimiento: 0,
+      perdido: 0,
+      noCalificado: 0,
+      cobranza: 0,
+      convertido: 0,
     };
 
     let sinClasificar = 0;
@@ -574,19 +630,19 @@ useEffect(() => {
       if (targetArray && targetKey && counts[targetKey] < MAX_PER_CATEGORY) {
         targetArray.push(op);
         counts[targetKey]++;
-    } else {
+      } else {
         // 🔴 AQUÍ ES DONDE SE RE-ASIGNA LA VARIABLE
-        sinClasificar++; 
-        
+        sinClasificar++;
+
         // Log solo del primero para no llenar la consola
         if (sinClasificar === 1) {
-             console.log("⚠️ PRIMER ITEM SIN CLASIFICAR:", { 
-                Estado: op.nombreEstado, 
-                Ocurrencia: op.nombreOcurrencia, 
-                Nombre: op.personaNombre 
-             });
+          console.log("⚠️ PRIMER ITEM SIN CLASIFICAR:", {
+            Estado: op.nombreEstado,
+            Ocurrencia: op.nombreOcurrencia,
+            Nombre: op.personaNombre,
+          });
         }
-    }
+      }
     }
 
     // ✅ Ordenar y limitar solo las categorías que tienen datos
@@ -613,16 +669,47 @@ useEffect(() => {
 
   const { salesData, otrosEstados } = categorizedData;
 
-  const filters = useMemo(() => [
-      { key: "todos", label: "Todos", count: Object.values(otrosEstados).flat().length },
-      { key: "coorporativo", label: "Coorporativo", count: otrosEstados.coorporativo.length },
-      { key: "ventaCruzada", label: "Venta Cruzada", count: otrosEstados.ventaCruzada.length },
-      { key: "seguimiento", label: "Seguimiento", count: otrosEstados.seguimiento.length },
+  const filters = useMemo(
+    () => [
+      {
+        key: "todos",
+        label: "Todos",
+        count: Object.values(otrosEstados).flat().length,
+      },
+      {
+        key: "coorporativo",
+        label: "Coorporativo",
+        count: otrosEstados.coorporativo.length,
+      },
+      {
+        key: "ventaCruzada",
+        label: "Venta Cruzada",
+        count: otrosEstados.ventaCruzada.length,
+      },
+      {
+        key: "seguimiento",
+        label: "Seguimiento",
+        count: otrosEstados.seguimiento.length,
+      },
       { key: "perdido", label: "Perdido", count: otrosEstados.perdido.length },
-      { key: "noCalificado", label: "No Calificado", count: otrosEstados.noCalificado.length },
-      { key: "cobranza", label: "Cobranza", count: otrosEstados.cobranza.length },
-      { key: "convertido", label: "Convertido", count: otrosEstados.convertido.length },
-    ], [otrosEstados]);
+      {
+        key: "noCalificado",
+        label: "No Calificado",
+        count: otrosEstados.noCalificado.length,
+      },
+      {
+        key: "cobranza",
+        label: "Cobranza",
+        count: otrosEstados.cobranza.length,
+      },
+      {
+        key: "convertido",
+        label: "Convertido",
+        count: otrosEstados.convertido.length,
+      },
+    ],
+    [otrosEstados],
+  );
 
   // ✅ Memorizar función de filtrado
   const getFilteredData = useCallback(() => {
@@ -632,21 +719,60 @@ useEffect(() => {
     return otrosEstados[activeFilter as keyof typeof otrosEstados] || [];
   }, [activeFilter, otrosEstados]);
 
-  if (loading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}><Spin size="large" /></div>;
-  if (error) return <Alert message="Error" description={error} type="error" showIcon />;
+  if (loading)
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        <Spin size="large" />
+      </div>
+    );
+  if (error)
+    return <Alert message="Error" description={error} type="error" showIcon />;
 
   return (
     <Layout style={{ height: "100vh" }}>
       <Content style={{ padding: "20px", background: "#f5f5f5" }}>
-        <div style={{ marginBottom: "20px", display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+        <div
+          style={{
+            marginBottom: "20px",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "10px",
+          }}
+        >
           {userRole !== "Asesor" && (
-            <Button onClick={() => setIsSelectClientModalVisible(true)}>Agregar Oportunidad</Button>
+            <Button onClick={() => setIsSelectClientModalVisible(true)}>
+              Agregar Oportunidad
+            </Button>
           )}
-          <Button type="primary" style={{ background: "#1f1f1f", borderColor: "#1f1f1f", borderRadius: "6px" }}>Vista de Proceso</Button>
-          <Button style={{ borderRadius: "6px" }} onClick={() => navigate("/leads/Opportunities")}>Vista de Tabla</Button>
+          <Button
+            type="primary"
+            style={{
+              background: "#1f1f1f",
+              borderColor: "#1f1f1f",
+              borderRadius: "6px",
+            }}
+          >
+            Vista de Proceso
+          </Button>
+          <Button
+            style={{ borderRadius: "6px" }}
+            onClick={() => navigate("/leads/Opportunities")}
+          >
+            Vista de Tabla
+          </Button>
         </div>
 
-        <SelectClient visible={isSelectClientModalVisible} onClose={() => setIsSelectClientModalVisible(false)} />
+        <SelectClient
+          visible={isSelectClientModalVisible}
+          onClose={() => setIsSelectClientModalVisible(false)}
+        />
 
         <div className="content-wrapper">
           <h1
@@ -663,19 +789,28 @@ useEffect(() => {
           {/* Sección principal con altura redimensionable */}
           <div
             ref={sectionRef}
-            className={`sales-section resizable-section ${isResizing ? 'is-resizing' : ''}`}
+            className={`sales-section resizable-section ${isResizing ? "is-resizing" : ""}`}
             style={{ height: `${salesSectionHeight}px` }}
           >
             <div className="stages-grid">
               {Object.entries(salesData).map(([stage, items]) => (
                 <div key={stage} className={`stage-column ${stage}`}>
                   <div className="stage-header">
-                    <span className="stage-title">{stage.charAt(0).toUpperCase() + stage.slice(1)}</span>
-                    <Badge count={items.length} style={{ backgroundColor: "#1677ff" }} />
+                    <span className="stage-title">
+                      {stage.charAt(0).toUpperCase() + stage.slice(1)}
+                    </span>
+                    <Badge
+                      count={items.length}
+                      style={{ backgroundColor: "#1677ff" }}
+                    />
                   </div>
                   <div className={`card-list-container ${stage}`}>
                     {items.map((sale) => (
-                      <SalesCard key={sale.id} sale={sale} highlightedId={highlightedId} />
+                      <SalesCard
+                        key={sale.id}
+                        sale={sale}
+                        highlightedId={highlightedId}
+                      />
                     ))}
                   </div>
                 </div>
@@ -703,7 +838,13 @@ useEffect(() => {
             <div className="filters-container">
               <div className="filters">
                 {filters.map((filtro) => (
-                  <Button key={filtro.key} size="small" type={activeFilter === filtro.key ? "primary" : "default"} onClick={() => setActiveFilter(filtro.key)} className={`filter-btn ${activeFilter === filtro.key ? "active" : ""}`}>
+                  <Button
+                    key={filtro.key}
+                    size="small"
+                    type={activeFilter === filtro.key ? "primary" : "default"}
+                    onClick={() => setActiveFilter(filtro.key)}
+                    className={`filter-btn ${activeFilter === filtro.key ? "active" : ""}`}
+                  >
                     {`${filtro.label} (${filtro.count})`}
                   </Button>
                 ))}
@@ -716,32 +857,68 @@ useEffect(() => {
                     ([estado]) =>
                       estado !== "seguimiento" &&
                       estado !== "coorporativo" &&
-                      estado !== "ventaCruzada"
+                      estado !== "ventaCruzada",
                   )
                   .sort(([estadoA], [estadoB]) => {
                     // Definir el orden deseado
-                    const orden = ["noCalificado", "perdido", "cobranza", "convertido"];
+                    const orden = [
+                      "noCalificado",
+                      "perdido",
+                      "cobranza",
+                      "convertido",
+                    ];
                     return orden.indexOf(estadoA) - orden.indexOf(estadoB);
                   })
                   .map(([estado, items]) => (
                     <div key={estado} className="other-state-column">
                       <div className="column-header">
-                        <span>{estado.charAt(0).toUpperCase() + estado.slice(1)}</span>
-                        <Badge count={items.length} style={{ backgroundColor: "#1677ff" }} />
+                        <span>
+                          {estado.charAt(0).toUpperCase() + estado.slice(1)}
+                        </span>
+                        <Badge
+                          count={items.length}
+                          style={{ backgroundColor: "#1677ff" }}
+                        />
                       </div>
                       <div className={`state-content ${estado}`}>
-                        {items.length > 0 ? items.map((sale) => <SalesCard key={sale.id} sale={sale} highlightedId={highlightedId} />) : <div className="empty-box"></div>}
+                        {items.length > 0 ? (
+                          items.map((sale) => (
+                            <SalesCard
+                              key={sale.id}
+                              sale={sale}
+                              highlightedId={highlightedId}
+                            />
+                          ))
+                        ) : (
+                          <div className="empty-box"></div>
+                        )}
                       </div>
                     </div>
                   ))
               ) : (
                 <div className="other-state-column">
                   <div className="column-header">
-                    <span>{activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}</span>
-                    <Badge count={getFilteredData().length} style={{ backgroundColor: "#1677ff" }} />
+                    <span>
+                      {activeFilter.charAt(0).toUpperCase() +
+                        activeFilter.slice(1)}
+                    </span>
+                    <Badge
+                      count={getFilteredData().length}
+                      style={{ backgroundColor: "#1677ff" }}
+                    />
                   </div>
                   <div className={`state-content ${activeFilter}`}>
-                    {getFilteredData().length > 0 ? getFilteredData().map((sale) => <SalesCard key={sale.id} sale={sale} highlightedId={highlightedId} />) : <div className="empty-box"></div>}
+                    {getFilteredData().length > 0 ? (
+                      getFilteredData().map((sale) => (
+                        <SalesCard
+                          key={sale.id}
+                          sale={sale}
+                          highlightedId={highlightedId}
+                        />
+                      ))
+                    ) : (
+                      <div className="empty-box"></div>
+                    )}
                   </div>
                 </div>
               )}

@@ -208,7 +208,7 @@ export default function Sidebar({
             <div
               className={styles.menuHeader}
               onClick={() =>
-                navigateAndClose("/logistica/activos")
+                onToggleMenu(openMenu === "Logistica" ? null : "Logistica")
               }
             >
               <span className={styles.menuHeaderContent}>

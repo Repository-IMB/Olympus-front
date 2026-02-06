@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Row, Col, Spin, message, Alert, Button } from "antd"; // ✅ Importar Button
-import { ArrowLeftOutlined } from "@ant-design/icons"; // ✅ Importar Icono
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { Row, Col, Spin, message, Alert, Button } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import ClienteProductoCard from "./ClienteProducto";
 import OportunidadPanel from "./OportunidadPanel";
 import HistorialInteraccion from "./HistorialInteraccion";
@@ -52,11 +52,14 @@ function VistaProceso({
 export default function Leads() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [permitido, setPermitido] = useState(false);
   const [errorControlado, setErrorControlado] = useState<string | null>(null);
-
+const returnTo =
+  (location.state as any)?.returnTo ||
+  sessionStorage.getItem("leadsReturnTo") ||
+  "/leads/Opportunities";
   const token = getCookie("token");
 
   // ... (Toda la lógica de useMemo y useEffect se queda IGUAL) ...
@@ -70,12 +73,21 @@ export default function Leads() {
     try {
       const decoded = jwtDecode<TokenData>(token);
       idU = parseInt(
-        decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] || "0"
+        decoded[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ] || "0",
       );
-      rNombre = decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || "";
+      rNombre =
+        decoded[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] || "";
 
       const rolesMap: Record<string, number> = {
-        Asesor: 1, Supervisor: 2, Gerente: 3, Administrador: 4, Desarrollador: 5,
+        Asesor: 1,
+        Supervisor: 2,
+        Gerente: 3,
+        Administrador: 4,
+        Desarrollador: 5,
       };
       idR = rolesMap[rNombre] ?? 0;
     } catch (e) {
@@ -106,7 +118,7 @@ export default function Leads() {
         // 1) Validar permisos
         const permisosRes = await api.get(
           `/api/SegModLogin/ObtenerPermisosDeOportunidad/${id}/${idUsuario}/${idRol}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
         const permisosData = permisosRes.data;
@@ -118,7 +130,7 @@ export default function Leads() {
         // 2) Obtener ocurrencias
         const ocurrenciasRes = await api.get(
           `/api/VTAModVentaHistorialEstado/OcurrenciasPermitidas/${id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
         const ocurrenciasData = ocurrenciasRes.data;
@@ -153,7 +165,9 @@ export default function Leads() {
       <div className={styles.errorContainer}>
         <Alert type="error" message={errorControlado} />
         {/* Botón volver en caso de error también */}
-        <Button style={{ marginTop: 16 }} onClick={() => navigate(-1)}>Volver</Button>
+        <Button style={{ marginTop: 16 }} onClick={() => navigate(-1)}>
+          Volver
+        </Button>
       </div>
     );
 
@@ -162,24 +176,21 @@ export default function Leads() {
   return (
     <div className={styles.mainContainer}>
       <div className={styles.contentWrapper}>
-        
-        {/* ✅✅✅ AQUÍ AGREGAMOS EL BOTÓN VOLVER ✅✅✅ */}
         <div style={{ marginBottom: "10px" }}>
           <Button
             type="text"
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(-1)} // Esto vuelve al historial (Tabla o Proceso)
-            style={{ 
-                fontSize: "16px", 
-                fontWeight: 500, 
-                color: "#595959",
-                paddingLeft: 0 
+            onClick={() => navigate(returnTo)}
+            style={{
+              fontSize: "16px",
+              fontWeight: 500,
+              color: "#595959",
+              paddingLeft: 0,
             }}
           >
             Volver
           </Button>
         </div>
-        {/* ✅✅✅ FIN DEL BOTÓN ✅✅✅ */}
 
         <VistaProceso oportunidadId={id} />
       </div>
