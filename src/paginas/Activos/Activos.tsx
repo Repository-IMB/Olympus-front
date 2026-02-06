@@ -13,17 +13,17 @@ import api from "../../servicios/api";
 import styles from "./Activos.module.css";
 import axios from "axios";
 import { getCookie } from "../../utils/cookies";
+import ModalActivo from "./ModalActivo";
 
 const { Option } = Select;
 
-  const SELECT_PROPS = {
+const SELECT_PROPS = {
   showSearch: true,
   virtual: false,
   listHeight: 240,
   optionFilterProp: "children",
   getPopupContainer: () => document.body,
 };
-
 
 /* =========================
    INTERFACES
@@ -90,6 +90,7 @@ export default function Activos() {
 
   // selección
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [modalNuevoVisible, setModalNuevoVisible] = useState(false);
 
   const token = getCookie("token");
 
@@ -122,6 +123,50 @@ export default function Activos() {
 
     fetchData();
   }, [search, idTipo, idFabricante, idPais, idPersonal, estado]);
+
+  const descargarQrMasivo = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning("Selecciona al menos un activo");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await api.post(
+        "/api/VTAModActivos/GenerarQrMasivo",
+        {
+          idsActivos: selectedRowKeys,
+          idUsuario: 1, // ⚠️ acá pon el id real del usuario logueado
+        },
+        {
+          responseType: "blob", // 🔴 CLAVE
+        },
+      );
+
+      const blob = new Blob([response.data], {
+        type: "application/pdf",
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "QR_Activos.pdf";
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      message.success("PDF descargado correctamente");
+    } catch (error) {
+      console.error(error);
+      message.error("Error al generar los códigos QR");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /* =========================
      CARGAR PAÍSES (SEDES)
@@ -269,6 +314,7 @@ export default function Activos() {
   ];
 
   return (
+    
     <div className={styles.container}>
       <h2 className={styles.title}>Activos</h2>
 
@@ -298,7 +344,7 @@ export default function Activos() {
         <Button
           className={styles.btnPrimary}
           icon={<PlusOutlined />}
-          onClick={() => navigate("/logistica/activos/nuevo")}
+          onClick={() => setModalNuevoVisible(true)}
         >
           Nuevo activo
         </Button>
@@ -382,6 +428,7 @@ export default function Activos() {
           className={styles.btnDownload}
           icon={<DownloadOutlined />}
           disabled={selectedRowKeys.length === 0}
+          onClick={descargarQrMasivo}
         >
           Descargar códigos
         </Button>
@@ -418,6 +465,16 @@ export default function Activos() {
           />
         )}
       </div>
+      <ModalActivo
+  visible={modalNuevoVisible}
+  onCancel={() => setModalNuevoVisible(false)}
+  onSubmit={() => {
+    setModalNuevoVisible(false);
+    // refrescar lista
+    setSearch("");
+  }}
+/>
+
     </div>
   );
 }
