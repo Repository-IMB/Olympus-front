@@ -12,6 +12,10 @@ import {
 
 import { PerfilUsuarioDTO } from '../modelos/Usuario';
 
+// =========================================================
+// CÓDIGO ORIGINAL (INTACTO) - USADO EN OTRAS PARTES
+// =========================================================
+
 /**
  * Inicia sesión del usuario con su email y contraseña.
  * Mapea `email` a `username` porque el backend lo requiere.
@@ -38,4 +42,15 @@ export const cerrarSesion = async (): Promise<void> => {
 export const obtenerPerfilUsuario = async (): Promise<PerfilUsuarioDTO> => {
   const respuesta = await api.get(API_USUARIO_PERFIL);
   return respuesta.data;
+};
+
+// =========================================================
+// AGREGADO PARA COMPATIBILIDAD CON EL NUEVO LOGIN.TSX
+// =========================================================
+
+export const loginService = {
+  // Simplemente apuntamos a las funciones que ya tienes arriba
+  login: iniciarSesion,
+  logout: cerrarSesion,
+  obtenerPerfil: obtenerPerfilUsuario
 };

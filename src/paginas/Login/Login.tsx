@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, X, CheckCircle } from 'lucide-react';
 import { useLogin } from '../../hooks/useLogin';
 import estilos from './Login.module.css';
+
+// IMPORTS NECESARIOS
+import { jwtDecode } from 'jwt-decode';
+import { setCookie } from '../../utils/cookies';
+import { loginService } from '../../servicios/AutenticacionServicio';
+import { permisosService } from '../../servicios/PermisosService';
 
 interface ErroresValidacion {
   email?: string;
@@ -10,30 +16,32 @@ interface ErroresValidacion {
 
 function LoginPage() {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Del hook usamos solo los estados de los inputs
   const {
     correo,
     password,
     setCorreo,
     setPassword,
-    error,
-    cargando,
-    manejarLogin
   } = useLogin();
 
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
   const [erroresValidacion, setErroresValidacion] = useState<ErroresValidacion>({});
   const [touched, setTouched] = useState({ email: false });
+
+  // Estados locales para control manual
+  const [cargandoManual, setCargandoManual] = useState(false);
   const [mostrarModalError, setMostrarModalError] = useState(false);
   const [mostrarModalExito, setMostrarModalExito] = useState(false);
 
-  // Función para validar email
+  // --- Validaciones ---
   const validarEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  // Validar campo email en tiempo real
   const validarCampoEmail = (valor: string) => {
     if (!valor.trim()) {
       setErroresValidacion({ email: 'El correo electrónico es requerido' });
@@ -44,7 +52,6 @@ function LoginPage() {
     }
   };
 
-  // Manejar cambios en el input de email
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const valor = e.target.value;
     setCorreo(valor);
@@ -53,38 +60,102 @@ function LoginPage() {
     }
   };
 
-  // Manejar blur del email
   const handleEmailBlur = () => {
     setTouched({ email: true });
     validarCampoEmail(correo);
   };
 
-  // Validar antes de enviar
-  const handleSubmit = (e: React.FormEvent) => {
+  // =========================================================
+  // LOGICA PRINCIPAL DE LOGIN + REDIRECCION CORREGIDA
+  // =========================================================
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Marcar el campo como tocado
+    // 1. Validaciones UI
     setTouched({ email: true });
-
-    // Validar solo el email
     if (!correo.trim()) {
       setErroresValidacion({ email: 'El correo electrónico es requerido' });
       return;
     }
-    
     if (!validarEmail(correo)) {
       setErroresValidacion({ email: 'Por favor ingresa un correo electrónico válido' });
       return;
     }
-
-    // Limpiar errores de validación antes de enviar
     setErroresValidacion({});
 
-    // Proceder con el login
-    manejarLogin(e);
+    // 2. Iniciar proceso
+    setCargandoManual(true);
+
+    try {
+        // A) Login Base (Obtener Token)
+        const loginRes = await loginService.login({ correo, password });
+        
+        if (loginRes.token) {
+            setCookie("token", loginRes.token);
+
+            // B) Decodificar para sacar ID Usuario
+            const decoded: any = jwtDecode(loginRes.token);
+            const idUsuario = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] 
+                              || decoded.sub 
+                              || decoded.IdUsuario;
+
+            // C) Obtener Contexto (Rol y Área reales)
+            const dataUsuario = await permisosService.obtenerContexto(idUsuario, loginRes.token);
+
+            if (dataUsuario) {
+                 console.log("🕵️ DATOS CONTEXTO:", dataUsuario);
+
+                 // D) Mapeo de Roles (String -> Number)
+                 const ROLES_MAP: Record<string, number> = {
+                    "Asesor": 1, 
+                    "Supervisor": 2, 
+                    "Gerente": 3, 
+                    "Administrador": 4, 
+                    "Desarrollador": 5, 
+                    "Administrativo": 7 
+                 };
+
+                 const idRol = ROLES_MAP[dataUsuario.rol] || 0;
+                 const idArea = dataUsuario.idAreaTrabajo || 0;
+
+                 // E) Guardar Cookies
+                 setCookie("idRol", idRol.toString());
+                 setCookie("idAreaTrabajo", idArea.toString());
+
+                 // F) REDIRECCIÓN INTELIGENTE (CORREGIDA) 🟢
+                 // Prioridad 1: Área Ventas (8) -> Oportunidades
+                 if (idArea === 8) {
+                    navigate("/leads/Opportunities");
+                 } 
+                 // Prioridad 2: Área Desarrollo (2) -> Departamentos
+                 else if (idArea === 2) {
+                    navigate("/producto/departamentos");
+                 } 
+                 // Prioridad 3: Resto -> Dashboard
+                 else {
+                    navigate("/dashboard");
+                 }
+
+            } else {
+                // Fallback si falla el contexto
+                navigate("/dashboard");
+            }
+        } else {
+            throw new Error("No se recibió token");
+        }
+
+    } catch (error) {
+        console.error("Error en login:", error);
+        setMostrarModalError(true);
+        setCorreo('');
+        setPassword('');
+        setTouched({ email: false });
+    } finally {
+        setCargandoManual(false);
+    }
   };
 
-  // Carrusel de imágenes hardcodeadas
+  // --- Configuración Carrusel ---
   const slides = [
     {
       title: "Gestiona tus oportunidades",
@@ -129,7 +200,6 @@ function LoginPage() {
     }
   ];
 
-  // Auto-avanzar el carrusel
   useEffect(() => {
     const interval = setInterval(() => {
       setSlideIndex((prev) => (prev + 1) % slides.length);
@@ -137,29 +207,13 @@ function LoginPage() {
     return () => clearInterval(interval);
   }, [slides.length]);
 
-  // Mostrar modal cuando hay error del servidor y limpiar campos
-  useEffect(() => {
-    if (error) {
-      setMostrarModalError(true);
-      // Limpiar errores de validación cuando hay un error del servidor
-      setErroresValidacion({});
-      // Limpiar campos cuando las credenciales son incorrectas
-      setCorreo('');
-      setPassword('');
-      setTouched({ email: false });
-    }
-  }, [error]);
-
-  // Mostrar modal de éxito si viene de reset password
   useEffect(() => {
     if (location.state?.message) {
       setMostrarModalExito(true);
-      // Limpiar el estado de location después de mostrarlo
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
-  // Cerrar modal (sin limpiar campos nuevamente, ya se limpiaron cuando apareció el error)
   const cerrarModal = () => {
     setMostrarModalError(false);
   };
@@ -171,19 +225,11 @@ function LoginPage() {
   return (
     <div className={estilos.contenedorLogin}>
       <div className={estilos.loginWrapper}>
-        {/* Formulario a la izquierda */}
         <div className={estilos.formularioContainer}>
           <div className={estilos.logoContainer}>
             <div className={estilos.logo}>
-              {/* <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="25" cy="25" r="23" stroke="#1f1f1f" strokeWidth="2"/>
-                <path d="M20 15 L25 20 L30 15" stroke="#1f1f1f" strokeWidth="2" fill="none"/>
-                <path d="M20 25 L25 30 L30 25" stroke="#1f1f1f" strokeWidth="2" fill="none"/>
-                <path d="M20 35 L25 40 L30 35" stroke="#1f1f1f" strokeWidth="2" fill="none"/>
-              </svg> */}
               <img src="/logo.png" alt="Olympus" style={{ width: 250 }} />
             </div>
-            {/* <span className={estilos.logoText}>OLYMPUS</span> */}
           </div>
 
           <form className={estilos.formulario} onSubmit={handleSubmit}>
@@ -222,17 +268,9 @@ function LoginPage() {
                 </button>
               </div>
             </div>
-
-            {/* <div className={estilos.optionsRow}>
-              <label className={estilos.checkboxLabel}>
-                <input type="checkbox" className={estilos.checkbox} defaultChecked />
-                <span>Remember me</span>
-              </label>
-              <a href="#" className={estilos.forgotLink}>Forgot Password?</a>
-            </div> */}
             
-            <button className={estilos.boton} type="submit" disabled={cargando}>
-              {cargando ? 'Ingresando...' : 'Sign in'}
+            <button className={estilos.boton} type="submit" disabled={cargandoManual}>
+              {cargandoManual ? 'Ingresando...' : 'Sign in'}
             </button>
 
             <p className={estilos.registerText}>
@@ -243,7 +281,6 @@ function LoginPage() {
           </form>
         </div>
 
-        {/* Carrusel a la derecha */}
         <div className={estilos.carruselContainer}>
           <div className={estilos.carruselContent}>
             <div className={estilos.carruselSlides} style={{ transform: `translateX(-${slideIndex * 100}%)` }}>
@@ -269,7 +306,6 @@ function LoginPage() {
         </div>
       </div>
 
-      {/* Modal de error de credenciales */}
       {mostrarModalError && (
         <div className={estilos.modalOverlay} onClick={cerrarModal}>
           <div className={estilos.modalContent} onClick={(e) => e.stopPropagation()}>
@@ -293,7 +329,6 @@ function LoginPage() {
         </div>
       )}
 
-      {/* Modal de éxito al restablecer contraseña */}
       {mostrarModalExito && (
         <div className={estilos.modalOverlay} onClick={cerrarModalExito}>
           <div className={estilos.modalContent} onClick={(e) => e.stopPropagation()}>

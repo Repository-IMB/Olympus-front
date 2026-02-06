@@ -13,15 +13,34 @@ import { useRecordatoriosGlobales } from "../hooks/useRecordatoriosGlobales";
 import { useBreakpoint } from "../hooks/useBreakpoint";
 import { usePermisosMenu } from "../hooks/usePermisosMenu";
 import Sidebar from "../componentes/Sidebar/Sidebar";
-import api from "../servicios/api";
 import styles from "./MainLayout.module.css";
 import { UserContext } from "../context/UserContext";
 
 const { Sider, Header, Content } = Layout;
 
-interface TokenData {
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"?: string;
+// 🔹 Interfaz para el JWT decodificado
+interface JwtPayload {
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier": string;
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name": string;
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": string;
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role": string;
+  IdRol: string;
+  NombreRol: string;
+  CodigoArea: string;
+  AccesoTotal: string;
+  IdPersonal?: string;
+}
+
+// 🔹 Interfaz para el contexto del usuario
+export interface UserContextType {
+  id: number;
+  nombre: string;
+  correo: string;
+  rol: string;
+  idRol: number;
+  areaCodigo: string;
+  accesoTotal: boolean;
+  idPersonal: number | null;
 }
 
 export default function MainLayout() {
@@ -35,50 +54,50 @@ export default function MainLayout() {
   const [apiNotification, contextHolder] = notification.useNotification();
   const { isMobile, isTablet, isDesktop } = useBreakpoint();
   const [idUsuario, setIdUsuario] = useState<number>(0);
-  const [userContext, setUserContext] = useState<any>(null);
+  const [userContext, setUserContext] = useState<UserContextType | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
 
-  /* ========= Leer token ========= */
+  /* ========= Leer y decodificar token JWT ========= */
   useEffect(() => {
     const token = Cookies.get("token");
-    if (!token) return;
+    if (!token) {
+      setLoadingContext(false);
+      return;
+    }
 
-    const decoded: TokenData = jwtDecode(token);
+    try {
+      const decoded = jwtDecode<JwtPayload>(token);
 
-    setUserName(
-      decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ??
-        "Usuario"
-    );
+      const nombre = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ?? "Usuario";
+      const id = parseInt(decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]);
+      
+      setUserName(nombre);
+      setIdUsuario(id);
 
-    const id =
-      decoded[
-        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-      ];
-    if (id) setIdUsuario(Number(id));
+      // 🔹 Crear contexto desde el JWT (SIN llamada al backend)
+      const context: UserContextType = {
+        id: id,
+        nombre: nombre,
+        correo: decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] ?? "",
+        rol: decoded.NombreRol ?? "",
+        idRol: parseInt(decoded.IdRol ?? "0"),
+        areaCodigo: decoded.CodigoArea ?? "",
+        accesoTotal: decoded.AccesoTotal === "True",
+        idPersonal: decoded.IdPersonal ? parseInt(decoded.IdPersonal) : null,
+      };
+
+      setUserContext(context);
+      setLoadingContext(false);
+    } catch (error) {
+      console.error("Error al decodificar token:", error);
+      setLoadingContext(false);
+      // Opcional: redirigir al login si el token es inválido
+      // navigate("/login");
+    }
   }, []);
-
-  /* ========= Contexto real ========= */
-  useEffect(() => {
-    if (!idUsuario) return;
-
-    const fetchContext = async () => {
-      try {
-        const res = await api.get(`/api/CFGModPermisos/contexto/${idUsuario}`);
-        setUserContext(res.data);
-      } catch (e) {
-        console.error("Error contexto", e);
-        setUserContext(null);
-      } finally {
-        setLoadingContext(false);
-      }
-    };
-
-    fetchContext();
-  }, [idUsuario]);
 
   const permisos = usePermisosMenu(userContext);
 
-  
   useRecordatoriosGlobales(idUsuario, apiNotification, navigate);
 
   useEffect(() => {
@@ -91,104 +110,108 @@ export default function MainLayout() {
     navigate("/login");
   };
 
-const handleNavigate = (path: string) => {
-  navigate(path);
+  const handleNavigate = (path: string) => {
+    navigate(path);
 
-  // 📱 Mobile → cerrar Drawer
-  if (isMobile) {
-    setIsDrawerOpen(false);
+    // 📱 Mobile → cerrar Drawer
+    if (isMobile) {
+      setIsDrawerOpen(false);
+    }
+
+    // 🖥 Desktop / Tablet → colapsar sidebar
+    if (!isMobile) {
+      setIsCollapsed(true);
+    }
+
+    // cerrar submenús
+    setOpenMenu(null);
+  };
+
+  if (loadingContext) {
+    return (
+      <div style={{ height: "100vh", display: "grid", placeItems: "center" }}>
+        <Spin size="large" />
+      </div>
+    );
   }
 
-  // 🖥 Desktop / Tablet → colapsar sidebar
-  if (!isMobile) {
-    setIsCollapsed(true);
-  }
-
-  // cerrar submenús
-  setOpenMenu(null);
-};
-
-
-if (loadingContext) {
   return (
-    <div style={{ height: "100vh", display: "grid", placeItems: "center" }}>
-      <Spin size="large" />
-    </div>
-  );
-}
+    <UserContext.Provider value={{ userContext }}>
+      <Layout className={styles.layout}>
+        {contextHolder}
 
-return (
-  <UserContext.Provider value={{ userContext }}>
-    <Layout className={styles.layout}>
-      {contextHolder}
+        {!isMobile && (
+          <Sider collapsed={isCollapsed} collapsedWidth={0} width={220}>
+            <Sidebar
+              permisos={permisos}
+              onNavigate={handleNavigate}
+              currentPath={location.pathname}
+              openMenu={openMenu}
+              onToggleMenu={setOpenMenu}
+            />
+          </Sider>
+        )}
 
-      {!isMobile && (
-        <Sider collapsed={isCollapsed} collapsedWidth={0} width={220}>
-          <Sidebar
-            permisos={permisos}
-            onNavigate={handleNavigate}
-            currentPath={location.pathname}
-            openMenu={openMenu}
-            onToggleMenu={setOpenMenu}
-          />
-        </Sider>
-      )}
-
-      {isMobile && (
-        <Drawer
-          open={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          placement="left"
-          width={220}
-        >
-          <Sidebar
-            permisos={permisos}
-            onNavigate={handleNavigate}
-            currentPath={location.pathname}
-            openMenu={openMenu}
-            onToggleMenu={setOpenMenu}
-          />
-        </Drawer>
-      )}
-
-      <Layout>
-        <Header className={styles.header}>
-          <Button
-            type="text"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            icon={isCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-          />
-
-          <Dropdown
-            menu={{
-              items: [
-                {
-                  key: "info",
-                  label: <strong>{userName}</strong>,
-                  disabled: true,
-                },
-                { type: "divider" },
-                {
-                  key: "logout",
-                  label: (
-                    <span onClick={handleLogout} style={{ color: "red" }}>
-                      <LogoutOutlined /> Cerrar sesión
-                    </span>
-                  ),
-                },
-              ],
-            }}
+        {isMobile && (
+          <Drawer
+            open={isDrawerOpen}
+            onClose={() => setIsDrawerOpen(false)}
+            placement="left"
+            width={220}
           >
-            <UserOutlined />
-          </Dropdown>
-        </Header>
+            <Sidebar
+              permisos={permisos}
+              onNavigate={handleNavigate}
+              currentPath={location.pathname}
+              openMenu={openMenu}
+              onToggleMenu={setOpenMenu}
+            />
+          </Drawer>
+        )}
 
-        <Content className={styles.content}>
-          <Outlet />
-        </Content>
+        <Layout>
+          <Header className={styles.header}>
+            <Button
+              type="text"
+              onClick={() => {
+                if (isMobile) {
+                  setIsDrawerOpen(!isDrawerOpen);
+                } else {
+                  setIsCollapsed(!isCollapsed);
+                }
+              }}
+              icon={isCollapsed || !isDrawerOpen ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            />
+
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: "info",
+                    label: <strong>{userName}</strong>,
+                    disabled: true,
+                  },
+                  { type: "divider" },
+                  {
+                    key: "logout",
+                    label: (
+                      <span onClick={handleLogout} style={{ color: "red" }}>
+                        <LogoutOutlined /> Cerrar sesión
+                      </span>
+                    ),
+                  },
+                ],
+              }}
+            >
+              <UserOutlined />
+            </Dropdown>
+          </Header>
+
+          <Content className={styles.content}>
+            <Outlet />
+          </Content>
+        </Layout>
       </Layout>
-    </Layout>
-  </UserContext.Provider>
-);
-
+    </UserContext.Provider>
+  );
 }

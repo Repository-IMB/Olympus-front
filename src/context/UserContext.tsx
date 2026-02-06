@@ -1,10 +1,21 @@
 import { createContext, useContext } from "react";
 
 export type UserContextType = {
-  userContext: any;
+  id: number;
+  nombre: string;
+  correo: string;
+  rol: string;
+  idRol: number;
+  areaCodigo: string;
+  accesoTotal: boolean;
+  idPersonal: number | null;
 };
 
-export const UserContext = createContext<UserContextType | null>(null);
+export type UserContextProviderType = {
+  userContext: UserContextType | null;
+};
+
+export const UserContext = createContext<UserContextProviderType | null>(null);
 
 export const useUserContext = () => {
   const ctx = useContext(UserContext);
