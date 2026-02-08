@@ -56,3 +56,25 @@ export const actualizarAlumno = async (alumno: IAlumnoInsertar): Promise<any> =>
     const response = await api.post("/api/ALMModAlumno/Actualizar", alumno);
     return response.data;
 };
+/**
+ * Interface for Session/Module checkboxes
+ */
+export interface ISesion {
+    idSesion: number;
+    nombre: string;
+    codigo: string;
+}
+
+interface ISesionesResponse {
+    sesiones: ISesion[];
+    codigo: string;
+    mensaje: string;
+}
+
+/**
+ * Fetches available sessions/modules for checkboxes
+ */
+export const obtenerSesiones = async (): Promise<ISesion[]> => {
+    const response = await api.get<ISesionesResponse>("/api/ALMModAlumno/ObtenerSesiones");
+    return response.data?.sesiones ?? [];
+};

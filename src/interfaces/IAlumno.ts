@@ -50,6 +50,7 @@ export interface IAlumnoInsertar {
     idAlumno?: number;
     idProducto: number | number[];
     idModulo: number | null;
+    idSesiones?: string | null; // Comma separated IDs of sessions
     nombres: string;
     apellidos: string;
     dni: string;
@@ -62,11 +63,12 @@ export interface IAlumnoInsertar {
     idTipoIngles: number | null;
     idTipoTec: number | null;
     idTipoFacturacion: number | null;
+    idMetodoPago: number | null;
     areaFormacion: string | null;
-    areaTrabajo: string;
+    areaTrabajo: string | null;
     cargo: string;
     empresa: string | null;
-    industria: string;
+    industria: string | null;
     razonSocial: string | null;
     numeroFactura: string | null;
     estadoFormulario: boolean;

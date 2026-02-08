@@ -16,7 +16,7 @@ export async function getOcurrenciasPermitidas(oportunidadId: number): Promise<O
   return res.data?.ocurrencias ?? res.data ?? [];
 }
 
-export async function crearHistorialConOcurrencia(oportunidadId: number, ocurrenciaId: number, usuario:number) {
+export async function crearHistorialConOcurrencia(oportunidadId: number, ocurrenciaId: number, usuario: number) {
   try {
     const res = await api.post(
       `/api/VTAModVentaHistorialEstado/CrearHistorialConOcurrencia/${oportunidadId}`,

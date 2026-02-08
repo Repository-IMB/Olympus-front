@@ -98,8 +98,9 @@ function App() {
 
     const checkToken = () => {
       const token = getCookie("token");
+      const currentPath = location.pathname.toLowerCase();
       const isPublic = publicRoutes.some((r) =>
-        location.pathname.startsWith(r)
+        currentPath.startsWith(r.toLowerCase())
       );
 
       if (!token) {
@@ -108,14 +109,28 @@ function App() {
       }
 
       const payload = parseJwt(token);
+
+      // Función para limpiar token sin redirigir (para rutas públicas)
+      const clearToken = () => {
+        document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      };
+
       if (!payload?.exp) {
-        logout();
+        if (isPublic) {
+          clearToken();
+        } else {
+          logout();
+        }
         return;
       }
 
       const now = Math.floor(Date.now() / 1000);
       if (payload.exp < now) {
-        logout();
+        if (isPublic) {
+          clearToken();
+        } else {
+          logout();
+        }
         return;
       }
       // 👇 KIOSK MODE: username "AsistenciaImb"
@@ -141,6 +156,12 @@ function App() {
       // 👇 LOGIN → DASHBOARD (Solo si NO es Kiosk user, o si la ruta no es asistencia)
       // Ajuste: Si es Kiosk user, ya lo manejamos arriba.
       if (isPublic && !isKioskUser) {
+        // Permitir acceso a /onboarding aunque se esté logueado, si se desea. 
+        // Pero el comportamiento estándar es redirigir.
+        // Si el usuario reporta redirect a Login, el fix de arriba (expiración) es el clave.
+        // Si reporta redirect a Dashboard y quiere acceso, tendríamos que excluir /onboarding de este bloque.
+        // Asumimos que el problema era el redirect a Login por token expirado.
+
         sessionStorage.setItem("forceDashboard", "1");
         navigate("/", { replace: true });
         return;
