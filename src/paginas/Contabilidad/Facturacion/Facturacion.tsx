@@ -34,19 +34,16 @@ const Facturacion: React.FC = () => {
   const [editForm] = Form.useForm();
 
   const [dataFacturas, setDataFacturas] = useState<any[]>([]);
-  const [dataFacturasOriginal, setDataFacturasOriginal] = useState<any[]>([]); 
+  const [dataFacturasOriginal, setDataFacturasOriginal] = useState<any[]>([]);
   const [personalList, setPersonalList] = useState<any[]>([]);
   const [contactosList, setContactosList] = useState<any[]>([]);
   const [productosList, setProductosList] = useState<any[]>([]);
-  const [metodosPagoList, setMetodosPagoList] = useState<any[]>([
-    { id: 1, nombre: 'Tarjeta de crédito' },
-    { id: 2, nombre: 'Pago en efectivo' },
-  ]);
-  
+  const [metodosPagoList, setMetodosPagoList] = useState<any[]>([]);
+ 
   // Estados para el modal de edición
   const [showEditModal, setShowEditModal] = useState(false);
   const [facturaSeleccionada, setFacturaSeleccionada] = useState<any>(null);
-  
+ 
   // Estado para el filtro
   const [filtroMetodoPago, setFiltroMetodoPago] = useState<string | null>(null);
 
@@ -58,7 +55,8 @@ const Facturacion: React.FC = () => {
   const [cargandoEstudiante, setCargandoEstudiante] = useState(false);
   const [autoFillCompleto, setAutoFillCompleto] = useState(false);
   const [camposLlenos, setCamposLlenos] = useState<Record<string, boolean>>({});
-  
+  const [precioBase, setPrecioBase] = useState(0);
+  const [haPagado, setHaPagado] = useState(false);
 
   const columnasFacturas = [
     { title: "Factura", dataIndex: "factura" },
@@ -87,14 +85,14 @@ const Facturacion: React.FC = () => {
       key: "acciones",
       render: (record: any) => (
         <>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             className={estilos.actionButton}
             onClick={() => handleVerFactura(record)}
           >
             Ver
           </Button>
-          <Dropdown 
+          <Dropdown
             overlay={
               <Menu>
                 <Menu.Item key="editar" onClick={() => handleEditarFactura(record)}>
@@ -118,8 +116,8 @@ const Facturacion: React.FC = () => {
   const handleEditarFactura = (record: any) => {
     setFacturaSeleccionada(record);
     const montoInicial = parseInt(
-      record.montoPagado || 
-      record.montoNetoOriginal || 
+      record.montoPagado ||
+      record.montoNetoOriginal ||
       (record.montoNeto?.replace('S/. ', '') || '0')
     ) || 0;
     editForm.setFieldsValue({
@@ -175,7 +173,7 @@ const Facturacion: React.FC = () => {
       const res = await contabilidadService.listarFacturas(params);
       const data = res?.data ?? res;
       const filas = data?.facturas || data?.filas || data?.rows || data?.list || [];
-      
+     
       const mapped = (filas || []).map((f: any, i: number) => ({
         key: f.id ?? i + 1,
         id: f.id,
@@ -192,7 +190,7 @@ const Facturacion: React.FC = () => {
         montoTotal: f.montoTotal || 0,
         montoRestante: f.montoRestante || 0,
       }));
-      
+     
       setDataFacturasOriginal(mapped);
       setDataFacturas(mapped);
     } catch (e) {
@@ -220,10 +218,14 @@ const Facturacion: React.FC = () => {
           console.warn('No se pudieron cargar productos', err);
         }
 
-        setMetodosPagoList([
-          { id: 1, nombre: 'Tarjeta de crédito' },
-          { id: 2, nombre: 'Pago en efectivo' },
-        ]);
+        try {
+          const metodosRes = await contabilidadService.obtenerMetodosPagoActivos();
+          setMetodosPagoList(metodosRes.metodoPagos || []);
+        } catch (err) {
+          console.warn('No se pudieron cargar métodos de pago', err);
+          message.warning('Métodos de pago no disponibles');
+        }
+
       } catch (e) {
         console.warn('Error cargando lookups', e);
       }
@@ -235,7 +237,6 @@ const Facturacion: React.FC = () => {
 
   const handleFiltrarPorMetodoPago = (metodoPago: string | null) => {
     setFiltroMetodoPago(metodoPago);
-    
     if (!metodoPago) {
       setDataFacturas(dataFacturasOriginal);
     } else {
@@ -284,7 +285,7 @@ const Facturacion: React.FC = () => {
         MontoTotal: Number(values.montoPagado) || Number(values.montoTotal) || 0,
         MontoNeto: Number(values.montoNeto) || 0,
         NumeroCuota: Number(values.numeroCuota) || 1,
-        IdMetodoPago: Number(values.idMetodoPago) || null, 
+        IdMetodoPago: Number(values.idMetodoPago) || null,
         RutaComprobante: rutaComprobante, // Ruta del archivo
         NombreComprobante: nombreArchivo, // Nombre del archivo
         ComprobanteBase64: archivoBase64, // Archivo en base64
@@ -295,13 +296,12 @@ const Facturacion: React.FC = () => {
       };
 
       const resp = await contabilidadService.crearFactura(payload);
-      
       message.success('Factura creada correctamente');
 
       form.resetFields();
       setFileList([]);
       cargarFacturas(filtroMetodoPago);
-      
+     
     } catch (err: any) {
       console.error('Error crear factura', err);
       message.error('No se pudo crear la factura');
@@ -325,6 +325,16 @@ const Facturacion: React.FC = () => {
     []
   );
 
+  const calcularMontoNeto = useCallback((descuentoPorcentaje: number) => {
+    if (precioBase <= 0) return;
+   
+    const descuentoDecimal = descuentoPorcentaje / 100;
+    const montoNetoCalculado = Math.round(precioBase * (1 - descuentoDecimal));
+   
+    form.setFieldsValue({ montoNeto: montoNetoCalculado });
+  }, [precioBase, form]);
+
+
   const cargarDatosEstudiante = useCallback(async (idPersona: number) => {
     if (!idPersona) return;
     setCargandoEstudiante(true);
@@ -332,6 +342,12 @@ const Facturacion: React.FC = () => {
       const result = await contabilidadService.obtenerDatosFormularioEstudiante(idPersona);
       if (result.exito) {
         setDatosEstudiante(result);
+
+        const montoPagado = result.montoPagado || 0;
+        setHaPagado(montoPagado > 0);
+
+        const precioBaseCalculado = Math.round((result.montoNeto * 100) / (100 - result.descuentoPorcentaje));
+        setPrecioBase(precioBaseCalculado);
 
         const valores = {
           codigoCurso: result.codigoCurso || '',
@@ -349,6 +365,9 @@ const Facturacion: React.FC = () => {
 
         form.setFieldsValue(valores);
 
+        const descuentoOriginal = result.descuentoPorcentaje || 0;
+        setTimeout(() => calcularMontoNeto(descuentoOriginal), 100);
+
         const nuevosLlenos: Record<string, boolean> = {};
         nuevosLlenos.codigoCurso = isDatoReal(result.codigoCurso, 'codigoCurso');
         nuevosLlenos.nombreCurso = isDatoReal(result.nombreCurso, 'nombreCurso');
@@ -358,35 +377,75 @@ const Facturacion: React.FC = () => {
         nuevosLlenos.montoNeto = isDatoReal(result.montoNeto, 'montoNeto');
         nuevosLlenos.montoPagado = isDatoReal(result.montoPagado, 'montoPagado');
         nuevosLlenos.idMetodoPago = !!result.idMetodoPago && result.idMetodoPago > 0;
-        
+       
         setCamposLlenos(nuevosLlenos);
       } else {
         message.warning(result.mensaje || 'Estudiante no encontrado. Llena manualmente.');
-        setAutoFillCompleto(false);
         setDatosEstudiante(null);
+        setHaPagado(false);
+        setPrecioBase(0);
       }
     } catch (error) {
       message.error('Error cargando datos del estudiante');
-      setAutoFillCompleto(false);
+      setDatosEstudiante(null);
+      setHaPagado(false);
     } finally {
       setCargandoEstudiante(false);
     }
-  }, [form]);
+  }, [form, calcularMontoNeto]);
+
 
   const onSelectEstudiante = (value: number, option: any) => {
+
+    if (value) {
+      // Resetear campos del formulario
+      form.resetFields([
+        'codigoCurso',
+        'correo', 
+        'whatsapp', 
+        'pais', 
+        'fichaInscripcion', 
+        'condicionPago', 
+        'montoPagado', 
+        'montoNeto', 
+        'numeroCuota', 
+        'idMetodoPago'
+      ]);
+      
+      // Resetear estados internos
+      setCamposLlenos({});
+      setHaPagado(false);
+      setPrecioBase(0);
+      setAutoFillCompleto(false);
+    }
     cargarDatosEstudiante(value);
   };
 
-  const limpiarAutoFill = () => {
+  const onClearEstudiante = () => {
     setDatosEstudiante(null);
     setAutoFillCompleto(false);
     setEstudiantes([]);
-    form.resetFields(['codigoCurso', 'correo', 'whatsapp', 'pais', 'fichaInscripcion', 'condicionPago', 'montoPagado', 'montoNeto', 'numeroCuota', 'idMetodoPago']);
+    setHaPagado(false);
+    setPrecioBase(0);
+    setCamposLlenos({});
+    
+    form.resetFields([
+      'codigoCurso',
+      'correo', 
+      'whatsapp', 
+      'pais', 
+      'fichaInscripcion', 
+      'condicionPago', 
+      'montoPagado', 
+      'montoNeto', 
+      'numeroCuota', 
+      'idMetodoPago'
+    ]);
   };
 
   const isDatoReal = (campo: any, nombreCampo: string): boolean => {
     if (!campo || campo === '' || campo === 0 || campo === '0') return false;
-    
+   
     // Defaults conocidos
     const defaults = {
       pais: 'Perú',
@@ -394,9 +453,31 @@ const Facturacion: React.FC = () => {
       condicionPago: 'Completo',
       fichaInscripcion: false
     };
-    
+   
     return campo !== defaults[nombreCampo as keyof typeof defaults];
   };
+
+  const handleCondicionPagoChange = useCallback((valor: string) => {
+    let descuentoPorcentaje = 0;
+   
+    if (valor === 'Completo') {
+      descuentoPorcentaje = 0;
+    } else if (valor.includes('%')) {
+      descuentoPorcentaje = parseFloat(valor); // "5" → 5
+    } else if (valor.includes('cuotas')) {
+      descuentoPorcentaje = 0; // O el descuento que corresponda
+    }
+   
+    calcularMontoNeto(descuentoPorcentaje);
+  }, [calcularMontoNeto]);
+
+  const handleMontoPagadoChange = useCallback((valor: number | null) => {
+    if (valor !== null && valor > 0 && !datosEstudiante) {
+      setHaPagado(true);
+    } else if(valor === 0 || valor === null) {
+      setHaPagado(false);
+    }
+  }, [datosEstudiante]);
 
   useEffect(() => {
     return () => {
@@ -427,10 +508,13 @@ const Facturacion: React.FC = () => {
                 label="Modo de pago"
                 className={estilos.formItem}
               >
-                <Select 
-                  placeholder="Selecciona método de pago" 
+                <Select
+                  placeholder="Selecciona método de pago"
                   allowClear
+                  virtual={true}
+                  listHeight={256}
                   onChange={(value) => handleFiltrarPorMetodoPago(value as string || null)}
+                  loading={!metodosPagoList.length}
                 >
                   {metodosPagoList.map(m=> (
                     <Option key={m.id} value={m.nombre}>{m.nombre}</Option>
@@ -515,7 +599,12 @@ const Facturacion: React.FC = () => {
                 name="asesor"
                 className={estilos.formItem}
               >
-                <Select placeholder="Selecciona asesor" allowClear>
+                <Select 
+                  placeholder="Selecciona asesor" 
+                  allowClear
+                  virtual={true}
+                  listHeight={256}
+                >
                   {personalList.map(p=> (<Option key={p.id} value={p.id}>{p.nombre || `Id ${p.id}`}</Option>))}
                 </Select>
               </Form.Item>
@@ -538,28 +627,22 @@ const Facturacion: React.FC = () => {
             </Col>
 
             <Col xs={24} md={12}>
-              <Form.Item label="Nombres y apellidos del estudiante">
+              <Form.Item label="Nombres y apellidos del alumno">
                 <div>
                   <Select
                     showSearch
-                    placeholder="Escribe para buscar estudiantes"
+                    allowClear
+                    placeholder="Escribe para buscar alumnos"
                     filterOption={false}
                     onSearch={handleSearchEstudiantes}
                     onChange={onSelectEstudiante}
+                    onClear={onClearEstudiante}
                     loading={cargandoEstudiante}
                     notFoundContent={cargandoEstudiante ? <Spin size="small" /> : 'Escribe para buscar...'}
+                    virtual={true}
+                    listHeight={256}
                     style={{ width: '100%' }}
-                    dropdownRender={(menu) => (
-                      <>
-                        {menu}
-                        <Divider style={{ margin: '-4px 0 4px' }} />
-                        <div style={{ padding: '0 8px 4px' }}>
-                          <Button type="link" onClick={limpiarAutoFill} size="small">
-                            Limpiar auto-fill
-                          </Button>
-                        </div>
-                      </>
-                    )}
+
                   >
                     {estudiantes.map((est) => (
                       <Option key={est.idPersona} value={est.idPersona}>
@@ -584,8 +667,8 @@ const Facturacion: React.FC = () => {
                   rules={[{ required: true, message: 'El código del curso es requerido' }]}
                   noStyle
                 >
-                  <Input 
-                    placeholder="Nombre/código del curso" 
+                  <Input
+                    placeholder="Nombre/código del curso"
                     disabled={camposLlenos.codigoCurso}
                     style={!datosEstudiante?.nombreCurso ? {} : { display: 'none' }}
                   />
@@ -595,7 +678,7 @@ const Facturacion: React.FC = () => {
 
             <Col xs={24} md={12}>
               <Form.Item
-                label="Correo estudiante"
+                label="Correo alumno"
                 name="correo"
                 rules={[{ required: true, type: 'email' }]}
               >
@@ -605,7 +688,7 @@ const Facturacion: React.FC = () => {
 
             <Col xs={24} md={12}>
               <Form.Item
-                label="WhatsApp estudiante"
+                label="WhatsApp alumno"
                 name="whatsapp"
                 rules={[{ required: true }]}
               >
@@ -619,12 +702,15 @@ const Facturacion: React.FC = () => {
                 name="pais"
                 className={estilos.formItem}
               >
-                <Select 
-                  showSearch 
-                  optionFilterProp="children" 
-                  placeholder="Seleccione un país" 
-                  disabled={camposLlenos.pais} 
-                  style={camposLlenos.pais ? { background: '#f6ffed', color: '#389e0d', cursor: 'not-allowed' } : {}} 
+                <Select
+                  showSearch
+                  optionFilterProp="children"
+                  placeholder="Seleccione un país"
+                  disabled={camposLlenos.pais}
+                  virtual={true}
+                  listHeight={256}
+                  style={camposLlenos.pais ? { background: '#f6ffed', color: '#389e0d', cursor: 'not-allowed' } : {}}
+                  allowClear
                 >
                   <Option value="Angola">Angola</Option>
                   <Option value="Argentina">Argentina</Option>
@@ -668,7 +754,7 @@ const Facturacion: React.FC = () => {
                 name="fichaInscripcion"
                 valuePropName="checked"
               >
-                <Checkbox 
+                <Checkbox
                   disabled={!!datosEstudiante}
                   style={datosEstudiante? { color: '#389e0d' } : {}}
                 >
@@ -702,16 +788,17 @@ const Facturacion: React.FC = () => {
               >
                 <Select
                   placeholder="Selecciona condición de pago"
-                  disabled={autoFillCompleto && !!datosEstudiante?.descuentoPorcentaje}
-                  style={autoFillCompleto ? { background: '#f6ffed', color: '#389e0d' } : {}}
+                  disabled={haPagado && !!datosEstudiante?.montoPagado}
+                  onChange={handleCondicionPagoChange}
+                  style={haPagado && !!datosEstudiante?.montoPagado ? { background: '#f6ffed', color: '#389e0d', cursor: 'not-allowed' } : {}}
                 >
                   <Option value="Completo">Completo (precio regular)</Option>
-                  <Option value="5">5% dscto</Option>
-                  <Option value="10">10% dscto</Option>
-                  <Option value="15">15% dscto</Option>
-                  <Option value="20">20% dscto</Option>
-                  <Option value="25">25% dscto</Option>
-                  <Option value="30">30% dscto</Option>
+                  <Option value="5%">5% dscto</Option>
+                  <Option value="10%">10% dscto</Option>
+                  <Option value="15%">15% dscto</Option>
+                  <Option value="20%">20% dscto</Option>
+                  <Option value="25%">25% dscto</Option>
+                  <Option value="30%">30% dscto</Option>
                   <Option value="2cuotas">Fraccionado 2 cuotas</Option>
                   <Option value="3cuotas">Fraccionado 3 cuotas</Option>
                   <Option value="4cuotas">Fraccionado 4 cuotas</Option>
@@ -751,8 +838,9 @@ const Facturacion: React.FC = () => {
                     const cleaned = displayValue.replace(/[^\d]/g, '');
                     return cleaned ? parseInt(cleaned, 10) || 0 : 0;
                   }}
-                  style={autoFillCompleto && datosEstudiante?.montoPagado ? { background: '#f6ffed', color: '#389e0d' } : {}}
-                  disabled={autoFillCompleto && !!datosEstudiante?.montoPagado}
+                  onChange={handleMontoPagadoChange}
+                  disabled={haPagado && !!datosEstudiante?.montoPagado}
+                  style={haPagado && !!datosEstudiante?.montoPagado ? { background: '#f6ffed', color: '#389e0d', cursor: 'not-allowed' } : {}}
                 />
               </Form.Item>
             </Col>
@@ -767,11 +855,12 @@ const Facturacion: React.FC = () => {
                   min={0}
                   step={1}
                   precision={0}
-                  disabled={camposLlenos.montoNeto}
-                  style={camposLlenos.montoNeto ? { 
-                    background: '#f6ffed', 
-                    color: '#389e0d'
-                  } : {}}
+                  disabled={true}
+                  style={{
+                    background: '#f6ffed',
+                    color: '#389e0d',
+                    cursor: 'not-allowed'
+                  }}
                   formatter={(value) => value ? `$/. ${value.toLocaleString()}` : '$/. 0'}
                   parser={(displayValue) => {
                     if (!displayValue) return 0;
@@ -788,9 +877,9 @@ const Facturacion: React.FC = () => {
                 name="numeroCuota"
                 className={estilos.formItem}
               >
-                <InputNumber 
-                  min={1} 
-                  className={estilos.amountInput} 
+                <InputNumber
+                  min={1}
+                  className={estilos.amountInput}
                   style={autoFillCompleto && datosEstudiante?.numeroCuotas ? { background: '#f6ffed', color: '#389e0d' } : {}}
                   disabled={autoFillCompleto && !!datosEstudiante?.numeroCuotas}
                 />
@@ -803,10 +892,12 @@ const Facturacion: React.FC = () => {
                 name="idMetodoPago"
                 required
               >
-                <Select 
+                <Select
                   placeholder="Selecciona método de pago"
+                  loading={!metodosPagoList.length}
                   disabled={autoFillCompleto && !!datosEstudiante?.idMetodoPago}
                   style={camposLlenos.modoPago ? { background: '#f6ffed', color: '#389e0d' } : {}}
+                  allowClear
                 >
                   {metodosPagoList.map((m: any) => (
                     <Option key={m.id} value={m.id}>{m.nombre}</Option>
@@ -888,8 +979,8 @@ const Facturacion: React.FC = () => {
         footer={null}
         width={500}
       >
-        <Form 
-          layout="vertical" 
+        <Form
+          layout="vertical"
           form={editForm}
           onFinish={handleActualizarFactura}
         >

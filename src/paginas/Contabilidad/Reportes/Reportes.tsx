@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { Row, Col, Card, Table, Tag } from "antd";
+import { Row, Col, Card, Table, Tag, Button } from "antd";
 import ECharts from "../../../componentes/Grafico/ECharts";
 import * as echarts from 'echarts/core';
 import styles from "./Reportes.module.css";
 import contabilidadService from '../../../servicios/contabilidadService';
 
 const Reportes: React.FC = () => {
+
+  const [fechaActual, setFechaActual] = useState({
+    mes: 2, // Febrero 2026
+    anio: 2026
+  });
+
   const columnasIngresosEgresos = [
     { title: "Mes", dataIndex: "mes" },
     { 
@@ -48,6 +54,118 @@ const Reportes: React.FC = () => {
   const [top10Personal, setTop10Personal] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
+  const cambiarMes = (direccion: 'anterior' | 'siguiente') => {
+    setLoading(true);
+    let nuevoMes = fechaActual.mes + (direccion === 'siguiente' ? 1 : -1);
+    let nuevoAnio = fechaActual.anio;
+
+    if (nuevoMes > 12) {
+      nuevoMes = 1;
+      nuevoAnio += 1;
+    } else if (nuevoMes < 1) {
+      nuevoMes = 12;
+      nuevoAnio -= 1;
+    }
+
+    setFechaActual({ mes: nuevoMes, anio: nuevoAnio });
+  };
+
+  const nombreMes = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ][fechaActual.mes - 1];
+
+  // Cargar datos con filtro de fecha
+  const cargarDatos = async () => {
+    setLoading(true);
+    try {
+      const [reportRes, areasRes, resumenRes, top10Res] = await Promise.all([
+        contabilidadService.reporteIngresosEgresos(12),
+        contabilidadService.obtenerAreasConGastos(fechaActual.mes, fechaActual.anio),
+        contabilidadService.obtenerResumenFinanciero(fechaActual.mes, fechaActual.anio),
+        contabilidadService.obtenerIngresosPersonalMesActual()
+      ]);
+
+      const reportData = reportRes?.data ?? reportRes ?? [];
+      const filas = reportData?.filas || reportData?.rows || reportData || [];
+      if (Array.isArray(filas) && filas.length) {
+        const mapped = filas.map((f: any, i: number) => ({
+          key: f.mes || f.Mes || f.mes || i + 1,
+          mes: f.mes || f.Mes || f.nombreMes || f.nombre || `Mes ${i + 1}`,
+          ingresos: f.ingresos ?? f.Ingresos ?? 0,
+          egresos: f.egresos ?? f.Egresos ?? 0,
+          resultado: f.resultado ?? f.Resultado ?? 0,
+        }));
+        setDataIngresosEgresosState(mapped.map((r: any) => ({
+          ...r,
+          ingresos: `$/. ${Number(r.ingresos).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`,
+          egresos: `$/. ${Number(r.egresos).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`,
+          resultado: `$/. ${Number(r.resultado).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`
+        })));
+      }
+
+      // Gastos por áreas (ya filtrado por SP)
+      const areasData = areasRes?.data ?? areasRes ?? [];
+      if (Array.isArray(areasData)) {
+        const areasFiltradas = areasData
+          .filter((a: any) => {
+            // Si no tiene fecha de gasto, no incluir
+            if (!a.FechaGasto) return false;
+            
+            try {
+              const fechaGasto = new Date(a.FechaGasto);
+              const mesGasto = fechaGasto.getMonth() + 1;
+              const anioGasto = fechaGasto.getFullYear();
+              
+              // Solo incluir si coincide con el mes y año seleccionado
+              return mesGasto === fechaActual.mes && anioGasto === fechaActual.anio;
+            } catch (e) {
+              return false;
+            }
+          })
+          .map((a: any) => ({
+            id: a.Id ?? a.id,
+            area: (a.AreaTrabajo ?? a.areaTrabajo ?? a.Area) || a.AreaTrabajo,
+            total: a.TotalGastos ?? a.totalGastos ?? a.TotalGastos ?? 0
+          }))
+          // Filtrar áreas con total > 0
+          .filter((a: any) => a.total > 0);
+        
+        setAreasConGastos(areasFiltradas);
+      }
+
+      // Ingresos por personal - filtrar solo el mes actual
+      const top10Data = top10Res?.data ?? top10Res ?? [];
+      if (Array.isArray(top10Data)) {
+        const filtradosMesActual = top10Data.filter((p: any) => {
+          const mesStr = p.mesPeriodo || '';
+          return mesStr.includes(`${fechaActual.anio}-${fechaActual.mes.toString().padStart(2, '0')}`);
+        });
+        setTop10Personal(filtradosMesActual);
+      }
+
+      // Gastos recientes - filtrar solo el mes actual
+      const resumenData = resumenRes?.data ?? resumenRes ?? {};
+      const gastos = Array.isArray(resumenData.gastosRecientes) ? resumenData.gastosRecientes : (resumenData.gastosRecientes || []);
+      const gastosFiltrados = (gastos || []).filter((g: any) => {
+        try {
+          const d = new Date(g.fechaGasto || g.FechaGasto || g.fecha || g.fecha);
+          return d.getMonth() + 1 === fechaActual.mes && d.getFullYear() === fechaActual.anio;
+        } catch (e) { return false; }
+      });
+      setGastosRecientes(gastosFiltrados);
+
+    } catch (e) {
+      console.warn('No se pudo cargar reportes contabilidad', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarDatos();
+  }, [fechaActual]);
+
   useEffect(()=>{
     const load = async () => {
       setLoading(true);
@@ -76,10 +194,6 @@ const Reportes: React.FC = () => {
           setDataIngresosEgresosState(mapped.map((r:any)=>({ ...r, ingresos: `S/. ${Number(r.ingresos).toFixed(2)}`, egresos: `S/. ${Number(r.egresos).toFixed(2)}`, resultado: `S/. ${Number(r.resultado).toFixed(2)}`})));
         }
 
-        const areasData = areasRes?.data ?? areasRes ?? [];
-        if (Array.isArray(areasData)) {
-          setAreasConGastos(areasData.map((a:any)=>({ id: a.Id ?? a.id, area: (a.AreaTrabajo ?? a.areaTrabajo ?? a.Area) || a.AreaTrabajo, total: a.TotalGastos ?? a.totalGastos ?? a.TotalGastos ?? 0 })));
-        }
 
         const top10Data = top10Res?.data ?? top10Res ?? [];
         if (Array.isArray(top10Data)) {
@@ -112,7 +226,7 @@ const Reportes: React.FC = () => {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
       formatter: (params: any) => {
-        return `${params[0].name}<br/>${params[0].marker} ${params[0].seriesName}: S/. ${params[0].value}`;
+        return `${params[0].name}<br/>${params[0].marker} ${params[0].seriesName}: $/. ${params[0].value?.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
       }
     },
     grid: { left: '5%', right: '5%', top: '10%', bottom: '20%' },
@@ -144,22 +258,21 @@ const Reportes: React.FC = () => {
       itemStyle: { 
         color: (params: any) => {
           const colorList = ['#1890ff', '#52c41a', '#faad14', '#f5222d'];
-          return colorList[params.dataIndex];
+          return colorList[params.dataIndex % colorList.length];
         },
         borderRadius: [5, 5, 0, 0]
       }
     }]
   };
-  // Gráfico de dona para gastos por área (usa AreaTrabajo y TotalGastos)
+
   const opcionesDonaAreas = {
     tooltip: {
       trigger: 'item',
       formatter: (params: any) => {
         const val = params.value ?? 0;
-        return `${params.seriesName} <br/>${params.name}: S/. ${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${params.percent}%)`;
+        return `${params.seriesName} <br/>${params.name}: $/. ${Number(val).toLocaleString('es-PE', { minimumFractionDigits: 2 })} (${params.percent}%)`;
       }
     },
-    grid: { left: '0%', right: '0%', top: '0%', bottom: '0%', containLabel: true },
     legend: { orient: 'vertical', right: '10%', top: 'middle', data: areasConGastos.map(a=>a.area), textStyle: { fontSize: 8 }, itemGap: 2 },
     series: [{
       name: 'Gastos por Área',
@@ -175,7 +288,12 @@ const Reportes: React.FC = () => {
       emphasis: {
         label: { show: true, fontSize: '12', fontWeight: 'bold' }
       },
-      data: areasConGastos && areasConGastos.length ? areasConGastos.map((a:any)=>({ value: Number(a.total) || 0, name: a.area || a.AreaTrabajo || 'Sin área' })) : []
+      data: areasConGastos.length > 0 
+        ? areasConGastos.map((a: any) => ({ 
+            value: Number(a.total) || 0, 
+            name: a.area || a.AreaTrabajo || 'Sin área' 
+          }))
+        : [{ value: 0, name: 'Sin datos' }]
     }]
   };
   // Gráfico de barras para gastos por personal
@@ -193,13 +311,13 @@ const Reportes: React.FC = () => {
         return `
           <strong>${personal.nombreCompleto || params[0].name}</strong><br/>
           Facturas: ${personal.cantidadFacturas || 0}<br/>
-          Ingresos: S/. ${Number(params[0].value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          Ingresos: S/. ${Number(params[0].value).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
         `;
       }
     },
     yAxis: {
       type: 'category',
-      data: top10Personal && top10Personal.length 
+      data: top10Personal.length 
         ? [...top10Personal].reverse().map((p:any) => p.nombreCompleto || `${p.nombres || ''} ${p.apellidos || ''}`.trim() || 'Sin nombre')
         : ['Sin datos'],
       axisLabel: { show: true, fontSize: 12, width: 100, overflow: 'truncate' }
@@ -209,18 +327,15 @@ const Reportes: React.FC = () => {
     series: [{
       name: 'Ingresos',
       type: 'bar',
-      data: top10Personal && top10Personal.length
+      data: top10Personal.length
         ? [...top10Personal].reverse().map((p:any) => Number(p.totalIngresos || 0))
         : [0],
       itemStyle: {
         color: (params: any) => {
           // Gradiente de colores - invertir también el índice para los colores
           const colorList = ['#1890ff', '#36cfc9', '#73d13d', '#ffc53d', '#ff7a45', '#ff4d4f', '#9254de', '#722ed1', '#eb2f96', '#faad14'];
-          const reversedIndex = (top10Personal.length - 1 - params.dataIndex) % colorList.length;
-          return new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-            { offset: 0, color: colorList[reversedIndex] || '#1890ff' },
-            { offset: 1, color: `${colorList[reversedIndex] || '#1890ff'}80` }
-          ]);
+          return colorList[params.dataIndex % colorList.length];
+          
         },
         borderRadius: [0, 5, 5, 0]
       }
@@ -231,10 +346,32 @@ const Reportes: React.FC = () => {
     <div className={styles.container}>
       <h1 className={styles.title}>Reportes de ingresos y egresos</h1>
 
+      <div style={{ textAlign: 'center', margin: '24px 0', padding: '16px 0' }}>
+        <Button 
+          type="text" 
+          icon="<" 
+          size="large"
+          onClick={() => cambiarMes('anterior')}
+          disabled={loading}
+          style={{ marginRight: 16, fontSize: 16 }}
+        />
+        <strong style={{ fontSize: 18, color: '#1890ff', margin: '0 24px' }}>
+           {nombreMes} - {fechaActual.anio}
+        </strong>
+        <Button 
+          type="text" 
+          icon=">" 
+          size="large"
+          onClick={() => cambiarMes('siguiente')}
+          disabled={loading}
+          style={{ marginLeft: 16, fontSize: 16 }}
+        />
+      </div>
+
       <Row gutter={[16, 16]} className={styles.metricsContainer}>
         <Col xs={24} md={8}>
           <Card 
-            title="Gastos generales" 
+            title="Gastos generales"
             className={styles.card}
             headStyle={{ fontSize: '15px' }}
             bodyStyle={{ height: '350px' }}  
@@ -259,7 +396,7 @@ const Reportes: React.FC = () => {
 
         <Col xs={24} md={8}>
           <Card 
-            title="Ingresos por personal" 
+            title="Ingresos por personal"
             className={styles.card}
             headStyle={{ fontSize: '15px' }}
             extra={top10Personal.length > 0 && <Tag color="blue">Top {top10Personal.length}</Tag>}

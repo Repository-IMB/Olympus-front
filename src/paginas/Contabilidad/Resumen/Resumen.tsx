@@ -214,9 +214,9 @@ const Resumen: React.FC = () => {
       orient: 'vertical', 
       right: '5%', 
       top: 'middle', 
-      itemGap: 1,        // ← Espacio mínimo
+      itemGap: 1, 
       textStyle: { 
-        fontSize: 9,     // ← Letras pequeñas
+        fontSize: 9, 
         fontWeight: 500 
       },
       width: '30%'
@@ -224,8 +224,8 @@ const Resumen: React.FC = () => {
     series: [{
       name: 'Ingresos por Área',
       type: 'pie',
-      radius: ['60%', '35%'],        // ← Donut más delgado
-      center: ['25%', '50%'],        // ← Pegado a la izquierda
+      radius: ['60%', '35%'],
+      center: ['25%', '50%'],
       avoidLabelOverlap: false,
       itemStyle: { 
         borderRadius: 8, 
@@ -529,7 +529,7 @@ const Resumen: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <span>Ingresos generales por tipo</span>
                   <Input.Search
-                    placeholder="Buscar curso específico (ej: Power BI)..." 
+                    placeholder="Escribe nombre o código del curso completo" 
                     value={buscadorCurso} 
                     onChange={(e) => setBuscadorCurso(e.target.value)} 
                     onSearch={fetchCursoEspecifico} 

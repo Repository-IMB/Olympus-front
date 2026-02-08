@@ -100,3 +100,30 @@
   margin-top: 4px;
   font-size: 12px;
 }
+
+:global(.ant-select-dropdown) {
+  /* Scroll más fluido */
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Mejora de scroll en dropdowns */
+:global(.ant-select-item-option-content) {
+  /* Evitar parpadeo durante scroll */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Optimización del dropdown */
+:global(.ant-select-dropdown .rc-virtual-list) {
+  /* Mejorar rendimiento de lista virtual */
+  overflow-y: auto !important;
+  will-change: scroll-position;
+}
+
+:global(.ant-select-dropdown .rc-virtual-list-holder) {
+  /* Prevenir saltos visuales */
+  will-change: transform;
+}

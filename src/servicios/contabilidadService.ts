@@ -197,6 +197,16 @@ export const obtenerDatosFormularioEstudiante = async (idPersona: number) => {
   }
 };
 
+export const obtenerMetodosPagoActivos = async (): Promise<any> => {
+  try {
+    const response = await api.get('/api/VentaMetodoPago/activos');
+    return response.data ?? response;
+  } catch (error) {
+    console.error("contabilidadService.obtenerMetodosPagoActivos error:", error);
+    throw error;
+  }
+};
+
 export default {
 	obtenerResumenFinanciero,
 	listarFacturas,
@@ -213,4 +223,5 @@ export default {
     obtenerEstadisticasCursoEspecifico,
 	listarEstudiantesFormulario,
   	obtenerDatosFormularioEstudiante,
+  	obtenerMetodosPagoActivos,
 };
