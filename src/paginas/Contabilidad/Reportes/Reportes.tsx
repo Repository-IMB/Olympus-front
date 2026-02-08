@@ -8,7 +8,7 @@ import contabilidadService from '../../../servicios/contabilidadService';
 const Reportes: React.FC = () => {
 
   const [fechaActual, setFechaActual] = useState({
-    mes: 2, // Febrero 2026
+    mes: 2,
     anio: 2026
   });
 
@@ -75,7 +75,6 @@ const Reportes: React.FC = () => {
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ][fechaActual.mes - 1];
 
-  // Cargar datos con filtro de fecha
   const cargarDatos = async () => {
     setLoading(true);
     try {
@@ -104,12 +103,10 @@ const Reportes: React.FC = () => {
         })));
       }
 
-      // Gastos por áreas (ya filtrado por SP)
       const areasData = areasRes?.data ?? areasRes ?? [];
       if (Array.isArray(areasData)) {
         const areasFiltradas = areasData
           .filter((a: any) => {
-            // Si no tiene fecha de gasto, no incluir
             if (!a.FechaGasto) return false;
             
             try {
@@ -117,7 +114,6 @@ const Reportes: React.FC = () => {
               const mesGasto = fechaGasto.getMonth() + 1;
               const anioGasto = fechaGasto.getFullYear();
               
-              // Solo incluir si coincide con el mes y año seleccionado
               return mesGasto === fechaActual.mes && anioGasto === fechaActual.anio;
             } catch (e) {
               return false;
@@ -128,13 +124,11 @@ const Reportes: React.FC = () => {
             area: (a.AreaTrabajo ?? a.areaTrabajo ?? a.Area) || a.AreaTrabajo,
             total: a.TotalGastos ?? a.totalGastos ?? a.TotalGastos ?? 0
           }))
-          // Filtrar áreas con total > 0
           .filter((a: any) => a.total > 0);
         
         setAreasConGastos(areasFiltradas);
       }
 
-      // Ingresos por personal - filtrar solo el mes actual
       const top10Data = top10Res?.data ?? top10Res ?? [];
       if (Array.isArray(top10Data)) {
         const filtradosMesActual = top10Data.filter((p: any) => {
@@ -144,7 +138,6 @@ const Reportes: React.FC = () => {
         setTop10Personal(filtradosMesActual);
       }
 
-      // Gastos recientes - filtrar solo el mes actual
       const resumenData = resumenRes?.data ?? resumenRes ?? {};
       const gastos = Array.isArray(resumenData.gastosRecientes) ? resumenData.gastosRecientes : (resumenData.gastosRecientes || []);
       const gastosFiltrados = (gastos || []).filter((g: any) => {
@@ -200,10 +193,8 @@ const Reportes: React.FC = () => {
           setTop10Personal(top10Data);
         }
 
-        // Resumen financiero - usar gastosRecientes para gráfico de gastos generales (mes actual)
         const resumenData = resumenRes?.data ?? resumenRes ?? {};
         const gastos = Array.isArray(resumenData.gastosRecientes) ? resumenData.gastosRecientes : (resumenData.gastosRecientes || []);
-        // Asegurar que solo sean del mes/anio actual
         const gastosFiltrados = (gastos || []).filter((g:any)=>{
           try {
             const d = new Date(g.fechaGasto || g.FechaGasto || g.fecha || g.fecha);
@@ -233,7 +224,6 @@ const Reportes: React.FC = () => {
     xAxis: {
       type: 'category',
       data: gastosRecientes && gastosRecientes.length ? (() => {
-        // agrupar por tipoGasto o area
         const agrup: any = {};
         gastosRecientes.forEach((g:any) => {
           const key = g.tipoGasto || g.tipo || g.tipoGastoDescripcion || g.area || 'Otros';
@@ -296,14 +286,12 @@ const Reportes: React.FC = () => {
         : [{ value: 0, name: 'Sin datos' }]
     }]
   };
-  // Gráfico de barras para gastos por personal
   const opcionesBarrasPersonal = {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
       formatter: (params: any) => {
         const index = params[0].dataIndex;
-        // Invertir el índice para acceder al dato correcto
         const reversedIndex = top10Personal.length - 1 - index;
         const personal = top10Personal[reversedIndex];
         if (!personal) return `${params[0].name}<br/>Ingresos: S/. ${params[0].value}`;
@@ -332,7 +320,6 @@ const Reportes: React.FC = () => {
         : [0],
       itemStyle: {
         color: (params: any) => {
-          // Gradiente de colores - invertir también el índice para los colores
           const colorList = ['#1890ff', '#36cfc9', '#73d13d', '#ffc53d', '#ff7a45', '#ff4d4f', '#9254de', '#722ed1', '#eb2f96', '#faad14'];
           return colorList[params.dataIndex % colorList.length];
           

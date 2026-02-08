@@ -12,7 +12,6 @@ export const obtenerResumenFinanciero = async (
 	idUsuario?: number
 ): Promise<ResumenFinancieroDTO> => {
 	try {
-		// Endpoint actual: /api/CTBModContabilidad/ResumenFinanciero?mes=1&anio=2026
 		const response = await api.get(`${basePath}/ResumenFinanciero`, {
 			params: { mes, anio, idUsuario },
 		});
@@ -128,7 +127,6 @@ export const crearIngresoManual = async (payload: any) => {
 	}
 };
 
-// Backwards-compatible wrappers for endpoints named CrearGasto / CrearIngreso
 export const crearGasto = async (payload: any) => {
   try {
     const response = await api.post(`${basePath}/CrearGasto`, payload);
@@ -207,6 +205,16 @@ export const obtenerMetodosPagoActivos = async (): Promise<any> => {
   }
 };
 
+export const actualizarInversion = async (payload: any) => {
+  try {
+    const response = await api.put(`${basePath}/ActualizarInversion`, payload);
+    return response.data ?? response;
+  } catch (error) {
+    console.error("ContabilidadService.actualizarInversion error:", error);
+    throw error;
+  }
+};
+
 export default {
 	obtenerResumenFinanciero,
 	listarFacturas,
@@ -224,4 +232,5 @@ export default {
 	listarEstudiantesFormulario,
   	obtenerDatosFormularioEstudiante,
   	obtenerMetodosPagoActivos,
+	actualizarInversion,
 };

@@ -136,7 +136,6 @@ const Resumen: React.FC = () => {
 
     setLoadingCursoEspecifico(true);
     try {
-      // Cambiar nombre del método si es necesario
       const response = await contabilidadService.obtenerEstadisticasCursoEspecifico(
         buscadorCurso.trim(), 
         tipoCursoSeleccionado
@@ -147,7 +146,6 @@ const Resumen: React.FC = () => {
         setCursoEspecificoData(data);
         setModoCursoEspecifico(true);
         
-        // Calcular ranking
         const todosCursosResponse = await contabilidadService.obtenerEstadisticasCursos(tipoCursoSeleccionado);
         const cursos = todosCursosResponse?.data?.cursos || todosCursosResponse?.cursos || [];
         const cursoEncontrado = data.resumen[0];

@@ -40,14 +40,11 @@ const Facturacion: React.FC = () => {
   const [productosList, setProductosList] = useState<any[]>([]);
   const [metodosPagoList, setMetodosPagoList] = useState<any[]>([]);
  
-  // Estados para el modal de edición
   const [showEditModal, setShowEditModal] = useState(false);
   const [facturaSeleccionada, setFacturaSeleccionada] = useState<any>(null);
  
-  // Estado para el filtro
   const [filtroMetodoPago, setFiltroMetodoPago] = useState<string | null>(null);
 
-  // Estados para manejo de archivos
   const [fileList, setFileList] = useState<UploadFile[]>([]);
 
   const [estudiantes, setEstudiantes] = useState<any[]>([]);
@@ -57,6 +54,8 @@ const Facturacion: React.FC = () => {
   const [camposLlenos, setCamposLlenos] = useState<Record<string, boolean>>({});
   const [precioBase, setPrecioBase] = useState(0);
   const [haPagado, setHaPagado] = useState(false);
+  const [montoPagadoEditable, setMontoPagadoEditable] = useState(false);
+  const [montoNetoEditable, setMontoNetoEditable] = useState(false);
 
   const columnasFacturas = [
     { title: "Factura", dataIndex: "factura" },
@@ -245,7 +244,6 @@ const Facturacion: React.FC = () => {
     }
   };
 
-  // Función para convertir archivo a Base64
   const convertirArchivoABase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -260,6 +258,34 @@ const Facturacion: React.FC = () => {
 
   const handleSubmit = async (values: any) => {
     try {
+      let inversionActualizada = false;
+      if (datosEstudiante && montoPagadoEditable && datosEstudiante.idOportunidad && datosEstudiante.idProducto) {
+        const descuentoPorcentaje = parseFloat(values.condicionPago || '0') || datosEstudiante.descuentoPorcentaje || 0;
+        const montoNetoForm = Number(values.montoNeto) || datosEstudiante.montoNeto || 0;
+        
+        if (montoNetoForm !== datosEstudiante.montoNeto || descuentoPorcentaje !== datosEstudiante.descuentoPorcentaje) {
+          try {
+            const resultadoInversion = await contabilidadService.actualizarInversion({
+              idOportunidad: datosEstudiante.idOportunidad,
+              idProducto: datosEstudiante.idProducto,
+              descuentoPorcentaje: descuentoPorcentaje,
+              costoOfrecido: montoNetoForm,
+              usuarioModificacion: 'WEBUSER'
+            });
+
+            if (resultadoInversion.exito) {
+              message.success('✅ Inversión actualizada correctamente');
+              inversionActualizada = true;
+            } else {
+              message.warning(`Inversión no actualizada: ${resultadoInversion.mensaje}`);
+            }
+          } catch (error) {
+            console.warn('No se pudo actualizar inversión:', error);
+            message.warning('Continuando sin actualizar inversión...');
+          }
+        }
+      }
+
       let rutaComprobante = null;
       let nombreArchivo = null;
       let archivoBase64 = null;
@@ -286,9 +312,9 @@ const Facturacion: React.FC = () => {
         MontoNeto: Number(values.montoNeto) || 0,
         NumeroCuota: Number(values.numeroCuota) || 1,
         IdMetodoPago: Number(values.idMetodoPago) || null,
-        RutaComprobante: rutaComprobante, // Ruta del archivo
-        NombreComprobante: nombreArchivo, // Nombre del archivo
-        ComprobanteBase64: archivoBase64, // Archivo en base64
+        RutaComprobante: rutaComprobante, 
+        NombreComprobante: nombreArchivo, 
+        ComprobanteBase64: archivoBase64,
         Notas: values.notas || null,
         UsuarioCreacion: 'WEBUSER',
         FechaModificacion: new Date().toISOString(),
@@ -345,6 +371,8 @@ const Facturacion: React.FC = () => {
 
         const montoPagado = result.montoPagado || 0;
         setHaPagado(montoPagado > 0);
+        setMontoPagadoEditable(montoPagado === 0);
+        setMontoNetoEditable(montoPagado === 0);
 
         const precioBaseCalculado = Math.round((result.montoNeto * 100) / (100 - result.descuentoPorcentaje));
         setPrecioBase(precioBaseCalculado);
@@ -398,7 +426,6 @@ const Facturacion: React.FC = () => {
   const onSelectEstudiante = (value: number, option: any) => {
 
     if (value) {
-      // Resetear campos del formulario
       form.resetFields([
         'codigoCurso',
         'correo', 
@@ -446,7 +473,6 @@ const Facturacion: React.FC = () => {
   const isDatoReal = (campo: any, nombreCampo: string): boolean => {
     if (!campo || campo === '' || campo === 0 || campo === '0') return false;
    
-    // Defaults conocidos
     const defaults = {
       pais: 'Perú',
       numeroCuota: 1,
@@ -463,9 +489,9 @@ const Facturacion: React.FC = () => {
     if (valor === 'Completo') {
       descuentoPorcentaje = 0;
     } else if (valor.includes('%')) {
-      descuentoPorcentaje = parseFloat(valor); // "5" → 5
+      descuentoPorcentaje = parseFloat(valor);
     } else if (valor.includes('cuotas')) {
-      descuentoPorcentaje = 0; // O el descuento que corresponda
+      descuentoPorcentaje = 0;
     }
    
     calcularMontoNeto(descuentoPorcentaje);
@@ -477,6 +503,7 @@ const Facturacion: React.FC = () => {
     } else if(valor === 0 || valor === null) {
       setHaPagado(false);
     }
+    setMontoNetoEditable(valor === 0 || valor === null);
   }, [datosEstudiante]);
 
   useEffect(() => {
@@ -495,7 +522,6 @@ const Facturacion: React.FC = () => {
         <h1 className={estilos.title}>Facturación y registro de ventas</h1>
       </div>
 
-      {/* Filtros + tabla de facturas */}
       <Row
         justify="space-between"
         align="middle"
@@ -550,7 +576,6 @@ const Facturacion: React.FC = () => {
         />
       </Card>
 
-      {/* FORMULARIO REGISTRA TU VENTA */}
       <div id="registro-venta-anchor" />
 
       <Card
